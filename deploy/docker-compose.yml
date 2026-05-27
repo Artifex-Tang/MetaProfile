@@ -1,0 +1,316 @@
+name: metaprofile
+
+# ── 基础设施层 ──────────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: metaprofile
+      POSTGRES_USER: metaprofile
+      POSTGRES_PASSWORD: metaprofile
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./pg_init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metaprofile -d metaprofile"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  elasticsearch:
+    image: elasticsearch:8.11.3
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports: ["9200:9200"]
+    volumes: [esdata:/usr/share/elasticsearch/data]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+
+  neo4j:
+    image: neo4j:5.16
+    profiles: ["full"]
+    environment:
+      NEO4J_AUTH: neo4j/password
+      NEO4J_PLUGINS: '["apoc","graph-data-science"]'
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1G
+    ports: ["7474:7474", "7687:7687"]
+    volumes: [neo4jdata:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 8
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    profiles: ["full"]
+    ports: ["5672:5672", "15672:15672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    profiles: ["full"]
+    command: ["--config", "/app/litellm.yaml", "--port", "4000"]
+    ports: ["4000:4000"]
+    volumes: ["./litellm.yaml:/app/litellm.yaml:ro"]
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\""]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
+
+# ── 数据库迁移 ─────────────────────────────────────────────────────────────────
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: python -m alembic upgrade head
+    env_file: [.env]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+# ── 画像层（Profile Layer）────────────────────────────────────────────────────
+
+  profile_tech:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: uvicorn metaprofile.profile_tech.main:app --host 0.0.0.0 --port 8001 --workers 2
+    ports: ["8001:8001"]
+    environment:
+      PORT: "8001"
+    env_file: [.env]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  profile_project:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: uvicorn metaprofile.profile_project.main:app --host 0.0.0.0 --port 8002 --workers 2
+    ports: ["8002:8002"]
+    environment:
+      PORT: "8002"
+    env_file: [.env]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  profile_org:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: uvicorn metaprofile.profile_org.main:app --host 0.0.0.0 --port 8003 --workers 2
+    ports: ["8003:8003"]
+    environment:
+      PORT: "8003"
+    env_file: [.env]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  profile_person:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: uvicorn metaprofile.profile_person.main:app --host 0.0.0.0 --port 8004 --workers 2
+    ports: ["8004:8004"]
+    environment:
+      PORT: "8004"
+    env_file: [.env]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+# ── 分析层（Analysis Layer）──────────────────────────────────────────────────
+
+  scan_monitor:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: uvicorn metaprofile.scan_monitor.main:app --host 0.0.0.0 --port 8101 --workers 2
+    ports: ["8101:8101"]
+    environment:
+      PORT: "8101"
+      PROFILE_API_TECH_BASE_URL: "http://profile_tech:8001"
+      PROFILE_API_PROJECT_BASE_URL: "http://profile_project:8002"
+      PROFILE_API_ORG_BASE_URL: "http://profile_org:8003"
+      PROFILE_API_PERSON_BASE_URL: "http://profile_person:8004"
+    env_file: [.env]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      profile_tech:
+        condition: service_healthy
+      profile_org:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8101/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  new_tech_discovery:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: uvicorn metaprofile.new_tech_discovery.main:app --host 0.0.0.0 --port 8102 --workers 2
+    ports: ["8102:8102"]
+    environment:
+      PORT: "8102"
+      PROFILE_API_TECH_BASE_URL: "http://profile_tech:8001"
+      PROFILE_API_PROJECT_BASE_URL: "http://profile_project:8002"
+      PROFILE_API_ORG_BASE_URL: "http://profile_org:8003"
+      PROFILE_API_PERSON_BASE_URL: "http://profile_person:8004"
+    env_file: [.env]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      profile_tech:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8102/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  topic_selection:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: uvicorn metaprofile.topic_selection.main:app --host 0.0.0.0 --port 8103 --workers 2
+    ports: ["8103:8103"]
+    environment:
+      PORT: "8103"
+      PROFILE_API_TECH_BASE_URL: "http://profile_tech:8001"
+      PROFILE_API_PROJECT_BASE_URL: "http://profile_project:8002"
+      PROFILE_API_ORG_BASE_URL: "http://profile_org:8003"
+      PROFILE_API_PERSON_BASE_URL: "http://profile_person:8004"
+    env_file: [.env]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      scan_monitor:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8103/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+# ── 前端（Frontend）─────────────────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    ports: ["80:80"]
+    depends_on:
+      profile_tech:
+        condition: service_healthy
+      profile_project:
+        condition: service_healthy
+      profile_org:
+        condition: service_healthy
+      profile_person:
+        condition: service_healthy
+      scan_monitor:
+        condition: service_healthy
+      new_tech_discovery:
+        condition: service_healthy
+      topic_selection:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/index.html || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+# ── 集成测试（docker compose --profile test run --rm test）───────────────────
+
+  test:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: >
+      python -m pytest tests/integration/ -v --tb=short --no-header -p no:warnings
+    environment:
+      TEST_POSTGRES_DSN: "postgresql+asyncpg://metaprofile:metaprofile@postgres:5432/test_metaprofile"
+      POSTGRES_DSN: "postgresql+asyncpg://metaprofile:metaprofile@postgres:5432/test_metaprofile"
+      REDIS_DSN: "redis://redis:6379/15"
+      NEO4J_URI: "bolt://neo4j:7687"
+      NEO4J_PASSWORD: "password"
+      LLM_PROXY_API_KEY: "sk-test"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    profiles: ["test"]
+
+volumes:
+  pgdata:
+  esdata:
+  neo4jdata:

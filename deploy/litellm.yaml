@@ -1,0 +1,29 @@
+# LiteLLM Proxy 配置（开发环境占位）
+# 生产部署时替换为真实提供商配置。
+# 文档：https://docs.litellm.ai/docs/proxy/configs
+
+model_list:
+  - model_name: qwen2.5-72b-instruct
+    litellm_params:
+      model: openai/qwen2.5-72b-instruct
+      api_base: "${QWEN_API_BASE:-https://dashscope.aliyuncs.com/compatible-mode/v1}"
+      api_key: "${QWEN_API_KEY:-sk-placeholder}"
+
+  - model_name: deepseek-chat
+    litellm_params:
+      model: openai/deepseek-chat
+      api_base: "${DEEPSEEK_API_BASE:-https://api.deepseek.com/v1}"
+      api_key: "${DEEPSEEK_API_KEY:-sk-placeholder}"
+
+  - model_name: bge-large-zh-v1.5
+    litellm_params:
+      model: openai/bge-large-zh-v1.5
+      api_base: "${EMBEDDING_API_BASE:-http://localhost:6006/v1}"
+      api_key: "none"
+
+litellm_settings:
+  drop_params: true
+  request_timeout: 120
+
+general_settings:
+  master_key: "${LITELLM_MASTER_KEY:-sk-dev-master-key}"

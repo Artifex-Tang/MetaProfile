@@ -13,6 +13,7 @@ export default defineConfig({
       '/api-scan':      { target: 'http://localhost:8101', rewrite: p => p.replace(/^\/api-scan/, '') },
       '/api-discovery': { target: 'http://localhost:8102', rewrite: p => p.replace(/^\/api-discovery/, '') },
       '/api-topic':     { target: 'http://localhost:8103', rewrite: p => p.replace(/^\/api-topic/, '') },
+      '/api-settings':  { target: 'http://localhost:8000', rewrite: p => p.replace(/^\/api-settings/, '') },
     },
   },
 })

@@ -48,3 +48,4 @@ def _import_all_models() -> None:
     import metaprofile.scan_monitor.domain.orm_models  # noqa: F401
     import metaprofile.new_tech_discovery.domain.orm_models  # noqa: F401
     import metaprofile.topic_selection.domain.orm_models  # noqa: F401
+    import metaprofile.settings_api.domain.orm_models  # noqa: F401

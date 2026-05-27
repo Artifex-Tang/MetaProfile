@@ -8,6 +8,7 @@ import ProfilePerson from './pages/ProfilePerson'
 import ScanMonitor from './pages/ScanMonitor'
 import NewTechDiscovery from './pages/NewTechDiscovery'
 import TopicSelection from './pages/TopicSelection'
+import Settings from './pages/Settings'
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="scan" element={<ScanMonitor />} />
           <Route path="discovery" element={<NewTechDiscovery />} />
           <Route path="topics" element={<TopicSelection />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>

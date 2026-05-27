@@ -4,7 +4,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   DashboardOutlined, ExperimentOutlined, ProjectOutlined,
   BankOutlined, UserOutlined, RadarChartOutlined,
-  BulbOutlined, FileTextOutlined,
+  BulbOutlined, FileTextOutlined, SettingOutlined,
 } from '@ant-design/icons'
 
 const { Sider, Content, Header } = Layout
@@ -19,6 +19,7 @@ const menuItems = [
   { key: 'scan',       icon: <RadarChartOutlined />,  label: '扫描监测' },
   { key: 'discovery',  icon: <BulbOutlined />,        label: '新技术发现' },
   { key: 'topics',     icon: <FileTextOutlined />,    label: '选题服务' },
+  { key: 'settings',   icon: <SettingOutlined />,     label: '系统配置' },
 ]
 
 export default function MainLayout() {

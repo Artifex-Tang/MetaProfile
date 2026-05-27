@@ -1,14 +1,287 @@
-import { GenericProfilePage } from '../ProfileGeneric'
+import { useState, useRef, useEffect } from 'react'
+import {
+  Input, Button, Table, Tag, Drawer, Tabs, Spin, Alert,
+  Descriptions, Space, Typography, Upload, message, Timeline,
+} from 'antd'
+import { SearchOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { personService } from '../../api/profile'
+import type { PersonProfile, PersonSearchItem, RelationItem } from '../../api/types'
+import G6 from '@antv/g6'
+
+const { Search } = Input
+const { Text } = Typography
+
+const ENTITY_NODE_COLOR: Record<string, string> = {
+  tech: '#1677ff',
+  org: '#52c41a',
+  person: '#fa8c16',
+  enterprise: '#722ed1',
+}
+
+function RelationGraph({ relations }: { relations: RelationItem[] }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!ref.current) return
+    const selfNode = { id: '_self', label: '当前人员', style: { fill: '#fa8c16', stroke: '#fa8c16' } }
+    const targetNodes = relations.map(r => ({
+      id: r.target_entity_id,
+      label: r.target_name ?? r.target_entity_id.slice(0, 8),
+      style: { fill: ENTITY_NODE_COLOR[r.target_entity_type] ?? '#999', stroke: ENTITY_NODE_COLOR[r.target_entity_type] ?? '#999' },
+    }))
+    const edges = relations.map((r, i) => ({ id: `e${i}`, source: '_self', target: r.target_entity_id, label: r.relation_type }))
+    const graph = new G6.Graph({
+      container: ref.current,
+      width: ref.current.clientWidth || 500,
+      height: 320,
+      fitView: true,
+      layout: { type: 'radial', unitRadius: 130 },
+      defaultNode: { size: 36, labelCfg: { position: 'bottom', style: { fontSize: 11 } }, style: { fill: '#ccc' } },
+      defaultEdge: { labelCfg: { style: { fontSize: 10, fill: '#666' } } },
+      modes: { default: ['drag-canvas', 'zoom-canvas', 'drag-node'] },
+    })
+    graph.data({ nodes: [selfNode, ...targetNodes], edges })
+    graph.render()
+    return () => { graph.destroy() }
+  }, [relations])
+
+  return <div ref={ref} style={{ width: '100%', height: 320, background: '#fafafa', borderRadius: 4 }} />
+}
+
+function DetailDrawer({ id, open, onClose }: { id: string; open: boolean; onClose: () => void }) {
+  const profile = useQuery({
+    queryKey: ['person', id],
+    queryFn: () => personService.getById(id),
+    enabled: open && !!id,
+  })
+  const relations = useQuery({
+    queryKey: ['person-relations', id],
+    queryFn: () => personService.getRelations(id),
+    enabled: open && !!id,
+  })
+  const p = profile.data
+
+  return (
+    <Drawer title={p?.name_cn ?? id} width={680} open={open} onClose={onClose} destroyOnClose>
+      {profile.isLoading ? <Spin /> : profile.isError ? <Alert type="error" message="加载失败" /> : p && (
+        <Tabs items={[
+          {
+            key: 'info', label: '基本信息',
+            children: (
+              <Descriptions column={1} size="small" bordered>
+                <Descriptions.Item label="姓名（中）">{p.name_cn}</Descriptions.Item>
+                <Descriptions.Item label="姓名（英）">{p.name_en ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="性别">{p.gender ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="国籍">{p.nationality ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="出生日期">{p.birth_date ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="当前机构">{p.current_org ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="当前职务">
+                  {p.current_position.map((pos, i) => <Tag key={i}>{pos}</Tag>)}
+                </Descriptions.Item>
+                <Descriptions.Item label="最高学历">{p.highest_degree ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="人员类别">{p.person_category ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="专业领域">
+                  {p.professional_domains.map(d => <Tag key={d} color="blue">{d}</Tag>)}
+                </Descriptions.Item>
+                {p.professional_skills.length > 0 && (
+                  <Descriptions.Item label="专业技能">
+                    {p.professional_skills.map(s => <Tag key={s}>{s}</Tag>)}
+                  </Descriptions.Item>
+                )}
+                <Descriptions.Item label="简介">
+                  <Text style={{ whiteSpace: 'pre-wrap' }}>{p.summary ?? '-'}</Text>
+                </Descriptions.Item>
+                <Descriptions.Item label="置信度">{(p.confidence * 100).toFixed(1)}%</Descriptions.Item>
+              </Descriptions>
+            ),
+          },
+          {
+            key: 'career', label: `工作经历 (${p.careers.length})`,
+            children: p.careers.length === 0
+              ? <Text type="secondary">暂无工作经历</Text>
+              : (
+                <Timeline
+                  mode="left"
+                  items={p.careers.map((c, i) => ({
+                    key: i,
+                    label: `${c.start_date}${c.end_date ? ' — ' + c.end_date : ' — 至今'}`,
+                    children: (
+                      <div>
+                        <Text strong>{c.org}</Text>
+                        {c.enterprise && <div style={{ color: '#595959' }}>{c.enterprise}</div>}
+                        {c.position && <Tag color="geekblue" style={{ marginTop: 4 }}>{c.position}</Tag>}
+                      </div>
+                    ),
+                  }))}
+                />
+              ),
+          },
+          {
+            key: 'education', label: `教育经历 (${p.educations.length})`,
+            children: p.educations.length === 0
+              ? <Text type="secondary">暂无教育经历</Text>
+              : (
+                <Timeline
+                  mode="left"
+                  items={p.educations.map((e, i) => ({
+                    key: i,
+                    label: e.degree_date ?? e.start_date ?? '-',
+                    children: (
+                      <div>
+                        <Text strong>{e.school ?? '-'}</Text>
+                        <div style={{ color: '#595959' }}>
+                          {[e.degree, e.major].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                    ),
+                  }))}
+                />
+              ),
+          },
+          {
+            key: 'outputs', label: `学术成果 (${p.academic_outputs.length})`,
+            children: p.academic_outputs.length === 0
+              ? <Text type="secondary">暂无学术成果</Text>
+              : (
+                <Table
+                  size="small"
+                  dataSource={p.academic_outputs}
+                  rowKey={(_, i) => String(i)}
+                  pagination={{ pageSize: 8 }}
+                  columns={[
+                    { title: '成果名称', dataIndex: 'name', ellipsis: true, render: v => v ?? '-' },
+                    { title: '类型', dataIndex: 'form', width: 80, render: v => v ? <Tag>{v}</Tag> : '-' },
+                    { title: '发布时间', dataIndex: 'publish_date', width: 110, render: v => v ?? '-' },
+                    { title: '作者排名', dataIndex: 'rank', width: 100, render: v => v ?? '-' },
+                    { title: '引用数', dataIndex: 'citations', width: 70, render: v => v ?? '-' },
+                  ]}
+                />
+              ),
+          },
+          {
+            key: 'focuses', label: `技术关注 (${p.tech_focuses.length})`,
+            children: p.tech_focuses.length === 0
+              ? <Text type="secondary">暂无数据</Text>
+              : p.tech_focuses.map((f, i) => (
+                <div key={i} style={{ marginBottom: 16 }}>
+                  <div style={{ marginBottom: 4 }}>
+                    {f.content.map((c, j) => <Tag key={j} color="purple">{c}</Tag>)}
+                  </div>
+                  {f.consistency_with_policy && (
+                    <div style={{ color: '#595959', fontSize: 12 }}>与政策一致性: {f.consistency_with_policy}</div>
+                  )}
+                  {f.potential_impact.length > 0 && (
+                    <div style={{ fontSize: 12 }}>潜在影响: {f.potential_impact.join('；')}</div>
+                  )}
+                </div>
+              )),
+          },
+          {
+            key: 'graph', label: '关联图谱',
+            children: relations.isLoading ? <Spin /> : relations.isError ? <Alert type="error" message="加载失败" /> : (
+              relations.data && relations.data.items.length > 0
+                ? <RelationGraph relations={relations.data.items} />
+                : <Text type="secondary">暂无关联数据</Text>
+            ),
+          },
+        ]} />
+      )}
+    </Drawer>
+  )
+}
 
 export default function ProfilePerson() {
+  const qc = useQueryClient()
+  const [keyword, setKeyword] = useState('')
+  const [page, setPage] = useState(1)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['person-search', keyword, page],
+    queryFn: () => personService.search(keyword, page, 20),
+  })
+
+  const importMut = useMutation({
+    mutationFn: (profiles: Partial<PersonProfile>[]) => personService.bulkImport(profiles),
+    onSuccess: () => {
+      message.success('导入成功')
+      qc.invalidateQueries({ queryKey: ['person-search'] })
+    },
+    onError: () => message.error('导入失败'),
+  })
+
+  const cols = [
+    { title: 'ID', dataIndex: 'person_id', width: 180, ellipsis: true },
+    { title: '姓名', dataIndex: 'name_cn', ellipsis: true },
+    {
+      title: '专业领域',
+      dataIndex: 'professional_domains',
+      render: (d: string[]) => d?.slice(0, 2).map(t => <Tag key={t}>{t}</Tag>),
+    },
+    {
+      title: '相关度',
+      dataIndex: 'relevance_score',
+      width: 90,
+      render: (v: number | null) => v != null ? v.toFixed(3) : '-',
+    },
+    {
+      title: '操作',
+      width: 80,
+      render: (_: unknown, r: PersonSearchItem) => (
+        <Button type="link" size="small" onClick={() => setSelectedId(r.person_id)}>详情</Button>
+      ),
+    },
+  ]
+
   return (
-    <GenericProfilePage
-      service={personService}
-      entityKey="person"
-      idField="person_id"
-      nameField="name_cn"
-      label="人员"
-    />
+    <div>
+      <Space style={{ marginBottom: 16 }} wrap>
+        <Search
+          placeholder="搜索人员姓名或领域"
+          allowClear
+          style={{ width: 280 }}
+          onSearch={v => { setKeyword(v); setPage(1) }}
+          enterButton={<SearchOutlined />}
+        />
+        <Upload
+          accept=".json"
+          showUploadList={false}
+          beforeUpload={file => {
+            const reader = new FileReader()
+            reader.onload = e => {
+              try {
+                const arr = JSON.parse(e.target?.result as string)
+                importMut.mutate(Array.isArray(arr) ? arr : [arr])
+              } catch { message.error('JSON 解析失败') }
+            }
+            reader.readAsText(file)
+            return false
+          }}
+        >
+          <Button icon={<UploadOutlined />} loading={importMut.isPending}>批量导入</Button>
+        </Upload>
+        <Button icon={<ReloadOutlined />} onClick={() => refetch()}>刷新</Button>
+      </Space>
+
+      {isError && <Alert type="error" message="搜索失败" style={{ marginBottom: 16 }} />}
+
+      <Table
+        loading={isLoading}
+        dataSource={data?.items}
+        columns={cols}
+        rowKey="person_id"
+        size="small"
+        pagination={{
+          current: page, pageSize: 20, total: data?.total,
+          onChange: p => setPage(p), showTotal: t => `共 ${t} 条`,
+        }}
+        onRow={r => ({ onDoubleClick: () => setSelectedId(r.person_id) })}
+      />
+
+      {selectedId && (
+        <DetailDrawer id={selectedId} open={!!selectedId} onClose={() => setSelectedId(null)} />
+      )}
+    </div>
   )
 }

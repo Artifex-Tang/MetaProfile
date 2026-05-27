@@ -4,6 +4,14 @@ import type {
   TechStatsResponse, RelationList, BulkImportResult,
 } from './types'
 
+interface EnrichmentTaskResponse {
+  task_id: string
+  tech_id: string
+  current_completeness: number
+  status: string
+  submitted_at: string
+}
+
 export const techService = {
   search: (keyword: string, page = 1, pageSize = 20) =>
     techApi.post<SearchResultList<TechSearchResultItem>>('/api/v1/profile/tech/search', {
@@ -26,4 +34,7 @@ export const techService = {
 
   getRelations: (id: string) =>
     techApi.get<RelationList>(`/api/v1/relation/tech/${id}`).then(r => r.data),
+
+  enrich: (id: string) =>
+    techApi.post<EnrichmentTaskResponse>(`/api/v1/profile/tech/${id}/enrich`).then(r => r.data),
 }

@@ -1,26 +1,64 @@
 import { projectApi, orgApi, personApi } from './client'
-import type { SearchResultList } from './types'
-import type { AxiosInstance } from 'axios'
+import type {
+  SearchResultList, RelationList,
+  PersonProfile, PersonSearchItem,
+  OrgProfile, OrgSearchItem,
+  ProjectProfile, ProjectSearchItem,
+} from './types'
 
-const makeProfileService = (api: AxiosInstance, entity: string) => ({
+export const personService = {
   search: (keyword: string, page = 1, pageSize = 20) =>
-    api.post<SearchResultList<Record<string, unknown>>>(`/api/v1/profile/${entity}/search`, {
+    personApi.post<SearchResultList<PersonSearchItem>>('/api/v1/profile/person/search', {
       keyword, page, page_size: pageSize,
     }).then(r => r.data),
 
   getById: (id: string) =>
-    api.get<Record<string, unknown>>(`/api/v1/profile/${entity}/${id}`).then(r => r.data),
+    personApi.get<PersonProfile>(`/api/v1/profile/person/${id}`).then(r => r.data),
 
-  bulkImport: (profiles: Record<string, unknown>[]) =>
-    api.post(`/api/v1/profile/${entity}/import`, { profiles, overwrite: false }).then(r => r.data),
-
-  getStats: () =>
-    api.get(`/api/v1/stats/${entity}`).then(r => r.data),
+  bulkImport: (profiles: Partial<PersonProfile>[]) =>
+    personApi.post('/api/v1/profile/person/import', { profiles, overwrite: false }).then(r => r.data),
 
   getRelations: (id: string) =>
-    api.get(`/api/v1/relation/${entity}/${id}`).then(r => r.data),
-})
+    personApi.get<RelationList>(`/api/v1/relation/person/${id}`).then(r => r.data),
 
-export const projectService = makeProfileService(projectApi, 'project')
-export const orgService     = makeProfileService(orgApi, 'org')
-export const personService  = makeProfileService(personApi, 'person')
+  getStats: () =>
+    personApi.get<{ total: number }>('/api/v1/stats/person').then(r => r.data),
+}
+
+export const orgService = {
+  search: (keyword: string, page = 1, pageSize = 20) =>
+    orgApi.post<SearchResultList<OrgSearchItem>>('/api/v1/profile/org/search', {
+      keyword, page, page_size: pageSize,
+    }).then(r => r.data),
+
+  getById: (id: string) =>
+    orgApi.get<OrgProfile>(`/api/v1/profile/org/${id}`).then(r => r.data),
+
+  bulkImport: (profiles: Partial<OrgProfile>[]) =>
+    orgApi.post('/api/v1/profile/org/import', { profiles, overwrite: false }).then(r => r.data),
+
+  getRelations: (id: string) =>
+    orgApi.get<RelationList>(`/api/v1/relation/org/${id}`).then(r => r.data),
+
+  getStats: () =>
+    orgApi.get<{ total: number }>('/api/v1/stats/org').then(r => r.data),
+}
+
+export const projectService = {
+  search: (keyword: string, page = 1, pageSize = 20) =>
+    projectApi.post<SearchResultList<ProjectSearchItem>>('/api/v1/profile/project/search', {
+      keyword, page, page_size: pageSize,
+    }).then(r => r.data),
+
+  getById: (id: string) =>
+    projectApi.get<ProjectProfile>(`/api/v1/profile/project/${id}`).then(r => r.data),
+
+  bulkImport: (profiles: Partial<ProjectProfile>[]) =>
+    projectApi.post('/api/v1/profile/project/import', { profiles, overwrite: false }).then(r => r.data),
+
+  getRelations: (id: string) =>
+    projectApi.get<RelationList>(`/api/v1/relation/project/${id}`).then(r => r.data),
+
+  getStats: () =>
+    projectApi.get<{ total: number }>('/api/v1/stats/project').then(r => r.data),
+}

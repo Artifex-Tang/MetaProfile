@@ -1,21 +1,64 @@
 // ── Profile Tech ─────────────────────────────────────────────────────────────
 
+export interface TechDevMilestone {
+  milestone_date?: string
+  milestone_name?: string
+  contributor_keywords: string[]
+  milestone_content?: string
+}
+
+export interface TechFunding {
+  amount?: number
+  source?: string
+}
+
+export interface TechAcademicOutput {
+  name?: string
+  publish_date?: string
+  subject_keywords: string[]
+  image?: string
+}
+
+export interface TechExperiment {
+  content?: string
+  experiment_date?: string
+  result?: string
+  subject_keywords: string[]
+  image?: string
+}
+
 export interface TechProfile {
   tech_id: string
   tech_name_cn: string
   tech_name_en?: string
+  tech_name_other?: string
   tech_domain: string[]
+  invention_date?: string
+  application_date?: string
   tech_summary?: string
+  dev_goal?: string
+  project_layout: string[]
+  key_points: string[]
+  transformation_status?: string
+  basic_research_status?: string
+  autonomy_capability?: string
+  industrial_capability?: string
+  tech_advantages?: string
   current_status?: string
   trend?: string
+  remark?: string
+  dev_milestones: TechDevMilestone[]
+  funding: TechFunding[]
+  academic_outputs: TechAcademicOutput[]
+  experiments: TechExperiment[]
+  contributor_orgs: EntityRef[]
+  contributor_persons: EntityRef[]
+  contributor_enterprises: EntityRef[]
+  reviewed_by_orgs: EntityRef[]
+  reviewed_by_persons: EntityRef[]
+  reviewed_by_enterprises: EntityRef[]
   confidence: number
   completeness?: number
-  project_layout: unknown[]
-  key_points: unknown[]
-  dev_milestones?: unknown[]
-  contributor_orgs?: EntityRef[]
-  contributor_persons?: EntityRef[]
-  contributor_enterprises?: EntityRef[]
 }
 
 export interface EntityRef {
@@ -64,6 +107,197 @@ export interface BulkImportResult {
   task_id: string
   accepted_count: number
   submitted_at: string
+}
+
+// ── Profile Person ────────────────────────────────────────────────────────────
+
+export interface PersonEducation {
+  start_date?: string
+  degree_date?: string
+  degree?: string
+  school?: string
+  major?: string
+}
+
+export interface PersonCareer {
+  start_date: string
+  end_date?: string
+  org: string
+  enterprise?: string
+  position?: string
+}
+
+export interface PersonAcademicOutput {
+  name?: string
+  form?: string
+  publish_date?: string
+  rank?: string
+  citations?: number
+  is_representative?: boolean
+  collaborators: string[]
+}
+
+export interface PersonFocus {
+  content: string[]
+  consistency_with_policy?: string
+  potential_impact: string[]
+}
+
+export interface PersonProfile {
+  person_id?: string
+  name_cn: string
+  name_en?: string
+  gender?: string
+  nationality?: string
+  summary?: string
+  birth_date?: string
+  current_org?: string
+  current_position: string[]
+  professional_domains: string[]
+  professional_skills: string[]
+  highest_degree?: string
+  person_category?: string
+  educations: PersonEducation[]
+  careers: PersonCareer[]
+  awards: Array<{ description?: string }>
+  academic_outputs: PersonAcademicOutput[]
+  tech_focuses: PersonFocus[]
+  affiliated_orgs: EntityRef[]
+  managed_projects: EntityRef[]
+  researched_projects: EntityRef[]
+  confidence: number
+  completeness?: number
+}
+
+export interface PersonSearchItem {
+  person_id: string
+  name_cn: string
+  professional_domains: string[]
+  relevance_score?: number | null
+}
+
+// ── Profile Org ───────────────────────────────────────────────────────────────
+
+export interface OrgHistory {
+  change_date: string
+  change_description: string
+}
+
+export interface OrgAward {
+  name?: string
+  description?: string
+  award_date?: string
+  level?: string
+  award_type?: string
+}
+
+export interface OrgFacility {
+  name?: string
+  purpose?: string
+  experiment_status?: string
+  launch_date?: string
+  construction_cost_wan_usd?: number
+}
+
+export interface OrgTeam {
+  top_talents: string[]
+  award_winners: string[]
+  team_size?: number
+  talent_type?: string
+}
+
+export interface OrgOutput {
+  name?: string
+  form?: string
+  author?: string
+  publish_date?: string
+}
+
+export interface OrgProfile {
+  org_id?: string
+  name_cn: string
+  name_en?: string
+  country?: string
+  founded_date?: string
+  summary?: string
+  org_types: string[]
+  function?: string
+  scale?: number
+  tech_domains: string[]
+  histories: OrgHistory[]
+  awards: OrgAward[]
+  outputs: OrgOutput[]
+  team?: OrgTeam
+  facilities: OrgFacility[]
+  related_techs: EntityRef[]
+  employees: EntityRef[]
+  parent_orgs: EntityRef[]
+  child_orgs: EntityRef[]
+  confidence: number
+  completeness?: number
+}
+
+export interface OrgSearchItem {
+  org_id: string
+  name_cn: string
+  org_types: string[]
+  relevance_score?: number | null
+}
+
+// ── Profile Project ───────────────────────────────────────────────────────────
+
+export interface ProjectHistory {
+  change_date?: string
+  change_description?: string
+}
+
+export interface ProjectBudget {
+  budget_date?: string
+  amount: number
+}
+
+export interface ProjectOutput {
+  name_history?: string
+  formed_at?: string
+  tech_domains: string[]
+  owner_orgs: string[]
+}
+
+export interface ProjectProfile {
+  project_id?: string
+  name_cn: string[]
+  name_en: string[]
+  tech_domain: string[]
+  start_date?: string
+  finish_date?: string
+  cancel_date?: string
+  status: string[]
+  project_no?: number
+  main_orgs: string[]
+  undertaking_orgs: string[]
+  managers: string[]
+  researchers: string[]
+  research_goal?: string
+  research_content: string[]
+  progress: string[]
+  keywords: string[]
+  total_budget_million_usd?: number
+  invested_million_usd?: number
+  histories: ProjectHistory[]
+  budgets: ProjectBudget[]
+  outputs: ProjectOutput[]
+  manager_refs: EntityRef[]
+  researcher_refs: EntityRef[]
+  tech_refs: EntityRef[]
+  confidence: number
+  completeness?: number
+}
+
+export interface ProjectSearchItem {
+  project_id: string
+  name_cn: string[]
+  tech_domain: string[]
+  relevance_score?: number | null
 }
 
 // ── Generic profile (project / org / person share same pattern) ──────────────

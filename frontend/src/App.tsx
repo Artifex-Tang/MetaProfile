@@ -18,9 +18,13 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="tech" element={<ProfileTech />} />
+          <Route path="tech/:id" element={<ProfileTech />} />
           <Route path="project" element={<ProfileProject />} />
+          <Route path="project/:id" element={<ProfileProject />} />
           <Route path="org" element={<ProfileOrg />} />
+          <Route path="org/:id" element={<ProfileOrg />} />
           <Route path="person" element={<ProfilePerson />} />
+          <Route path="person/:id" element={<ProfilePerson />} />
           <Route path="scan" element={<ScanMonitor />} />
           <Route path="discovery" element={<NewTechDiscovery />} />
           <Route path="topics" element={<TopicSelection />} />

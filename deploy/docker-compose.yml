@@ -1,8 +1,14 @@
 name: metaprofile
 
-# ── 基础设施层 ──────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# 三层部署：基础设施（不变） + 单一后端镜像（全部后端功能） + 单一前端镜像。
+# 自建镜像仅 2 个：metaprofile-backend（含 migrate/seed 复用）、metaprofile-frontend。
+# ─────────────────────────────────────────────────────────────────────────────
 
 services:
+
+  # ── 基础设施层（不变） ─────────────────────────────────────────────────────
+
   postgres:
     image: postgres:15
     environment:
@@ -34,12 +40,21 @@ services:
       retries: 18
       start_period: 60s
 
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 8
+
   neo4j:
+    # 仅启用 apoc（本地 jar，无需联网下载）；graph-data-science 需联网，已移除
     image: neo4j:5.16
-    profiles: ["full"]
     environment:
       NEO4J_AUTH: neo4j/password
-      NEO4J_PLUGINS: '["apoc","graph-data-science"]'
+      NEO4J_PLUGINS: '["apoc"]'
       NEO4J_server_memory_heap_initial__size: 512m
       NEO4J_server_memory_heap_max__size: 1G
     ports: ["7474:7474", "7687:7687"]
@@ -50,18 +65,8 @@ services:
       timeout: 5s
       retries: 12
 
-  redis:
-    image: redis:7-alpine
-    ports: ["6379:6379"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 8
-
   rabbitmq:
     image: rabbitmq:3.12-management
-    profiles: ["full"]
     ports: ["5672:5672", "15672:15672"]
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
@@ -71,7 +76,6 @@ services:
 
   litellm:
     image: ghcr.io/berriai/litellm:main-stable
-    profiles: ["full"]
     command: ["--config", "/app/litellm.yaml", "--port", "4000"]
     ports: ["4000:4000"]
     volumes: ["./litellm.yaml:/app/litellm.yaml:ro"]
@@ -82,7 +86,7 @@ services:
       retries: 8
       start_period: 30s
 
-# ── 数据库迁移 ─────────────────────────────────────────────────────────────────
+  # ── 数据库迁移（一次性 job，复用后端镜像） ─────────────────────────────────
 
   migrate:
     build:
@@ -95,186 +99,42 @@ services:
         condition: service_healthy
     restart: "no"
 
-# ── 画像层（Profile Layer）────────────────────────────────────────────────────
+  # ── 种子数据（一次性 job：100×4 实体 + 关系图谱，幂等可重跑） ──────────────
 
-  profile_tech:
+  seed:
     build:
       context: ..
       dockerfile: Dockerfile
-    command: uvicorn metaprofile.profile_tech.main:app --host 0.0.0.0 --port 8001 --workers 2
-    ports: ["8001:8001"]
-    environment:
-      PORT: "8001"
+    command: python scripts/gen_mock_data.py --no-es --count 100
     env_file: [.env]
     depends_on:
       migrate:
         condition: service_completed_successfully
-      elasticsearch:
+      neo4j:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 8
+    restart: "no"
 
-  profile_project:
+  # ── 后端（单一镜像，承载全部后端功能） ─────────────────────────────────────
+
+  backend:
     build:
       context: ..
       dockerfile: Dockerfile
-    command: uvicorn metaprofile.profile_project.main:app --host 0.0.0.0 --port 8002 --workers 2
-    ports: ["8002:8002"]
-    environment:
-      PORT: "8002"
-    env_file: [.env]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      elasticsearch:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 8
-
-  profile_org:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    command: uvicorn metaprofile.profile_org.main:app --host 0.0.0.0 --port 8003 --workers 2
-    ports: ["8003:8003"]
-    environment:
-      PORT: "8003"
-    env_file: [.env]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      elasticsearch:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 8
-
-  profile_person:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    command: uvicorn metaprofile.profile_person.main:app --host 0.0.0.0 --port 8004 --workers 2
-    ports: ["8004:8004"]
-    environment:
-      PORT: "8004"
-    env_file: [.env]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      elasticsearch:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 8
-
-# ── 分析层（Analysis Layer）──────────────────────────────────────────────────
-
-  scan_monitor:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    command: uvicorn metaprofile.scan_monitor.main:app --host 0.0.0.0 --port 8101 --workers 2
-    ports: ["8101:8101"]
-    environment:
-      PORT: "8101"
-      PROFILE_API_TECH_BASE_URL: "http://profile_tech:8001"
-      PROFILE_API_PROJECT_BASE_URL: "http://profile_project:8002"
-      PROFILE_API_ORG_BASE_URL: "http://profile_org:8003"
-      PROFILE_API_PERSON_BASE_URL: "http://profile_person:8004"
-    env_file: [.env]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      profile_tech:
-        condition: service_healthy
-      profile_org:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8101/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 8
-
-  new_tech_discovery:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    command: uvicorn metaprofile.new_tech_discovery.main:app --host 0.0.0.0 --port 8102 --workers 2
-    ports: ["8102:8102"]
-    environment:
-      PORT: "8102"
-      PROFILE_API_TECH_BASE_URL: "http://profile_tech:8001"
-      PROFILE_API_PROJECT_BASE_URL: "http://profile_project:8002"
-      PROFILE_API_ORG_BASE_URL: "http://profile_org:8003"
-      PROFILE_API_PERSON_BASE_URL: "http://profile_person:8004"
-    env_file: [.env]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      profile_tech:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8102/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 8
-
-  topic_selection:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    command: uvicorn metaprofile.topic_selection.main:app --host 0.0.0.0 --port 8103 --workers 2
-    ports: ["8103:8103"]
-    environment:
-      PORT: "8103"
-      PROFILE_API_TECH_BASE_URL: "http://profile_tech:8001"
-      PROFILE_API_PROJECT_BASE_URL: "http://profile_project:8002"
-      PROFILE_API_ORG_BASE_URL: "http://profile_org:8003"
-      PROFILE_API_PERSON_BASE_URL: "http://profile_person:8004"
-    env_file: [.env]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      scan_monitor:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8103/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 8
-
-# ── 配置管理服务（Settings API）──────────────────────────────────────────────
-
-  settings_api:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    command: uvicorn metaprofile.settings_api.main:app --host 0.0.0.0 --port 8000 --workers 2
+    command: uvicorn metaprofile.backend.main:app --host 0.0.0.0 --port 8000 --workers 2
     ports: ["8000:8000"]
     environment:
       PORT: "8000"
+      # 分析层回调画像层 → 指向自身（同一复合后端）
+      PROFILE_API_TECH_BASE_URL: "http://backend:8000"
+      PROFILE_API_PROJECT_BASE_URL: "http://backend:8000"
+      PROFILE_API_ORG_BASE_URL: "http://backend:8000"
+      PROFILE_API_PERSON_BASE_URL: "http://backend:8000"
     env_file: [.env]
     depends_on:
       migrate:
         condition: service_completed_successfully
+      elasticsearch:
+        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -283,7 +143,7 @@ services:
       timeout: 5s
       retries: 8
 
-# ── 前端（Frontend）─────────────────────────────────────────────────────────
+  # ── 前端（单一镜像，nginx 反代到 backend） ─────────────────────────────────
 
   frontend:
     build:
@@ -291,48 +151,13 @@ services:
       dockerfile: Dockerfile
     ports: ["80:80"]
     depends_on:
-      profile_tech:
-        condition: service_healthy
-      profile_project:
-        condition: service_healthy
-      profile_org:
-        condition: service_healthy
-      profile_person:
-        condition: service_healthy
-      scan_monitor:
-        condition: service_healthy
-      new_tech_discovery:
-        condition: service_healthy
-      topic_selection:
-        condition: service_healthy
-      settings_api:
+      backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/index.html || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/index.html || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
-
-# ── 集成测试（docker compose --profile test run --rm test）───────────────────
-
-  test:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    command: >
-      python -m pytest tests/integration/ -v --tb=short --no-header -p no:warnings
-    environment:
-      TEST_POSTGRES_DSN: "postgresql+asyncpg://metaprofile:metaprofile@postgres:5432/test_metaprofile"
-      POSTGRES_DSN: "postgresql+asyncpg://metaprofile:metaprofile@postgres:5432/test_metaprofile"
-      REDIS_DSN: "redis://redis:6379/15"
-      NEO4J_URI: "bolt://neo4j:7687"
-      NEO4J_PASSWORD: "password"
-      LLM_PROXY_API_KEY: "sk-test"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-    profiles: ["test"]
 
 volumes:
   pgdata:

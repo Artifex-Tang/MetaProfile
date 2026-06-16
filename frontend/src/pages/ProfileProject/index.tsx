@@ -1,4 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
+import RelationGraph from '../../components/RelationGraph'
+import JumpBreadcrumb from '../../components/JumpBreadcrumb'
+import { useCrossProfileJump, NAV_TYPES } from '../../utils/crossProfile'
 import {
   Input, Button, Table, Tag, Drawer, Tabs, Spin, Alert,
   Descriptions, Space, Typography, Upload, message, Timeline, Card,
@@ -7,49 +11,11 @@ import { SearchOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icon
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { projectService } from '../../api/profile'
 import type { ProjectProfile, ProjectSearchItem, RelationItem } from '../../api/types'
-import G6 from '@antv/g6'
 
 const { Search } = Input
 const { Text } = Typography
 
-const ENTITY_NODE_COLOR: Record<string, string> = {
-  tech: '#1677ff',
-  org: '#52c41a',
-  person: '#fa8c16',
-  enterprise: '#722ed1',
-}
-
-function RelationGraph({ relations }: { relations: RelationItem[] }) {
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!ref.current) return
-    const selfNode = { id: '_self', label: '当前项目', style: { fill: '#1677ff', stroke: '#1677ff' } }
-    const targetNodes = relations.map(r => ({
-      id: r.target_entity_id,
-      label: r.target_name ?? r.target_entity_id.slice(0, 8),
-      style: { fill: ENTITY_NODE_COLOR[r.target_entity_type] ?? '#999', stroke: ENTITY_NODE_COLOR[r.target_entity_type] ?? '#999' },
-    }))
-    const edges = relations.map((r, i) => ({ id: `e${i}`, source: '_self', target: r.target_entity_id, label: r.relation_type }))
-    const graph = new G6.Graph({
-      container: ref.current,
-      width: ref.current.clientWidth || 500,
-      height: 320,
-      fitView: true,
-      layout: { type: 'radial', unitRadius: 130 },
-      defaultNode: { size: 36, labelCfg: { position: 'bottom', style: { fontSize: 11 } }, style: { fill: '#ccc' } },
-      defaultEdge: { labelCfg: { style: { fontSize: 10, fill: '#666' } } },
-      modes: { default: ['drag-canvas', 'zoom-canvas', 'drag-node'] },
-    })
-    graph.data({ nodes: [selfNode, ...targetNodes], edges })
-    graph.render()
-    return () => { graph.destroy() }
-  }, [relations])
-
-  return <div ref={ref} style={{ width: '100%', height: 320, background: '#fafafa', borderRadius: 4 }} />
-}
-
-function DetailDrawer({ id, open, onClose }: { id: string; open: boolean; onClose: () => void }) {
+function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boolean; onClose: () => void; selfType: string }) {
   const profile = useQuery({
     queryKey: ['project', id],
     queryFn: () => projectService.getById(id),
@@ -61,12 +27,15 @@ function DetailDrawer({ id, open, onClose }: { id: string; open: boolean; onClos
     enabled: open && !!id,
   })
   const p = profile.data
+  const { ctx, handleNodeClick } = useCrossProfileJump(selfType, id, p?.name_cn?.[0] ?? null)
 
   const primaryName = p?.name_cn?.[0] ?? id
 
   return (
     <Drawer title={primaryName} width={700} open={open} onClose={onClose} destroyOnClose>
       {profile.isLoading ? <Spin /> : profile.isError ? <Alert type="error" message="加载失败" /> : p && (
+        <>
+        <JumpBreadcrumb ctx={ctx} />
         <Tabs items={[
           {
             key: 'info', label: '基本信息',
@@ -206,11 +175,12 @@ function DetailDrawer({ id, open, onClose }: { id: string; open: boolean; onClos
             key: 'graph', label: '关联图谱',
             children: relations.isLoading ? <Spin /> : relations.isError ? <Alert type="error" message="加载失败" /> : (
               relations.data && relations.data.items.length > 0
-                ? <RelationGraph relations={relations.data.items} />
+                ? <RelationGraph relations={relations.data.items} selfLabel="当前项目" onNodeClick={handleNodeClick} navTypes={NAV_TYPES} />
                 : <Text type="secondary">暂无关联数据</Text>
             ),
           },
         ]} />
+        </>
       )}
     </Drawer>
   )
@@ -220,7 +190,9 @@ export default function ProfileProject() {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const { id: routeId } = useParams()
+  const [selectedId, setSelectedId] = useState<string | null>(routeId ?? null)
+  useEffect(() => { if (routeId) setSelectedId(routeId) }, [routeId])
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['project-search', keyword, page],
@@ -237,23 +209,20 @@ export default function ProfileProject() {
   })
 
   const cols = [
-    { title: 'ID', dataIndex: 'project_id', width: 180, ellipsis: true },
     {
       title: '项目名称',
-      dataIndex: 'name_cn',
+      dataIndex: 'project_name_cn',
       ellipsis: true,
-      render: (v: string[]) => v?.[0] ?? '-',
+      render: (v: string | string[], r: ProjectSearchItem) => (
+        <Button type="link" style={{ padding: 0 }} onClick={() => setSelectedId(r.project_id)}>
+          {Array.isArray(v) ? (v[0] ?? '-') : (v ?? '-')}
+        </Button>
+      ),
     },
     {
       title: '技术领域',
-      dataIndex: 'tech_domain',
+      dataIndex: 'project_domain',
       render: (d: string[]) => d?.slice(0, 2).map(t => <Tag key={t}>{t}</Tag>),
-    },
-    {
-      title: '相关度',
-      dataIndex: 'relevance_score',
-      width: 90,
-      render: (v: number | null) => v != null ? v.toFixed(3) : '-',
     },
     {
       title: '操作',
@@ -310,7 +279,7 @@ export default function ProfileProject() {
       />
 
       {selectedId && (
-        <DetailDrawer id={selectedId} open={!!selectedId} onClose={() => setSelectedId(null)} />
+        <DetailDrawer key={selectedId} selfType="project" id={selectedId} open={!!selectedId} onClose={() => setSelectedId(null)} />
       )}
     </div>
   )

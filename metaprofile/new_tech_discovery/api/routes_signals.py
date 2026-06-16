@@ -78,4 +78,38 @@ async def get_signal_network(
             edge_type=e.edge_type,
             weight=e.weight,
         ))
+    # 解析实体名称（按类型批量查询各画像表），避免前端只显示 ID
+    from metaprofile.profile_tech.domain.orm_models import TechProfileORM
+    from metaprofile.profile_org.domain.orm_models import OrgProfileORM
+    from metaprofile.profile_person.domain.orm_models import PersonProfileORM
+    from metaprofile.profile_project.domain.orm_models import ProjectProfileORM
+
+    by_type: dict[str, set[str]] = {}
+    for n in nodes:
+        by_type.setdefault(n.entity_type.lower(), set()).add(n.entity_id)
+
+    name_map: dict[str, str] = {}
+    table_map = {
+        "tech": (TechProfileORM, "tech_name_cn"),
+        "org": (OrgProfileORM, "name_cn"),
+        "person": (PersonProfileORM, "name_cn"),
+        "project": (ProjectProfileORM, "name_cn"),
+    }
+    for etype, ids in by_type.items():
+        if etype not in table_map or not ids:
+            continue
+        orm_cls, name_col = table_map[etype]
+        rows = (await db.execute(
+            select(getattr(orm_cls, "id") if False else orm_cls).where(
+                getattr(orm_cls, f"{etype}_id").in_(ids)
+            )
+        )).scalars().all()
+        for r in rows:
+            rid = getattr(r, f"{etype}_id")
+            val = getattr(r, name_col)
+            name_map[rid] = (val[0] if isinstance(val, list) and val else val) or rid
+
+    for n in nodes:
+        n.name = name_map.get(n.entity_id)
+
     return SignalNetwork(signal_id=signal_id, nodes=nodes, edges=edges)

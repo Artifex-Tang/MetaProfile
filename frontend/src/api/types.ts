@@ -411,6 +411,9 @@ export interface TopicDetail extends TopicItem {
   related_project_ids: string[]
   related_policy_refs: string[]
   review_evidence: string | null
+  related_tech_names?: string[]
+  related_org_names?: string[]
+  related_project_names?: string[]
 }
 
 export interface FeedbackResponse {

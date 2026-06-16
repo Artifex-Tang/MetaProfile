@@ -54,9 +54,12 @@ async def test_llm_connection(cfg: LLMProviderConfigORM) -> tuple[bool, str, int
     t0 = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=15) as client:
+            # 兼容用户填了完整地址（含 /chat/completions）或仅 base 的情况
+            base = api_base.rstrip("/")
+            url = base if base.endswith("/chat/completions") else f"{base}/chat/completions"
             # 发一个最小的 chat completion 请求
             resp = await client.post(
-                f"{api_base}/chat/completions",
+                url,
                 json={
                     "model": cfg.model_name,
                     "messages": [{"role": "user", "content": "hi"}],
@@ -80,9 +83,21 @@ async def test_llm_connection(cfg: LLMProviderConfigORM) -> tuple[bool, str, int
 def _default_base(provider: str) -> str:
     defaults = {
         "openai": "https://api.openai.com/v1",
-        "dashscope": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "deepseek": "https://api.deepseek.com/v1",
+        "azure": "",
         "anthropic": "https://api.anthropic.com/v1",
+        "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "dashscope": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "qwen": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "deepseek": "https://api.deepseek.com/v1",
+        "zhipu": "https://open.bigmodel.cn/api/paas/v4",
+        "moonshot": "https://api.moonshot.cn/v1",
+        "baichuan": "https://api.baichuan-ai.com/v1",
+        "minimax": "https://api.minimax.chat/v1",
+        "yi": "https://api.lingyiwanwu.com/v1",
         "ollama": "http://localhost:11434/v1",
+        "vllm": "http://localhost:8000/v1",
+        "together": "https://api.together.xyz/v1",
+        "mistral": "https://api.mistral.ai/v1",
+        "cohere": "https://api.cohere.ai/v1",
     }
     return defaults.get(provider, "")

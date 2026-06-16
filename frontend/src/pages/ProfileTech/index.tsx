@@ -1,4 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
+import RelationGraph from '../../components/RelationGraph'
+import JumpBreadcrumb from '../../components/JumpBreadcrumb'
+import { useCrossProfileJump, NAV_TYPES } from '../../utils/crossProfile'
 import {
   Input, Button, Table, Tag, Drawer, Tabs, Spin, Alert,
   Descriptions, Space, Typography, Row, Col, Card, Statistic,
@@ -14,7 +18,6 @@ import type { TechProfile, TechSearchResultItem, RelationItem } from '../../api/
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, ResponsiveContainer, Legend,
 } from 'recharts'
-import G6 from '@antv/g6'
 
 const { Search } = Input
 const { Text } = Typography
@@ -22,12 +25,6 @@ const { Option } = Select
 
 const DOMAIN_COLORS = ['#1677ff', '#52c41a', '#fa8c16', '#722ed1', '#eb2f96', '#13c2c2']
 
-const ENTITY_NODE_COLOR: Record<string, string> = {
-  tech: '#1677ff',
-  org: '#52c41a',
-  person: '#fa8c16',
-  enterprise: '#722ed1',
-}
 
 function DomainBar({ data }: { data: Record<string, number> }) {
   const entries = Object.entries(data).slice(0, 10).map(([k, v]) => ({ name: k, count: v }))
@@ -60,71 +57,7 @@ function CompletenessChart({ data }: { data: Record<string, number> }) {
   )
 }
 
-function RelationGraph({ relations }: { relations: RelationItem[] }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const graphRef = useRef<InstanceType<typeof G6.Graph> | null>(null)
-
-  useEffect(() => {
-    if (!ref.current) return
-    const selfNode = {
-      id: '_self',
-      label: '当前技术',
-      style: { fill: '#ff4d4f', stroke: '#ff4d4f' },
-      labelCfg: { style: { fontWeight: 700 } },
-    }
-    const targetNodes = relations.map(r => ({
-      id: r.target_entity_id,
-      label: r.target_name ?? r.target_entity_id.slice(0, 8),
-      style: {
-        fill: ENTITY_NODE_COLOR[r.target_entity_type] ?? '#999',
-        stroke: ENTITY_NODE_COLOR[r.target_entity_type] ?? '#999',
-      },
-    }))
-    const edges = relations.map((r, i) => ({
-      id: `e${i}`,
-      source: '_self',
-      target: r.target_entity_id,
-      label: r.relation_type,
-    }))
-    const graph = new G6.Graph({
-      container: ref.current,
-      width: ref.current.clientWidth || 500,
-      height: 340,
-      fitView: true,
-      layout: { type: 'radial', unitRadius: 130 },
-      defaultNode: {
-        size: 36,
-        labelCfg: { position: 'bottom', style: { fontSize: 11 } },
-        style: { fill: '#ccc', stroke: '#ccc' },
-      },
-      defaultEdge: { labelCfg: { style: { fontSize: 10, fill: '#666' } } },
-      modes: { default: ['drag-canvas', 'zoom-canvas', 'drag-node'] },
-    })
-    graph.data({ nodes: [selfNode, ...targetNodes], edges })
-    graph.render()
-
-    graph.on('node:click', (evt: { item?: { getModel?: () => { id?: string; _entityType?: string } } }) => {
-      const model = evt.item?.getModel?.()
-      if (!model || model.id === '_self') return
-    })
-
-    graphRef.current = graph
-    return () => { graph.destroy(); graphRef.current = null }
-  }, [relations])
-
-  return (
-    <div>
-      <Space size={8} style={{ marginBottom: 8, flexWrap: 'wrap' }}>
-        {Object.entries(ENTITY_NODE_COLOR).map(([type, color]) => (
-          <Tag key={type} color={color}>{type}</Tag>
-        ))}
-      </Space>
-      <div ref={ref} style={{ width: '100%', height: 340, background: '#fafafa', borderRadius: 4 }} />
-    </div>
-  )
-}
-
-function DetailDrawer({ id, open, onClose }: { id: string; open: boolean; onClose: () => void }) {
+function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boolean; onClose: () => void; selfType: string }) {
   const qc = useQueryClient()
   const profile = useQuery({
     queryKey: ['tech', id],
@@ -150,6 +83,7 @@ function DetailDrawer({ id, open, onClose }: { id: string; open: boolean; onClos
   })
 
   const p = profile.data
+  const { ctx, handleNodeClick } = useCrossProfileJump(selfType, id, p?.tech_name_cn ?? null)
 
   const completenessPercent = p?.completeness != null ? Math.round(p.completeness * 100) : null
 
@@ -178,6 +112,8 @@ function DetailDrawer({ id, open, onClose }: { id: string; open: boolean; onClos
   return (
     <Drawer title={drawerTitle} width={700} open={open} onClose={onClose} destroyOnClose>
       {profile.isLoading ? <Spin /> : profile.isError ? <Alert type="error" message="加载失败" /> : (
+        <>
+        <JumpBreadcrumb ctx={ctx} />
         <Tabs items={[
           {
             key: 'info', label: '基本信息',
@@ -329,11 +265,12 @@ function DetailDrawer({ id, open, onClose }: { id: string; open: boolean; onClos
             key: 'graph', label: '关联图谱',
             children: relations.isLoading ? <Spin /> : relations.isError ? <Alert type="error" message="加载失败" /> : (
               relations.data && relations.data.items.length > 0
-                ? <RelationGraph relations={relations.data.items} />
+                ? <RelationGraph relations={relations.data.items} selfLabel="当前技术" onNodeClick={handleNodeClick} navTypes={NAV_TYPES} />
                 : <Text type="secondary">暂无关联数据</Text>
             ),
           },
         ]} />
+        </>
       )}
     </Drawer>
   )
@@ -343,7 +280,9 @@ export default function ProfileTech() {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const { id: routeId } = useParams()
+  const [selectedId, setSelectedId] = useState<string | null>(routeId ?? null)
+  useEffect(() => { if (routeId) setSelectedId(routeId) }, [routeId])
   const [createOpen, setCreateOpen] = useState(false)
   const [form] = Form.useForm()
 
@@ -380,18 +319,14 @@ export default function ProfileTech() {
   })
 
   const cols = [
-    { title: 'ID', dataIndex: 'tech_id', width: 180, ellipsis: true },
-    { title: '名称', dataIndex: 'tech_name_cn', ellipsis: true },
+    { title: '名称', dataIndex: 'tech_name_cn', ellipsis: true,
+      render: (v: string, r: TechSearchResultItem) => (
+        <Button type="link" style={{ padding: 0 }} onClick={() => setSelectedId(r.tech_id)}>{v}</Button>
+      ) },
     {
       title: '领域',
       dataIndex: 'tech_domain',
       render: (d: string[]) => d.slice(0, 2).map(t => <Tag key={t}>{t}</Tag>),
-    },
-    {
-      title: '相关度',
-      dataIndex: 'relevance_score',
-      width: 90,
-      render: (v: number | null) => v != null ? v.toFixed(3) : '-',
     },
     {
       title: '操作',
@@ -455,6 +390,8 @@ export default function ProfileTech() {
 
       {selectedId && (
         <DetailDrawer
+          key={selectedId}
+          selfType="tech"
           id={selectedId}
           open={!!selectedId}
           onClose={() => setSelectedId(null)}

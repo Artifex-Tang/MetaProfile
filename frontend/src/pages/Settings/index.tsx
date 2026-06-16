@@ -21,10 +21,41 @@ const { Option } = Select
 const { Text, Paragraph } = Typography
 const { TextArea } = Input
 
-const PROVIDERS = ['openai', 'dashscope', 'deepseek', 'anthropic', 'ollama', 'custom']
+const PROVIDERS: { value: string; label: string }[] = [
+  { value: 'openai', label: 'OpenAI（GPT）' },
+  { value: 'azure', label: 'Azure OpenAI' },
+  { value: 'anthropic', label: 'Anthropic（Claude）' },
+  { value: 'gemini', label: 'Google Gemini' },
+  { value: 'dashscope', label: '阿里通义千问（DashScope）' },
+  { value: 'deepseek', label: 'DeepSeek（深度求索）' },
+  { value: 'zhipu', label: '智谱 GLM' },
+  { value: 'moonshot', label: '月之暗面（Kimi）' },
+  { value: 'baichuan', label: '百川（Baichuan）' },
+  { value: 'minimax', label: 'MiniMax' },
+  { value: 'yi', label: '零一万物（01.ai）' },
+  { value: 'qwen', label: 'Qwen（本地/自建）' },
+  { value: 'ollama', label: 'Ollama（本地）' },
+  { value: 'vllm', label: 'vLLM（自建推理）' },
+  { value: 'together', label: 'Together AI' },
+  { value: 'mistral', label: 'Mistral AI' },
+  { value: 'cohere', label: 'Cohere' },
+  { value: 'bedrock', label: 'AWS Bedrock' },
+  { value: 'custom', label: '自定义（LiteLLM 兼容）' },
+]
 const ROLES = ['general', 'extraction', 'generation', 'embedding']
-const SOURCE_TYPES = ['rest_api', 'rss', 'nsfc', 'patent_cnipa', 'web_page']
-const PROFILE_TYPES = ['tech', 'project', 'org', 'person']
+const SOURCE_TYPES: { value: string; label: string }[] = [
+  { value: 'rest_api', label: 'REST API' },
+  { value: 'rss', label: 'RSS 订阅' },
+  { value: 'nsfc', label: '国家自然科学基金（NSFC）' },
+  { value: 'patent_cnipa', label: '专利（国知局 CNIPA）' },
+  { value: 'web_page', label: '网页抓取' },
+]
+const PROFILE_TYPES: { value: string; label: string }[] = [
+  { value: 'tech', label: '技术画像' },
+  { value: 'project', label: '项目画像' },
+  { value: 'org', label: '机构画像' },
+  { value: 'person', label: '人员画像' },
+]
 
 const statusBadge = (s: string) => {
   const map: Record<string, 'success' | 'processing' | 'error' | 'default'> = {
@@ -171,7 +202,7 @@ function LLMTab() {
           </Form.Item>
           <Form.Item name="provider" label="厂商" rules={[{ required: true }]}>
             <Select>
-              {PROVIDERS.map(p => <Option key={p} value={p}>{p}</Option>)}
+              {PROVIDERS.map(p => <Option key={p.value} value={p.value}>{p.label}</Option>)}
             </Select>
           </Form.Item>
           <Form.Item name="model_name" label="模型名称" rules={[{ required: true }]}>
@@ -180,7 +211,7 @@ function LLMTab() {
           <Form.Item name="api_key" label={editing ? 'API Key（留空不修改）' : 'API Key'}>
             <Input.Password placeholder="sk-..." />
           </Form.Item>
-          <Form.Item name="api_base" label="API Base URL">
+          <Form.Item name="api_base" label="API Base URL" tooltip="OpenAI 兼容根地址，不含 /chat/completions。如智谱 https://open.bigmodel.cn/api/paas/v4">
             <Input placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1" />
           </Form.Item>
           <Form.Item name="model_role" label="模型角色" rules={[{ required: true }]} initialValue="general">
@@ -353,12 +384,12 @@ function DataSourceTab() {
           <Space style={{ width: '100%' }} align="start">
             <Form.Item name="source_type" label="数据源类型" rules={[{ required: true }]} style={{ width: 200 }}>
               <Select onChange={applyTemplate}>
-                {SOURCE_TYPES.map(t => <Option key={t} value={t}>{t}</Option>)}
+                {SOURCE_TYPES.map(t => <Option key={t.value} value={t.value}>{t.label}</Option>)}
               </Select>
             </Form.Item>
             <Form.Item name="profile_type" label="导入画像类型" rules={[{ required: true }]} style={{ width: 200 }}>
               <Select>
-                {PROFILE_TYPES.map(t => <Option key={t} value={t}>{t}</Option>)}
+                {PROFILE_TYPES.map(t => <Option key={t.value} value={t.value}>{t.label}</Option>)}
               </Select>
             </Form.Item>
           </Space>

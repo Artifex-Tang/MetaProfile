@@ -48,6 +48,7 @@ async def update_datasource(ds_id: int, body: DataSourceConfigUpdate, db: AsyncS
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(ds, k, v)
     await db.flush()
+    await db.refresh(ds)  # 刷新服务端默认列(updated_at)，避免 response 序列化时 MissingGreenlet
     return ds
 
 

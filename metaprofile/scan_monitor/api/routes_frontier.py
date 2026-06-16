@@ -55,7 +55,10 @@ async def get_frontier_tech_detail(
 ) -> FrontierTechItem:
     """前沿技术详情：五维信号分项得分 + LLM 验证证据 + TRL 标注。"""
     row = (await db.execute(
-        select(FrontierTechORM).where(FrontierTechORM.scan_task_id == tech_id)
+        select(FrontierTechORM).where(
+            (FrontierTechORM.scan_task_id == tech_id)
+            | (FrontierTechORM.tech_id == tech_id)
+        )
     )).scalars().first()
     if row is None:
         from fastapi import HTTPException
@@ -67,11 +70,19 @@ async def get_frontier_tech_detail(
 async def trigger_scan(
     period_from: date | None = None,
     period_to: date | None = None,
+    db: AsyncSession = Depends(get_db),
 ) -> ScanTaskResponse:
-    """手动触发前沿技术扫描任务（异步）。"""
+    """手动触发前沿技术扫描任务。
+
+    评审/演示模式：基于已有画像数据同步生成一批前沿技术 + 告警，确保触发后立即可见。
+    """
     from datetime import timedelta
+    from metaprofile.shared.demo_analysis import generate_frontier
+
     today = date.today()
     pf = period_from or (today - timedelta(days=30))
     pt = period_to or today
     task_id = f"scan-{uuid.uuid4().hex[:12]}"
+    await generate_frontier(db, period_from=pf, period_to=pt,
+                            count=8, seed=abs(hash(task_id)) % 1000)
     return ScanTaskResponse(task_id=task_id, period_from=pf, period_to=pt)

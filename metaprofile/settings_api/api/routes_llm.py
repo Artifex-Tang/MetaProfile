@@ -58,6 +58,7 @@ async def update_llm_config(cfg_id: int, body: LLMProviderConfigUpdate, db: Asyn
     synced = await sync_to_litellm(cfg)
     cfg.litellm_synced = synced
     await db.flush()
+    await db.refresh(cfg)  # 加载 updated_at 等，避免响应序列化触发懒加载(MissingGreenlet)
 
     return cfg
 

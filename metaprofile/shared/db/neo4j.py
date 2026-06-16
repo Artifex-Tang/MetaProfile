@@ -88,12 +88,19 @@ class Neo4jRepo:
         rel_types: list[str] | None = None,
         depth: int = 1,
     ) -> list[dict[str, Any]]:
-        """查询邻居节点。rel_types 为空时匹配所有关系类型。"""
-        rel_filter = (
-            f"[r:{('|'.join(rel_types))}*1..{depth}]"
-            if rel_types
-            else f"[r*1..{depth}]"
-        )
+        """查询邻居节点。rel_types 为空时匹配所有关系类型。
+
+        注意：变长路径 ``[r*1..N]`` 中 r 是 Relationship 的 **列表**，
+        不能直接 ``type(r)``；depth=1 时改用单跳模式，r 为单个 Relationship。
+        """
+        if depth <= 1:
+            rel_filter = f"[r:{'|'.join(rel_types)}]" if rel_types else "[r]"
+        else:
+            rel_filter = (
+                f"[r:{('|'.join(rel_types))}*1..{depth}]"
+                if rel_types
+                else f"[r*1..{depth}]"
+            )
         cypher = (
             f"MATCH (n:{label} {{entity_id: $entity_id}})-{rel_filter}-(m) "
             "RETURN m, type(r) AS rel_type LIMIT 100"
@@ -110,14 +117,19 @@ class Neo4jRepo:
         to_id: str,
         max_depth: int = 4,
     ) -> list[list[dict[str, Any]]]:
-        """最短路径查询，返回最多 5 条路径，每条为节点列表。"""
+        """最短路径查询，返回最多 5 条路径，每条为节点列表。
+
+        注意：Neo4j Cypher 不支持参数化变长关系边界（``[*1..$max_depth]`` 非法），
+        故 max_depth（已校验为 int）直接拼入语句。
+        """
+        depth = int(max_depth)
         cypher = (
             "MATCH p=shortestPath("
-            "(a {entity_id: $from_id})-[*1..$max_depth]-(b {entity_id: $to_id})"
+            f"(a {{entity_id: $from_id}})-[*1..{depth}]-(b {{entity_id: $to_id}})"
             ") RETURN [n in nodes(p) | properties(n)] AS nodes LIMIT 5"
         )
         async with get_neo4j_session() as s:
-            result = await s.run(cypher, from_id=from_id, to_id=to_id, max_depth=max_depth)
+            result = await s.run(cypher, from_id=from_id, to_id=to_id)
             rows = await result.data()
         return [row["nodes"] for row in rows]
 

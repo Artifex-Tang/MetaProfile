@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import {
   Row, Col, Card, Table, Tag, Button, DatePicker, Select, Space,
-  Alert, Spin, Drawer, Descriptions, Typography, message, Divider,
+  Alert, Spin, Drawer, Descriptions, Typography, message, Divider, Modal,
 } from 'antd'
 import { PlayCircleOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { scanService } from '../../api/scan'
-import type { FrontierTechItem } from '../../api/types'
+import type { FrontierTechItem, AlertItem } from '../../api/types'
 import dayjs from 'dayjs'
 
 const { RangePicker } = DatePicker
@@ -15,9 +15,15 @@ const { Option } = Select
 
 const severityColor = (s: string) =>
   s === 'critical' ? 'red' : s === 'warn' ? 'orange' : 'blue'
+const severityLabel = (s: string) =>
+  ({ critical: '严重', warn: '警告', info: '信息' } as Record<string, string>)[s] ?? s
+const frontierStatusLabel = (s: string) =>
+  ({ validated: '已验证', pending: '待验证', rejected: '已排除' } as Record<string, string>)[s] ?? s
+const alertTypeLabel = (s: string) =>
+  ({ burst: '突现', trl_upgrade: 'TRL升级', org_layout: '机构布局' } as Record<string, string>)[s] ?? s
 
 const statusColor = (s: string) =>
-  s === 'confirmed' ? 'green' : s === 'emerging' ? 'blue' : 'default'
+  s === 'validated' ? 'green' : s === 'pending' ? 'blue' : 'default'
 
 function TechDetailDrawer({
   item, open, onClose,
@@ -30,7 +36,7 @@ function TechDetailDrawer({
         <Descriptions.Item label="领域">
           {item.tech_domain.map(d => <Tag key={d}>{d}</Tag>)}
         </Descriptions.Item>
-        <Descriptions.Item label="状态"><Tag color={statusColor(item.status)}>{item.status}</Tag></Descriptions.Item>
+        <Descriptions.Item label="状态"><Tag color={statusColor(item.status)}>{frontierStatusLabel(item.status)}</Tag></Descriptions.Item>
         <Descriptions.Item label="TRL">{item.trl_level ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="分析周期">{item.period_from?.slice(0, 10)} ~ {item.period_to?.slice(0, 10)}</Descriptions.Item>
         <Descriptions.Item label="融合评分">{item.fusion_score.toFixed(4)}</Descriptions.Item>
@@ -57,6 +63,7 @@ export default function ScanMonitor() {
   const [techPage, setTechPage] = useState(1)
   const [alertPage, setAlertPage] = useState(1)
   const [selectedItem, setSelectedItem] = useState<FrontierTechItem | null>(null)
+  const [alertSel, setAlertSel] = useState<AlertItem | null>(null)
 
   const frontierQ = useQuery({
     queryKey: ['frontier', techPage],
@@ -89,7 +96,7 @@ export default function ScanMonitor() {
     { title: '融合评分', dataIndex: 'fusion_score', render: (v: number) => v.toFixed(3),
       sorter: (a: FrontierTechItem, b: FrontierTechItem) => a.fusion_score - b.fusion_score },
     { title: 'TRL', dataIndex: 'trl_level', width: 60, render: (v: number | null) => v ?? '-' },
-    { title: '状态', dataIndex: 'status', render: (v: string) => <Tag color={statusColor(v)}>{v}</Tag> },
+    { title: '状态', dataIndex: 'status', render: (v: string) => <Tag color={statusColor(v)}>{frontierStatusLabel(v)}</Tag> },
     {
       title: '操作', width: 80,
       render: (_: unknown, r: FrontierTechItem) => (
@@ -100,14 +107,19 @@ export default function ScanMonitor() {
 
   const alertCols = [
     { title: '技术', dataIndex: 'tech_name', ellipsis: true },
-    { title: '类型', dataIndex: 'alert_type', width: 120 },
+    { title: '类型', dataIndex: 'alert_type', width: 100,
+      render: (v: string) => alertTypeLabel(v) },
     { title: '级别', dataIndex: 'severity', width: 80,
-      render: (v: string) => <Tag color={severityColor(v)}>{v}</Tag> },
+      render: (v: string) => <Tag color={severityColor(v)}>{severityLabel(v)}</Tag> },
     { title: '消息', dataIndex: 'message', ellipsis: true },
     { title: '时间', dataIndex: 'fired_at', width: 140,
       render: (v: string) => v?.slice(0, 16).replace('T', ' ') },
-    { title: '已读', dataIndex: 'is_read', width: 60,
-      render: (v: boolean) => <Tag color={v ? 'default' : 'red'}>{v ? '已读' : '未读'}</Tag> },
+    {
+      title: '操作', width: 70,
+      render: (_: unknown, r: AlertItem) => (
+        <Button type="link" size="small" onClick={() => setAlertSel(r)}>查看</Button>
+      ),
+    },
   ]
 
   return (
@@ -190,6 +202,28 @@ export default function ScanMonitor() {
         open={!!selectedItem}
         onClose={() => setSelectedItem(null)}
       />
+
+      <Modal
+        title="告警详情"
+        open={!!alertSel}
+        onOk={() => setAlertSel(null)}
+        onCancel={() => setAlertSel(null)}
+        cancelButtonProps={{ style: { display: 'none' } }}
+      >
+        {alertSel && (
+          <Descriptions column={1} size="small" bordered>
+            <Descriptions.Item label="技术">{alertSel.tech_name}</Descriptions.Item>
+            <Descriptions.Item label="类型">{alertTypeLabel(alertSel.alert_type)}</Descriptions.Item>
+            <Descriptions.Item label="级别">
+              <Tag color={severityColor(alertSel.severity)}>{severityLabel(alertSel.severity)}</Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="时间">{alertSel.fired_at?.slice(0, 19).replace('T', ' ')}</Descriptions.Item>
+            <Descriptions.Item label="告警消息">
+              <Text style={{ whiteSpace: 'pre-wrap' }}>{alertSel.message}</Text>
+            </Descriptions.Item>
+          </Descriptions>
+        )}
+      </Modal>
     </div>
   )
 }

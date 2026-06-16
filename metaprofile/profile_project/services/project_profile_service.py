@@ -173,9 +173,18 @@ class ProjectProfileService:
         payload: BulkImportRequest,
     ) -> BulkImportResult:
         task_id = uuid4().hex
-        logger.info("project_bulk_import_queued", task_id=task_id, count=len(payload.profiles))
+        accepted = 0
+        for profile in payload.profiles:
+            try:
+                await self.create(session, profile=profile)
+                accepted += 1
+            except Exception as exc:
+                await session.rollback()
+                logger.warning("project_bulk_import_item_failed", error=str(exc))
+        await session.commit()
+        logger.info("project_bulk_import_done", task_id=task_id, count=accepted)
         return BulkImportResult(
             task_id=task_id,
-            accepted_count=len(payload.profiles),
+            accepted_count=accepted,
             submitted_at=datetime.now(timezone.utc),
         )

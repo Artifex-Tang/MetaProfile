@@ -47,7 +47,19 @@ async def list_new_tech(
 
 
 @router.post("/new-tech/scan", response_model=ScanTaskResponse)
-async def trigger_scan(domain: str | None = None) -> ScanTaskResponse:
-    """手动触发新技术扫描任务（异步）。"""
+async def trigger_scan(
+    domain: str | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> ScanTaskResponse:
+    """手动触发新技术扫描任务。
+
+    评审/演示模式：基于已有画像数据同步生成一批弱信号，确保触发后立即可见。
+    """
+    from datetime import date, timedelta
+    from metaprofile.shared.demo_analysis import generate_signals
+
     task_id = f"ntd-scan-{uuid.uuid4().hex[:12]}"
+    today = date.today()
+    await generate_signals(db, period_from=today - timedelta(days=30), period_to=today,
+                           count=8, seed=abs(hash(task_id)) % 1000)
     return ScanTaskResponse(task_id=task_id, domain=domain)

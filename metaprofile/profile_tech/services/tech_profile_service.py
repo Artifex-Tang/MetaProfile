@@ -199,6 +199,7 @@ class TechProfileService:
                 await self.create(session, profile=profile)
                 accepted += 1
             except Exception as exc:
+                await session.rollback()
                 logger.warning("bulk_import_item_failed", error=str(exc))
         await session.commit()
         logger.info("bulk_import_done", task_id=task_id, count=accepted)

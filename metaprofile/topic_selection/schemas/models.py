@@ -38,6 +38,10 @@ class TopicDetail(TopicItem):
     related_project_ids: list[str]
     related_policy_refs: list[str]
     review_evidence: str | None
+    # 解析后的名称（便于展示，避免前端只看到 ID）
+    related_tech_names: list[str] = []
+    related_org_names: list[str] = []
+    related_project_names: list[str] = []
 
 
 class GenerateTaskResponse(_Base):

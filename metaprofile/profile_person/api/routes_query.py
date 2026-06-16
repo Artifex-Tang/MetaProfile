@@ -23,6 +23,18 @@ from metaprofile.shared.db.postgres import fastapi_session_dep
 router = APIRouter()
 
 
+
+@router.get("/profile/person/changes", response_model=ChangeRecordList)
+async def list_changes(
+    since: datetime = Query(..., description="变更起始时间"),
+    until: datetime | None = Query(default=None),
+    limit: int = Query(default=100, le=1000),
+    service: PersonQueryService = Depends(get_query_service),
+    session: AsyncSession = Depends(fastapi_session_dep),
+) -> ChangeRecordList:
+    """查询指定时段内的画像字段级变更记录。"""
+    return await service.list_changes(session, since=since, until=until, limit=limit)
+
 @router.get("/profile/person/{person_id}", response_model=PersonProfileResponse)
 async def get_person_profile(
     person_id: str,
@@ -64,14 +76,3 @@ async def batch_query_person_profiles(
     """按 ID 列表批量查询。"""
     return await service.batch_get(session, payload.person_ids)
 
-
-@router.get("/profile/person/changes", response_model=ChangeRecordList)
-async def list_changes(
-    since: datetime = Query(..., description="变更起始时间"),
-    until: datetime | None = Query(default=None),
-    limit: int = Query(default=100, le=1000),
-    service: PersonQueryService = Depends(get_query_service),
-    session: AsyncSession = Depends(fastapi_session_dep),
-) -> ChangeRecordList:
-    """查询指定时段内的画像字段级变更记录。"""
-    return await service.list_changes(session, since=since, until=until, limit=limit)

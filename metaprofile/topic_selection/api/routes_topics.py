@@ -54,12 +54,20 @@ async def generate_topics(
     period_from: date | None = None,
     period_to: date | None = None,
     target_count: int = Query(default=50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
 ) -> GenerateTaskResponse:
-    """触发选题生成任务（异步）。"""
+    """触发选题生成任务。
+
+    评审/演示模式：基于已有画像数据同步生成一批选题候选，确保触发后立即可见。
+    """
+    from metaprofile.shared.demo_analysis import generate_topics as _gen
+
     task_id = f"topic-gen-{uuid.uuid4().hex[:12]}"
+    n = await _gen(db, count=min(target_count, 10), seed=abs(hash(task_id)) % 1000,
+                   period_from=period_from, period_to=period_to)
     return GenerateTaskResponse(
         task_id=task_id,
-        target_count=target_count,
+        target_count=n,
         period_from=period_from.isoformat() if period_from else None,
         period_to=period_to.isoformat() if period_to else None,
     )
@@ -76,4 +84,25 @@ async def get_topic_detail(
     )).scalars().first()
     if row is None:
         raise HTTPException(status_code=404, detail="topic not found")
-    return TopicDetail.model_validate(row)
+    detail = TopicDetail.model_validate(row)
+    # 解析关联实体名称，避免前端只看到 ID
+    from metaprofile.profile_tech.domain.orm_models import TechProfileORM
+    from metaprofile.profile_org.domain.orm_models import OrgProfileORM
+    from metaprofile.profile_project.domain.orm_models import ProjectProfileORM
+
+    async def _names(model, id_attr, ids):
+        if not ids:
+            return []
+        rs = (await db.execute(
+            select(model).where(getattr(model, id_attr).in_(ids))
+        )).scalars().all()
+        out = []
+        for r in rs:
+            v = getattr(r, "tech_name_cn", None) or getattr(r, "name_cn", None)
+            out.append((v[0] if isinstance(v, list) and v else v) or getattr(r, id_attr))
+        return out
+
+    detail.related_tech_names = await _names(TechProfileORM, "tech_id", detail.related_tech_ids)
+    detail.related_org_names = await _names(OrgProfileORM, "org_id", detail.related_org_ids)
+    detail.related_project_names = await _names(ProjectProfileORM, "project_id", detail.related_project_ids)
+    return detail

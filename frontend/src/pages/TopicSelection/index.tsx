@@ -21,6 +21,13 @@ const statusColor = (s: string) => {
   return m[s] ?? 'default'
 }
 
+const statusLabel = (s: string) => {
+  const m: Record<string, string> = {
+    pending: '待处理', accepted: '已采纳', rejected: '已拒绝', revised: '已修订',
+  }
+  return m[s] ?? s
+}
+
 function scoreBar(label: string, value: number) {
   const pct = Math.round(value * 100)
   return (
@@ -109,7 +116,23 @@ function TopicDrawer({
 
           {d.related_tech_ids.length > 0 && (
             <Card size="small" title="关联技术">
-              {d.related_tech_ids.map(id => <Tag key={id}>{id.slice(0, 12)}</Tag>)}
+              {(d.related_tech_names?.length ? d.related_tech_names : d.related_tech_ids).map((v, i) => (
+                <Tag key={i} color="blue">{v}</Tag>
+              ))}
+            </Card>
+          )}
+          {d.related_org_ids?.length > 0 && (
+            <Card size="small" title="关联机构">
+              {(d.related_org_names?.length ? d.related_org_names : d.related_org_ids).map((v, i) => (
+                <Tag key={i} color="green">{v}</Tag>
+              ))}
+            </Card>
+          )}
+          {d.related_project_ids?.length > 0 && (
+            <Card size="small" title="关联项目">
+              {(d.related_project_names?.length ? d.related_project_names : d.related_project_ids).map((v, i) => (
+                <Tag key={i} color="purple">{v}</Tag>
+              ))}
             </Card>
           )}
         </Space>
@@ -185,7 +208,7 @@ export default function TopicSelection() {
     },
     {
       title: '状态', dataIndex: 'status', width: 80,
-      render: (v: string) => <Tag color={statusColor(v)}>{v}</Tag>,
+      render: (v: string) => <Tag color={statusColor(v)}>{statusLabel(v)}</Tag>,
     },
     {
       title: '热度', dataIndex: 'score_hot', width: 80,
@@ -209,10 +232,10 @@ export default function TopicSelection() {
           value={status}
           onChange={v => { setStatus(v); setPage(1) }}
         >
-          <Option value="pending">pending</Option>
-          <Option value="accepted">accepted</Option>
-          <Option value="rejected">rejected</Option>
-          <Option value="revised">revised</Option>
+          <Option value="pending">待处理</Option>
+          <Option value="accepted">已采纳</Option>
+          <Option value="rejected">已拒绝</Option>
+          <Option value="revised">已修订</Option>
         </Select>
         <Button
           type="primary"

@@ -117,15 +117,14 @@ export default function NewTechDiscovery() {
   })
 
   const cols = [
-    { title: '信号ID', dataIndex: 'signal_id', width: 140,
-      render: (v: string) => <Text code style={{ fontSize: 11 }}>{v.slice(0, 12)}…</Text> },
     { title: '关键词', dataIndex: 'keywords',
       render: (ks: string[]) => ks.slice(0, 3).map(k => <Tag key={k}>{k}</Tag>) },
     { title: '强度', dataIndex: 'strength', width: 80, render: (v: number) => v.toFixed(3) },
     { title: '新颖度', dataIndex: 'novelty', width: 80, render: (v: number) => v.toFixed(3) },
     { title: '一致性', dataIndex: 'coherence', width: 80, render: (v: number) => v.toFixed(3) },
     { title: '领域', dataIndex: 'domain', width: 100, render: (v: string | null) => v ?? '-' },
-    { title: '状态', dataIndex: 'status', width: 90, render: (v: string) => <Tag>{v}</Tag> },
+    { title: '状态', dataIndex: 'status', width: 90,
+      render: (v: string) => <Tag color={v === 'active' ? 'green' : 'default'}>{v === 'active' ? '活跃' : v}</Tag> },
     {
       title: '操作', width: 90,
       render: (_: unknown, r: WeakSignalItem) => (

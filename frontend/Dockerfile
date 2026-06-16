@@ -3,6 +3,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --prefer-offline
 COPY . .
+# 单元测试门禁：失败则阻断构建（vitest + jsdom，G6 已在测试中 mock）
+RUN npm run test
 RUN npm run build
 
 FROM nginx:alpine

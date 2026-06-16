@@ -30,3 +30,11 @@ Thumbs.db
 
 # Docker volumes / runtime
 *.log
+
+# Tool indexes / scratch
+.codegraph/
+CLAUDE_CODE_PLAN.md
+
+# Test outputs (generated per run)
+tests/e2e/*.json
+tests/screenshots/

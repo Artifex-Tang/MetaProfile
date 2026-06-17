@@ -12,12 +12,12 @@ from metaprofile.shared.schemas.relations import RelationTriple, RelationType
 
 
 def test_satellite_entity_types_exist():
-    """5 个卫星实体类型存在且取值正确。"""
-    assert EntityType.STRATEGY.value == "战略规划"
-    assert EntityType.EVENT.value == "事件"
-    assert EntityType.ENTERPRISE.value == "企业"
-    assert EntityType.CONTRACT.value == "采购合同"
-    assert EntityType.PACKAGE.value == "项目包"
+    """5 个卫星实体类型存在,值用 ASCII(同 TECH/ORG/...,因 .value 是 load-bearing 标识符)。"""
+    assert EntityType.STRATEGY.value == "STRATEGY"
+    assert EntityType.EVENT.value == "EVENT"
+    assert EntityType.ENTERPRISE.value == "ENTERPRISE"
+    assert EntityType.CONTRACT.value == "CONTRACT"
+    assert EntityType.PACKAGE.value == "PACKAGE"
 
 
 def test_relation_triple_accepts_satellite_endpoints():

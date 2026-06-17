@@ -48,9 +48,19 @@ class ContentMiner:
             return [], []
         return ents, rels
 
-    async def mine(self, attachments: list[dict]) -> tuple[list[dict], list[RelationTriple]]:
+    async def mine(
+        self, attachments: list[dict]
+    ) -> tuple[list[dict], list[RelationTriple], list[dict]]:
+        """内容挖掘 → (entities, relations, unmapped)。
+
+        - entities / relations: 已映射谓词的产出(原行为)。
+        - unmapped: map_predicate 返回 None 的谓词(超出当前 _PREDICATE_MAP 词汇),
+          不再静默丢弃 —— 保留 raw 谓词 + 名/类型/evidence/confidence/source_doc_id,
+          供 collector 写 relation_staging 待人工/后续补映射。
+        """
         entities: list[dict] = []
         rels: list[RelationTriple] = []
+        unmapped: list[dict] = []
         now = datetime.now(timezone.utc)
         for att in attachments:
             text = att.get("clean_content")
@@ -65,6 +75,17 @@ class ContentMiner:
                 for r in mined_rels:
                     rel = map_predicate(r.predicate, r.subject_type, r.object_type)
                     if rel is None:
+                        # 未映射谓词不丢,进 staging 列表(供 collector 落 relation_staging)
+                        unmapped.append({
+                            "subject_name": r.subject_name,
+                            "subject_type": r.subject_type,
+                            "object_name": r.object_name,
+                            "object_type": r.object_type,
+                            "relation": r.predicate,  # raw 谓词
+                            "evidence": r.evidence,
+                            "confidence": r.confidence,
+                            "source_doc_id": str(att.get("original_id")),
+                        })
                         continue
                     rels.append(RelationTriple(
                         subject_id=f"{NAME_SATELLITE_PREFIX}{r.subject_name}",
@@ -78,4 +99,4 @@ class ContentMiner:
                         source_doc_id=str(att.get("original_id")),
                         method=SourceMethod.LLM_EXTRACT, extracted_at=now,
                     ))
-        return entities, rels
+        return entities, rels, unmapped

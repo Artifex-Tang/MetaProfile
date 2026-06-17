@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaprofile.foundation.relation.triple_writer import TripleWriter
 from metaprofile.ingest_ods.domain.relation_rules import NAME_SATELLITE_PREFIX
-from metaprofile.ingest_ods.domain.orm_models import IngestErrorORM
+from metaprofile.ingest_ods.domain.orm_models import IngestErrorORM, RelationStagingORM
 from metaprofile.profile_org.domain.orm_models import OrgProfileORM
 from metaprofile.profile_person.domain.orm_models import PersonProfileORM
 from metaprofile.profile_project.domain.orm_models import ProjectProfileORM
@@ -170,4 +170,33 @@ class Writer:
                            source_id: str | None = None) -> None:
         session.add(IngestErrorORM(batch_id=batch_id, source_table=source_table,
                                    source_id=source_id, stage=stage, error_msg=error_msg[:1000]))
+        await session.flush()
+
+    async def record_relations_staging(
+        self,
+        session: AsyncSession,
+        *,
+        batch_id: int,
+        unmapped: list[dict],
+    ) -> None:
+        """未映射谓词落 relation_staging(人工/后续补映射),不丢。
+
+        RelationStagingORM 列长:subject_name/object_name String(512),
+        subject_type/object_type String(16),relation String(64),evidence Text,
+        confidence Float,written Boolean default False。超长字段截断防溢出。
+        """
+        if not unmapped:
+            return
+        for u in unmapped:
+            session.add(RelationStagingORM(
+                batch_id=batch_id,
+                subject_name=(u.get("subject_name") or "")[:512],
+                subject_type=(u.get("subject_type") or "")[:16],
+                object_name=(u.get("object_name") or "")[:512],
+                object_type=(u.get("object_type") or "")[:16],
+                relation=(u.get("relation") or "")[:64],
+                evidence=u.get("evidence"),
+                confidence=float(u.get("confidence") or 0.0),
+                written=False,  # 显式默认,DB INSERT 时亦 False
+            ))
         await session.flush()

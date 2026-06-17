@@ -162,3 +162,74 @@ async def test_write_profile_creates_project() -> None:
     assert orm_arg.project_id == "PRJ_1"
     assert orm_arg.project_no == 0
     await session.flush()
+
+
+@pytest.mark.asyncio
+async def test_record_relations_staging_persists_unmapped():
+    """未映射谓词落 RelationStagingORM(written=False),不丢。"""
+    from metaprofile.ingest_ods.services.writer import Writer
+
+    session = AsyncMock()
+    w = Writer()
+    await w.record_relations_staging(
+        session,
+        batch_id=42,
+        unmapped=[{
+            "subject_name": "甲", "subject_type": "org",
+            "object_name": "乙", "object_type": "event",
+            "relation": "某种新关系", "evidence": "e", "confidence": 0.5,
+            "source_doc_id": "7",
+        }],
+    )
+    session.add.assert_called_once()
+    orm = session.add.call_args.args[0]
+    assert orm.batch_id == 42
+    assert orm.relation == "某种新关系"
+    assert orm.subject_name == "甲"
+    assert orm.object_name == "乙"
+    assert orm.subject_type == "org"
+    assert orm.object_type == "event"
+    assert orm.evidence == "e"
+    assert orm.confidence == 0.5
+    assert orm.written is False
+    session.flush.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_record_relations_staging_noop_on_empty():
+    """空列表不调 add/flush(best-effort,避免无意义 DB 往返)。"""
+    from metaprofile.ingest_ods.services.writer import Writer
+
+    session = AsyncMock()
+    w = Writer()
+    await w.record_relations_staging(session, batch_id=42, unmapped=[])
+    session.add.assert_not_called()
+    session.flush.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_record_relations_staging_truncates_long_fields():
+    """超长字段截断到列长度,避免 DB 层 String(n) 溢出。"""
+    from metaprofile.ingest_ods.services.writer import Writer
+
+    session = AsyncMock()
+    w = Writer()
+    long_name = "甲" * 1000
+    long_rel = "关系" * 100
+    long_ev = "证据" * 2000
+    await w.record_relations_staging(
+        session,
+        batch_id=1,
+        unmapped=[{
+            "subject_name": long_name, "subject_type": "org",
+            "object_name": long_name, "object_type": "tech",
+            "relation": long_rel, "evidence": long_ev, "confidence": 0.1,
+            "source_doc_id": "1",
+        }],
+    )
+    orm = session.add.call_args.args[0]
+    assert len(orm.subject_name) <= 512
+    assert len(orm.object_name) <= 512
+    assert len(orm.relation) <= 64
+    # evidence Text 无硬截断要求,但实现保证非空字符串保留
+    assert orm.evidence == long_ev

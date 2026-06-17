@@ -83,7 +83,7 @@ async def run_sql_warehouse_collection(
 
     async def _run(sess):
         imported = await orch.run(sess, task=task, source=source)
-        await _maybe_content_mine(sess, source, llm, writer)
+        await _maybe_content_mine(sess, source, llm, writer, task=task)
         return imported
 
     if session is None:
@@ -92,11 +92,15 @@ async def run_sql_warehouse_collection(
     return await _run(session)
 
 
-async def _maybe_content_mine(sess: AsyncSession, source, llm, writer: Writer) -> None:
+async def _maybe_content_mine(
+    sess: AsyncSession, source, llm, writer: Writer, *, task
+) -> None:
     """mode in (content_mine, both) 且 enable_relations → 挖附件 → 写关系三元组。
 
     I1: 内容挖掘是次要富集；附件拉取/LLM/Neo4j 任一失败都不应杀掉
     orchestrator.run 已写入的结构化灌库结果 —— 整体 try/except 吞掉并记录。
+
+    未映射谓词(unmapped)best-effort 落 relation_staging,失败仅告警不影响主路径。
     """
     cfg = source.config_json or {}
     if cfg.get("mode") not in ("content_mine", "both"):
@@ -124,9 +128,17 @@ async def _maybe_content_mine(sess: AsyncSession, source, llm, writer: Writer) -
             logger.info("content_mine_skipped_no_attachments")
             return
         miner = ContentMiner(llm=llm)
-        _entities, relations = await miner.mine(atts)
+        _entities, relations, unmapped = await miner.mine(atts)
         if relations:
             await writer.write_relations(relations)
             logger.info("content_mine_relations_written", count=len(relations))
+        if unmapped:
+            try:
+                await writer.record_relations_staging(
+                    sess, batch_id=task.id, unmapped=unmapped
+                )
+                logger.info("content_mine_unmapped_staged", count=len(unmapped))
+            except Exception as exc:  # noqa: BLE001  staging 失败不杀主路径
+                logger.warning("content_mine_staging_failed", error=str(exc))
     except Exception as exc:  # noqa: BLE001  I1: 富集失败不影响结构化灌库结果
         logger.exception("content_mine_failed", error=str(exc))

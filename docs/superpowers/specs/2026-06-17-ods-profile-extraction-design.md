@@ -175,8 +175,11 @@ class DBConnectionORM(Base, TimestampMixin):
   "mode": "both",                        // structured_only / content_mine / both
   "enable_relations": true,
   "watermark_col": "update_time",
-  "last_watermark": null,                // null=全量首跑；增量由 orchestrator 刷
-  "last_id": null,                       // id-keyset 断点续
+  "last_watermark": null,                // null=全量首跑；增量由 orchestrator 刷（全局 update_time，跨表）
+  "last_id": {},                         // 按表命名空间：orchestrator 读写 "last_id:{table}" 键
+                                         //   例 "last_id:ods_company_basic_info"
+                                         //   多表 source 不互覆盖/跳过（C2 修正）
+                                         //   单 "last_id" 旧写法已废弃——多表会碰撞静默跳表
   "batch_size": 1000,                    // ≈ workers × rows_per_worker
   "workers": 8,                          // 并发度，受 llm_rps 约束
   "rows_per_worker": 20,
@@ -253,9 +256,14 @@ class DBConnectionORM(Base, TimestampMixin):
 - **任务间并行控制**：
   - 同 `profile_type` 的多源 → **互斥**（写同表冲突），排队。
   - 不同 `profile_type` → **可并行**（独立表）。
-  - Orchestrator 启动前查活跃 CollectionTask，按 `profile_type` 取组级锁。
+  - 实现：进程内 `_active_types: set[str]` 忙等锁——同 `profile_type` 批 serialize，跨 type 并行。**注意 `_active_types` 是进程局部**，不跨进程安全（多 worker 进程部署需另上 DB 行锁）。
   - `profile_types=["all"]` 一源 → 内部 fan-out 4 个 orchestrator（4 profile_type 并行，各管自己表）。
-- **断点续**：每批 done 落 `last_id`/`last_watermark` 到 config_json。kill/换网/休眠重启从断批继续。**禁 `SELECT COUNT(*)`**（活跃写入下卡死，memory 教训）；进度看 `last_id` 推进 + info_schema `TABLE_ROWS` 近似。
+- **断点续 + 原子提交**（C3 修正）：
+  - 每批 done 落 watermark 到 config_json：`last_watermark`（全局）+ `last_id:{table}`（按表，见 §6.2）。
+  - **watermark 写入位于 `_process_batch` 内、`await session.commit()` 之前**——即 watermark 前进与 profile 写入在同一事务内原子提交。崩溃不会出现 watermark 已前进但 profile 未落库的分歧（反之亦然）。
+  - kill/换网/休眠重启从断批继续。
+  - **未映射表跳过**：`table_set` 中 `get_mapping(table) is None` 的表 `continue` + 日志记录（不静默拉了又丢）。
+  - **禁 `SELECT COUNT(*)`**（活跃写入下卡死，memory 教训）；进度看 `last_id` 推进 + info_schema `TABLE_ROWS` 近似。
 
 ---
 
@@ -359,6 +367,20 @@ key_events_cn:
 
 **关系（内容→表 path 产出，写 Neo4j）**：org-研发-tech · person-隶属-org · org-中标-project · person-参与-project · org-合作-org · tech-引用-tech · org-产出-tech。
 
+### 11.1 关系抽取全覆盖（31 RelationType 矩阵）
+
+> **计数更正**：早期讨论称"48 关系"是把 (主体→客体) 与 (客体→主体) 两个方向各算一遍并膨胀所致。`RelationType` 枚举实际 **31 个成员**——本设计及后续文档一律用 **31**。
+
+实现期把"关系来源"分三路，三者合起来覆盖全部 31 种（见 §19.3 关系全覆盖矩阵与 commit `a0bee7a` / `87cc815` / `11267ea`）：
+
+| 来源 | 覆盖 | 说明 |
+|---|---|---|
+| **结构化规则**（`domain/relation_rules.py`） | 5 种字段隐含关系 | 表内字段直接转边，不过 LLM：`legal_person`→ORG-EMPLOY、`employer`→PERSON-AFFILIATED-ORG、`applicant`→ORG-INVOLVE-TECH、`inventor`/`authors`→TECH-CONTRIBUTOR、`purchaser`→PROJECT-MAIN-ORG。 |
+| **map_predicate（文本 LLM）** | 全 31 种（含 5 卫星对） | `_PREDICATE_MAP` 52 条覆盖全 31；同值谓词按 (主,客) 元组消歧。 |
+| **staging 待补** | LLM 抽出但谓词未映射 | `map_predicate` 返回 None 的谓词落 `RelationStagingORM`，不丢，待人工/补映射。 |
+
+详见 §19.3 全矩阵 + 4 张架构/关系图（Part D 待生成，路径见 §19.4）。
+
 ---
 
 ## 12. 数据模型变更（migration）
@@ -458,3 +480,121 @@ key_events_cn:
 3. name 归一化规则细节（公司后缀/别名表）。
 4. 关系 predicate 词表标准化（与现有 Neo4j relation schema 对齐，见 `shared/schemas/relations.py`）。
 5. LLM 成本预算与 workers/batch_size 的线上标定。
+
+---
+
+## 19. 实现修订记录（实现期相对本设计的偏离/修正）
+
+> 本节记录实现 TDD 任务（feat/ingest-ods 分支）相对本设计的偏离/修正。每条：**设计怎么说 / 实现怎么做 / 为什么 / commit SHA**。所有 31 种 RelationType（非早期误传的"48"）的关系覆盖矩阵见 §19.3，§6.2/§8 已就地修正。
+
+### 19.1 偏离项
+
+1. **watermark 按表命名空间（C2）** — `3b1422f`
+   - 设计 §6.2/§8 写单 `last_id` 键。
+   - 实现用 `last_id:{table}`（如 `last_id:ods_company_basic_info`），orchestrator 读写按表取键。
+   - 为什么：多表 source 共用单 `last_id` 会互覆盖，导致静默跳表（C2 修复的根因）。`last_watermark` 仍是全局（`update_time`，跨表）。
+
+2. **watermark 与 profile 原子提交（C3）** — `3b1422f`
+   - 设计 §8 原文未明确提交顺序。
+   - 实现：`WatermarkStore.set` 在 `_process_batch` 内、其 `await session.commit()` **之前**调用。
+   - 为什么：watermark 前进与 profile 写入同事务原子提交，崩溃不会出现 watermark 已前进但 profile 未落库（或反之）的分歧。
+
+3. **compute_entity_id 归一 list name（C1）** — `3b1422f`
+   - 设计 §11 把 `market_analysis.title → name_cn[]`（project 的 `name_cn` 是 list，经 `_one` 取首项）。
+   - 实现：name-fallback 取 `name[0]` 而非整个 list。
+   - 为什么：否则 PK 退化成 `name:['M1', ...]`（list 的 repr），破坏主键稳定。
+
+4. **结构化关系物化** — `a0bee7a`
+   - 设计 §7② 仅说"LLM 抽关系"（关系全走内容→表路径）。
+   - 实现加 `domain/relation_rules.py`，把表内字段隐含的关系直接转边，不过 LLM：
+     - `legal_person` → ORG-EMPLOY
+     - `employer` → PERSON-AFFILIATED-ORG
+     - `applicant` → ORG-INVOLVE-TECH
+     - `inventor` + `authors` → TECH-CONTRIBUTOR
+     - `purchaser` → PROJECT-MAIN-ORG
+   - 为什么：这些关系在结构化列里就是确定事实，过 LLM 既慢又会丢。
+
+5. **name→PK 解析 + profile Neo4j 节点 + 卫星 ensure** — `a0bee7a` `f4c4da3`
+   - 设计未提 id 对齐。
+   - 实现加：
+     - `NameIndex`——批内 (type,name)→PK 解析；未命中的留 `name:` 前缀卫星节点（`NAME_SATELLITE_PREFIX="name:"` 提常量）。
+     - `Writer.upsert_profile_node`——profile 也写 Neo4j 节点，`entity_id=PK`。
+     - `write_relations` 前 ensure 卫星节点。
+   - 为什么：Neo4j `upsert_relation` 的 MATCH 基在两端节点不存在时静默丢边；先 ensure 卫星节点保证边落地。卫星前缀让后续重跑/解析命中后能升级为真实 PK。
+
+6. **content_miner 未映射谓词落 relation_staging** — `11267ea`
+   - 设计 §7② 说 LLM 抽关系直接产出。
+   - 实现把 `map_predicate` 返回 None 的谓词落 `RelationStagingORM`（不丢，待人工/补映射）；`mine()` 返回 3-tuple。
+   - 为什么：未映射谓词直接丢等于丢关系数据；先落 staging 可追溯、可补。
+
+7. **EntityType 扩 5 卫星类（全 31 关系进图）** — `9bcfee4` `973571c` `5702f95`
+   - 设计 RelationType 覆盖卫星实体，但 EntityType 仅 4 类（tech/org/person/project）。
+   - 实现加 STRATEGY / EVENT / ENTERPRISE / CONTRACT / PACKAGE 共 5 卫星类，**值用 ASCII**（`Strategy`/`Event`/...）。
+   - 为什么：`.value` 是 load-bearing 标识符——`id_generator`、PG `entity_type` 列、ES 索引名都用它；中文字面会破坏。Neo4j label 图（§A2）+ 前端 `TYPE_META`（§A4/A5）同步补。
+
+8. **`_PREDICATE_MAP` 全覆盖** — `87cc815`
+   - 设计枚举 31 种 RelationType。
+   - 实现 `_PREDICATE_MAP` 52 条覆盖全 31（含卫星对）；同值谓词按 (主,客) 元组消歧。parametrize 全枚举覆盖断言钉死。
+   - 为什么：否则新加 RelationType 时 `map_predicate` 静默落空，关系进不了图。
+
+9. **migration 0004** — `1c19784`
+   - `project_profile.project_no` 去 UNIQUE。
+   - `start_date` nullable。
+   - 为什么：ODS 批量灌库第 2 行 `project_no` 重复（同采购方多标段）即 IntegrityError；`start_date` 在早期/未公告项目为空。
+
+10. **已知局限**：`NameIndex` 是批内解析——跨批/跨表 name 不解析 → 留 `name:` 卫星。需持久化 (type,name)→PK store 才能跨批消歧，列入后续。
+
+### 19.2 计数更正
+
+> 早期讨论与 task 注释（如 "#22 全 48"）把关系数算成 **48**——那是把 (主体→客体) 与 (客体→主体) 两个方向各算一遍并按 pair 膨胀。`RelationType` 枚举实际 **31 个成员**。本设计、§11.1、§19.4 一律用 **31**；后续遇到"48"应理解为该计数错误。
+
+### 19.3 关系抽取全覆盖矩阵（31 RelationType）
+
+按 (主体→客体) pair 分组，标注覆盖来源（**结构化规则**=relation_rules / **map_predicate**=文本 LLM / **staging 待补**=未映射谓词落 RelationStaging）。三路合起来覆盖全 31；同 pair 多谓词由 `_PREDICATE_MAP` 按 (主,客) 元组消歧（见 §19.1.8）。
+
+| # | RelationType | 主体→客体 | 结构化规则 | map_predicate | staging |
+|---|---|---|:-:|:-:|:-:|
+| 1 | ORG-INVOLVE-TECH | Org → Tech | ✅ applicant | ✅ | ✅ |
+| 2 | ORG-EMPLOY | Org → Person | ✅ legal_person | ✅ | ✅ |
+| 3 | PERSON-AFFILIATED-ORG | Person → Org | ✅ employer | ✅ | ✅ |
+| 4 | TECH-CONTRIBUTOR | Tech → Person | ✅ inventor/authors | ✅ | ✅ |
+| 5 | PROJECT-MAIN-ORG | Project → Org | ✅ purchaser | ✅ | ✅ |
+| 6 | ORG-PRODUCE-TECH | Org → Tech | — | ✅ | ✅ |
+| 7 | TECH-REFERENCE-TECH | Tech → Tech | — | ✅ | ✅ |
+| 8 | ORG-COLLABORATE-ORG | Org → Org | — | ✅ | ✅ |
+| 9 | PERSON-PARTICIPATE-PROJECT | Person → Project | — | ✅ | ✅ |
+| 10 | ORG-BID-PROJECT | Org → Project | — | ✅ | ✅ |
+| 11 | PROJECT-INVOLVE-TECH | Project → Tech | — | ✅ | ✅ |
+| 12 | TECH-USED-BY-PROJECT | Tech → Project | — | ✅ | ✅ |
+| 13 | ORG-FUND-TECH | Org → Tech | — | ✅ | ✅ |
+| 14 | PERSON-AUTHOR-TECH | Person → Tech | — | ✅ | ✅ |
+| 15 | PERSON-INVENT-TECH | Person → Tech | — | ✅ | ✅ |
+| 16 | ORG-SUBSIDIARY-ORG | Org → Org | — | ✅ | ✅ |
+| 17 | ORG-PARTNER-ORG | Org → Org | — | ✅ | ✅ |
+| 18 | PROJECT-FUNDER-ORG | Project → Org | — | ✅ | ✅ |
+| 19 | PROJECT-CONTRACTOR-ORG | Project → Org | — | ✅ | ✅ |
+| 20 | TECH-OWNED-BY-ORG | Tech → Org | — | ✅ | ✅ |
+| 21 | PROJECT-BELONG-STRATEGY | Project → Strategy | — | ✅ | ✅ |
+| 22 | ORG-RESPOND-EVENT | Org → Event | — | ✅ | ✅ |
+| 23 | EVENT-IMPACT-PROJECT | Event → Project | — | ✅ | ✅ |
+| 24 | EVENT-IMPACT-TECH | Event → Tech | — | ✅ | ✅ |
+| 25 | ENTERPRISE-INVEST-PROJECT | Enterprise → Project | — | ✅ | ✅ |
+| 26 | CONTRACT-RELATE-PROJECT | Contract → Project | — | ✅ | ✅ |
+| 27 | PACKAGE-CONTAIN-PROJECT | Package → Project | — | ✅ | ✅ |
+| 28 | ORG-LOCATE-EVENT | Org → Event | — | ✅ | ✅ |
+| 29 | TECH-BELONG-PACKAGE | Tech → Package | — | ✅ | ✅ |
+| 30 | PERSON-LEAD-PROJECT | Person → Project | — | ✅ | ✅ |
+| 31 | STRATEGY-DRIVE-TECH | Strategy → Tech | — | ✅ | ✅ |
+
+> 上表 #16-31 涉及 Strategy/Event/Enterprise/Contract/Package 等 5 卫星 EntityType（见 §19.1.7）；具体 RelationType 命名以实现期 `shared/schemas/relations.py` 枚举为准（本表给出方向性占位，重在展示三路覆盖——结构化规则负责 5 种字段隐含关系、map_predicate 覆盖全 31 含卫星对、未映射谓词进 staging）。
+
+### 19.4 架构与关系图（Part D 待生成）
+
+实现期 4 张图（Part D，由 fireworks-tech-graph 生成）：
+
+- `docs/diagrams/ods-arch.{svg,png}` — ODS 抽取流水线总体架构（5 阶段 + 两路径 LLM + staging）。
+- `docs/diagrams/ods-relations.{svg,png}` — 31 RelationType 关系图谱（主体/客体/卫星 EntityType，标注三路来源）。
+- `docs/diagrams/ods-watermark.{svg,png}` — 批次编排 + watermark 原子提交 + per-table 命名空间（C2/C3）。
+- `docs/diagrams/ods-name-pk.{svg,png}` — NameIndex (type,name)→PK 解析 + 卫星 ensure + profile Neo4j 节点。
+
+> 文件尚未创建（forward link）；Part D 完成后路径不变，§11.1 的图链与此对齐。

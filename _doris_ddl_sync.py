@@ -37,9 +37,10 @@ def fetch_ddl():
     for t in tables:
         cur.execute(f"SHOW CREATE TABLE `{t}`")
         ddl = cur.fetchone()[1]
-        # 单副本改写（本地 1 BE，3 副本建表会失败）
-        ddl = re.sub(r'"replication_allocation"\s*=\s*"tag\.location\.default:\s*\d+"',
-                     '"replication_allocation" = "tag.location.default: 1"', ddl)
+        # 单副本改写（本地 1 BE，3 副本建表会失败）。
+        # 同时覆盖 replication_allocation 与 dynamic_partition.replication_allocation（保留前缀）。
+        ddl = re.sub(r'((?:dynamic_partition\.)?replication_allocation)"\s*=\s*"tag\.location\.default:\s*\d+"',
+                     r'\1" = "tag.location.default: 1"', ddl)
         # 兜底：若用 replication_num 属性
         ddl = re.sub(r'"replication_num"\s*=\s*"\d+"', '"replication_num" = "1"', ddl)
         blocks.append(f"DROP TABLE IF EXISTS `{t}`;\n{ddl};")

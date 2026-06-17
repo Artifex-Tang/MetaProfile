@@ -85,15 +85,29 @@ async def _run_collection(
                 records = await _fetch_nsfc(config, log)
             elif source_type == "patent_cnipa":
                 records = await _fetch_patent_cnipa(config, log)
+            elif source_type == "sql_warehouse":
+                # ODS→四类画像抽取管线（T13）。collector 自管 profile 写入事务，
+                # _run_collection 这层仅跟踪 task 状态；records_imported 由
+                # collector 返回的 imported 同步回 task。
+                from metaprofile.ingest_ods.collectors.sql_warehouse import (
+                    run_sql_warehouse_collection,
+                )
+                source = await session.get(DataSourceConfigORM, task.source_id)
+                imported = await run_sql_warehouse_collection(task=task, source=source)
+                task.records_imported = imported
+                task.records_fetched = imported
+                records = []  # 跳过下方 _import_to_profile（已在 collector 内完成）
+                log(f"SQL 仓库采集完成，导入 {imported} 条")
             else:
                 raise ValueError(f"不支持的数据源类型: {source_type}")
 
-            log(f"采集完成，获取 {len(records)} 条原始记录")
-            task.records_fetched = len(records)
+            if source_type != "sql_warehouse":
+                log(f"采集完成，获取 {len(records)} 条原始记录")
+                task.records_fetched = len(records)
 
-            if records:
-                imported = await _import_to_profile(records, profile_type, log)
-                task.records_imported = imported
+                if records:
+                    imported = await _import_to_profile(records, profile_type, log)
+                    task.records_imported = imported
 
             task.status = "completed"
 

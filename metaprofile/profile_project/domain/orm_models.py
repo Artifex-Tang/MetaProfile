@@ -35,12 +35,12 @@ class ProjectProfileORM(Base, TimestampMixin):
     name_other: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     tech_domain: Mapped[list] = mapped_column(JSON, nullable=False)
     sub_tech_domain: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
-    start_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     cancel_date: Mapped[date | None] = mapped_column(Date)
     finish_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     budget_activities: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
-    project_no: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    project_no: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     main_orgs: Mapped[list] = mapped_column(JSON, nullable=False)
     undertaking_orgs: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     undertaking_enterprises: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
@@ -60,6 +60,11 @@ class ProjectProfileORM(Base, TimestampMixin):
 
     confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     completeness: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+
+    # 质量评分（抽取管线写入）
+    veracity_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    timeliness_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    data_as_of: Mapped[date | None] = mapped_column(Date)
 
     histories: Mapped[list["ProjectHistoryORM"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"

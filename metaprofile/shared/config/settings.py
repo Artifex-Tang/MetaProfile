@@ -134,6 +134,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_prefix: str = "/api/v1"
     service_name: str = "metaprofile"
+    secret_key: str = "dev-insecure-key"
 
     postgres: PostgresSettings = Field(default_factory=PostgresSettings)
     es: ESSettings = Field(default_factory=ESSettings)

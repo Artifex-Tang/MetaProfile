@@ -58,6 +58,11 @@ class PersonProfileORM(Base, TimestampMixin):
     confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     completeness: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
+    # 质量评分（抽取管线写入）
+    veracity_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    timeliness_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    data_as_of: Mapped[date | None] = mapped_column(Date)
+
     educations: Mapped[list["PersonEducationORM"]] = relationship(
         back_populates="person", cascade="all, delete-orphan"
     )

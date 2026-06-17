@@ -9,8 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaprofile.ingest_ods.domain.mappings import get_mapping
 from metaprofile.ingest_ods.domain.orm_models import DBConnectionORM
+from metaprofile.ingest_ods.domain.relation_rules import extract_structured_relations
 from metaprofile.ingest_ods.services.connections import resolve_dsn
+from metaprofile.ingest_ods.services.name_index import NameIndex
 from metaprofile.ingest_ods.services.watermark import WatermarkStore
+from metaprofile.shared.schemas.base import EntityType
+from metaprofile.shared.schemas.relations import RelationTriple
 
 logger = structlog.get_logger(__name__)
 
@@ -18,6 +22,43 @@ logger = structlog.get_logger(__name__)
 _STRONG_KEYS: tuple[str, ...] = (
     "company_id", "usc_code", "orcid", "patent_number", "doi", "email",
 )
+
+# profile_type(lowercase str) → EntityType
+_PT2ET: dict[str, EntityType] = {
+    "tech": EntityType.TECH,
+    "org": EntityType.ORG,
+    "person": EntityType.PERSON,
+    "project": EntityType.PROJECT,
+}
+
+
+def resolve_triple(triple: RelationTriple, idx: NameIndex) -> RelationTriple:
+    """用批内 NameIndex 把 triple 端点的 name: 占位解析为 PK(命中)。
+
+    命中时复制为新的 RelationTriple(避免变更跨批共享对象);未命中保留 name: 卫星。
+    """
+    sid = triple.subject_id
+    if sid.startswith("name:") and triple.subject_name:
+        sid = idx.resolve(triple.subject_type, triple.subject_name)
+    oid = triple.object_id
+    if oid.startswith("name:") and triple.object_name:
+        oid = idx.resolve(triple.object_type, triple.object_name)
+    if sid == triple.subject_id and oid == triple.object_id:
+        return triple
+    return RelationTriple(
+        subject_id=sid,
+        subject_type=triple.subject_type,
+        subject_name=triple.subject_name,
+        relation=triple.relation,
+        object_id=oid,
+        object_type=triple.object_type,
+        object_name=triple.object_name,
+        evidence=triple.evidence,
+        confidence=triple.confidence,
+        source_doc_id=triple.source_doc_id,
+        method=triple.method,
+        extracted_at=triple.extracted_at,
+    )
 
 
 def compute_entity_id(entity_key: dict, attrs: dict) -> str | None:
@@ -110,6 +151,10 @@ class BatchOrchestrator:
             await session.commit()
             return 0
         imported = 0
+        # GAP2: 批内 NameIndex —— 关系端点解析(PK 对齐 profile 节点)
+        name_index = NameIndex()
+        # GAP1: 收集本批结构化关系,稍后统一解析端点+写图
+        structured_triples: list[RelationTriple] = []
         for ent in entities:
             # real EntityResolver normalizes to top-level attrs
             attrs = ent["attrs"]
@@ -139,11 +184,34 @@ class BatchOrchestrator:
                     source_table=rows[0].get("source_table"),
                 )
                 continue
+            # GAP2: 入索引 —— 后续关系的 name: 端点能解析到此 PK
+            etype = _PT2ET.get(ent["profile_type"])
+            if etype is not None:
+                name_index.add(etype, entity_id, attrs)
             try:
                 await self._writer.write_profile(
                     session, profile_type=ent["profile_type"], entity_id=entity_id,
                     attrs=attrs, scores=scores, method="llm_extract",
                 )
+                # GAP2: profile 节点写入 Neo4j(必须在关系引用它之前)
+                if etype is not None:
+                    try:
+                        await self._writer.upsert_profile_node(
+                            entity_type=etype, entity_id=entity_id, attrs=attrs,
+                        )
+                    except Exception as exc:  # noqa: BLE001  Neo4j 失败不阻塞 profile 灌库
+                        logger.warning("profile_node_upsert_failed",
+                                       entity_id=entity_id, error=str(exc))
+                # GAP1: 抽结构化关系(用第一条 source_row 的 raw_payload 作为源行)
+                if etype is not None and ent.get("source_rows"):
+                    src_row = ent["source_rows"][0].get("raw_payload", {})
+                    try:
+                        structured_triples.extend(extract_structured_relations(
+                            table, src_row, entity_id, etype,
+                        ))
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("struct_relation_extract_failed",
+                                       entity_id=entity_id, error=str(exc))
                 imported += 1
             except Exception as exc:  # noqa: BLE001
                 logger.warning("entity_write_failed", entity_id=entity_id,
@@ -152,6 +220,13 @@ class BatchOrchestrator:
                     session, batch_id=task.id, stage="write",
                     error_msg=str(exc), source_table=rows[0].get("source_table"),
                 )
+        # GAP1+GAP2: 结构化关系端点解析(name:→PK) + 写图
+        if structured_triples:
+            resolved = [resolve_triple(t, name_index) for t in structured_triples]
+            try:
+                await self._writer.write_relations(resolved)
+            except Exception as exc:  # noqa: BLE001  关系写入失败不影响 profile 灌库
+                logger.warning("struct_relation_write_failed", error=str(exc))
         # C3: watermark 与 profile 原子提交（在 commit 前 set，崩溃不分歧）
         wm_key = f"{WatermarkStore.KEY_ID}:{table}"
         WatermarkStore.set(source, wm_key, last_id)

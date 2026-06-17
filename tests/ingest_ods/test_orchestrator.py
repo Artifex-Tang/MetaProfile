@@ -153,6 +153,57 @@ async def test_unmapped_table_skipped_with_warning() -> None:
     assert WatermarkStore.get(src, "last_id:ods_strategic_policy_cn") is None
 
 
+@pytest.mark.asyncio
+async def test_structured_relation_materialized_and_profile_node_upserted() -> None:
+    """GAP1+GAP2: org+legal_person → 1 ORG_EMPLOY 边,subject_id=PK(resolved),
+    object_id=name:张三(satellite); 并 upsert_profile_node(entity_id=PK)。"""
+    src = _source(["ods_company_basic_info"])
+    extractor = AsyncMock()
+    extractor.extract_batch = AsyncMock(side_effect=[
+        [{"profile_type": "org",
+          "entity_key": {"company_id": 1},
+          "raw_payload": {"company_id": 1, "company_name": "甲公司",
+                          "legal_person_name": "张三",
+                          "_attrs": {"name_cn": "甲公司", "legal_person": "张三"}},
+          "source_id": "1", "last_id": 5}],
+        [],
+    ])
+    resolver = AsyncMock(); resolver.resolve = AsyncMock(side_effect=lambda rows: [
+        {"profile_type": r["profile_type"], "entity_key": r["entity_key"],
+         "attrs": r["raw_payload"]["_attrs"], "source_rows": [r]}
+        for r in rows
+    ])
+    scorer = AsyncMock(); scorer.score = AsyncMock(return_value={"veracity_score": 0.9,
+                                       "timeliness_score": 0.5, "data_as_of": None})
+    writer = AsyncMock(); writer.write_profile = AsyncMock(return_value="1")
+    writer.write_relations = AsyncMock()
+    writer.upsert_profile_node = AsyncMock()
+    conn_orm = MagicMock(); conn_orm.host = "h"; conn_orm.port = 9030
+    conn_orm.username = "u"; conn_orm.password_enc = "p"; conn_orm.database = "d"
+    conn_orm.charset = "utf8mb4"
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=conn_orm)
+
+    orch = BatchOrchestrator(extractor=extractor, resolver=resolver, scorer=scorer,
+                             writer=writer, connections=lambda c: {})
+    await orch.run(session, task=MagicMock(id=7), source=src)
+
+    # profile 节点已写 Neo4j（entity_id=PK）
+    writer.upsert_profile_node.assert_awaited()
+    call_kwargs = writer.upsert_profile_node.await_args.kwargs
+    assert call_kwargs["entity_id"] == "1"
+    assert call_kwargs["entity_type"].value == "ORG"
+
+    # 关系已写入,主体 id=PK(resolved)
+    writer.write_relations.assert_awaited_once()
+    triples_arg = writer.write_relations.await_args.args[0]
+    assert len(triples_arg) >= 1
+    tri = triples_arg[0]
+    assert tri.subject_id == "1"          # PK resolved via name_index
+    assert str(tri.relation.value) == "雇佣"
+    assert tri.object_id == "name:张三"   # 张三 未在批内 → 卫星
+
+
 @pytest.mark.parametrize("entity_key, attrs, expected", [
     # org with company_id 强键
     ({"company_id": 1}, {"name_cn": "甲"}, "1"),

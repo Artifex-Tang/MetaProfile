@@ -14,6 +14,7 @@ from metaprofile.profile_person.domain.orm_models import PersonProfileORM
 from metaprofile.profile_project.domain.orm_models import ProjectProfileORM
 from metaprofile.profile_tech.domain.orm_models import TechProfileORM
 from metaprofile.shared.db.orm_models import EntityChangeLogORM
+from metaprofile.shared.schemas.base import EntityType
 
 logger = structlog.get_logger(__name__)
 
@@ -47,8 +48,39 @@ _DEFAULTS = {
 class Writer:
     """阶段⑤ 写入器：profile 主表 upsert + 评分 + 变更日志 + 关系。"""
 
-    def __init__(self, triple_writer: TripleWriter | None = None) -> None:
+    def __init__(
+        self,
+        triple_writer: TripleWriter | None = None,
+        neo4j_repo: object | None = None,
+    ) -> None:
         self._tw = triple_writer
+        # FoundationNeo4jRepo,用于把 profile 节点写入 Neo4j(entity_id=PK),
+        # 让 OrgRelationService 等 relation service 能按 PK 查到 ingest 创建的 profile。
+        self._neo4j = neo4j_repo
+
+    async def upsert_profile_node(
+        self,
+        *,
+        entity_type: EntityType,
+        entity_id: str,
+        attrs: dict,
+    ) -> None:
+        """把 profile 节点写入 Neo4j(entity_id=PK),让 relation service 查得到。
+
+        无 neo4j_repo(collector 未注入)时静默跳过 —— 保持向后兼容与单测便利。
+        """
+        if self._neo4j is None:
+            return
+        name = attrs.get("name_cn") or attrs.get("tech_name_cn")
+        if isinstance(name, list):
+            name = name[0] if name else None
+        props: dict = {"name_cn": name or "", "entity_type": entity_type.value}
+        # 补其他有用展示字段(非空)
+        for k in ("summary", "tech_summary"):
+            v = attrs.get(k)
+            if v:
+                props[k] = v
+        await self._neo4j.upsert_entity_node(entity_type, entity_id, props)
 
     async def write_profile(
         self,

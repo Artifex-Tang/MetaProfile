@@ -67,8 +67,11 @@ async def run_sql_warehouse_collection(
     from metaprofile.shared.db.postgres import get_session
 
     llm = LLMGateway()
-    tw = TripleWriter(FoundationNeo4jRepo())  # Neo4j repo 同步构造
-    writer = Writer(triple_writer=tw)  # 注入 → write_relations 真正生效
+    # Neo4j repo 单实例:同时喂 TripleWriter(写关系) + Writer(写 profile 节点)，
+    # 二者共享同一连接池;profile 节点(entity_id=PK)与关系端点对齐到同一张图。
+    neo4j_repo = FoundationNeo4jRepo()
+    tw = TripleWriter(neo4j_repo)
+    writer = Writer(triple_writer=tw, neo4j_repo=neo4j_repo)
 
     orch = BatchOrchestrator(
         extractor=Extractor(),

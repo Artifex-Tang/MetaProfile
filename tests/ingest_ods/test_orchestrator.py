@@ -25,7 +25,11 @@ async def test_run_processes_batches_and_advances_watermark() -> None:
           "raw_payload": {"_attrs": {"name_cn": "甲"}}, "source_id": "1", "last_id": 5}],
         [],  # 第二批空 → 结束
     ])
-    resolver = AsyncMock(); resolver.resolve = AsyncMock(side_effect=lambda rows: rows)
+    resolver = AsyncMock(); resolver.resolve = AsyncMock(side_effect=lambda rows: [
+        {"profile_type": r["profile_type"], "entity_key": r["entity_key"],
+         "attrs": r["raw_payload"]["_attrs"], "source_rows": [r]}
+        for r in rows
+    ])
     scorer = AsyncMock(); scorer.score = AsyncMock(return_value={"veracity_score": 0.9,
                                        "timeliness_score": 0.5, "data_as_of": None})
     writer = AsyncMock(); writer.write_profile = AsyncMock(return_value="ORG_1")

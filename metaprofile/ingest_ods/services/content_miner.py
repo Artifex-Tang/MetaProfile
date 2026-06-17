@@ -40,11 +40,11 @@ class ContentMiner:
         )
         try:
             data = json.loads(resp.content.strip())
+            ents = TypeAdapter(list[MinedEntity]).validate_python(data.get("entities", []))
+            rels = TypeAdapter(list[MinedRelation]).validate_python(data.get("relations", []))
         except Exception as exc:  # noqa: BLE001
             logger.warning("mine_parse_failed", error=str(exc))
             return [], []
-        ents = TypeAdapter(list[MinedEntity]).validate_python(data.get("entities", []))
-        rels = TypeAdapter(list[MinedRelation]).validate_python(data.get("relations", []))
         return ents, rels
 
     async def mine(self, attachments: list[dict]) -> tuple[list[dict], list[RelationTriple]]:

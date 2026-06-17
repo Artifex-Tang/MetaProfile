@@ -39,3 +39,17 @@ async def test_mine_skips_null_clean_content() -> None:
     entities, relations = await cm.mine([{"original_id": 1, "clean_content": None}])
     assert entities == [] and relations == []
     llm.complete.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_mine_tolerates_extra_keys_in_llm_output() -> None:
+    """extra='forbid' + stray LLM key must not crash the batch (regression)."""
+    bad_json = ('{"entities":[{"type":"org","name":"X","stray_extra_field":1}],'
+                '"relations":[]}')
+    llm = AsyncMock()
+    llm.complete = AsyncMock(return_value=_Resp(bad_json))
+    cm = ContentMiner(llm=llm)
+    # Must NOT raise; returns (entities, relations) — empty is fine.
+    entities, relations = await cm.mine([{"original_id": 1, "clean_content": "正文"}])
+    assert isinstance(entities, list)
+    assert isinstance(relations, list)

@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="1200" height="700">
+  <defs>
+    <marker id="arrowA" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrowB" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#10b981"/>
+    </marker>
+    <marker id="arrowC" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowE" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#f97316"/>
+    </marker>
+    <marker id="arrowF" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrowG" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444"/>
+    </marker>
+    <marker id="arrowH" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/>
+    </marker>
+    <filter id="shadowSoft" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+    <filter id="shadowGlass" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#020617" flood-opacity="0.28"/>
+    </filter>
+    <style>
+    text { font-family: 'Microsoft YaHei','SimHei','PingFang SC',sans-serif; }
+    .title { font-size: 30px; font-weight: 700; fill: #111827; }
+    .subtitle { font-size: 14px; font-weight: 500; fill: #6b7280; }
+    .section { font-size: 13px; font-weight: 700; fill: #2563eb; letter-spacing: 1.4px; }
+    .section-sub { font-size: 12px; font-weight: 500; fill: #94a3b8; }
+    .node-title { font-size: 18px; font-weight: 700; fill: #111827; }
+    .node-sub { font-size: 12px; font-weight: 500; fill: #6b7280; }
+    .node-type { font-size: 12px; font-weight: 700; fill: #9ca3af; letter-spacing: 0.08em; }
+    .arrow-label { font-size: 12px; font-weight: 600; fill: #6b7280; }
+    .legend { font-size: 12px; font-weight: 500; fill: #6b7280; }
+    .footnote { font-size: 12px; font-weight: 500; fill: #94a3b8; }
+    </style>
+  </defs>
+  <rect width="1200.0" height="700.0" fill="#ffffff"/>
+  <text x="600.0" y="56" text-anchor="middle" class="title">ODS→Profile 抽取流水线架构</text>
+  <text x="600.0" y="82" text-anchor="middle" class="subtitle">5 阶段流水线 + 批次编排 + 两路径 LLM + 混合存储</text>
+  <rect x="30.0" y="90.0" width="1140.0" height="110.0" rx="16.0" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <text x="48.0" y="114.0" class="section">数据源层 SOURCE</text>
+  <rect x="30.0" y="220.0" width="1140.0" height="80.0" rx="16.0" fill="#fff7ed" stroke="#f59e0b" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <text x="48.0" y="244.0" class="section">编排层 ORCHESTRATION</text>
+  <rect x="30.0" y="320.0" width="820.0" height="180.0" rx="16.0" fill="#f0fdf4" stroke="#10b981" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <text x="48.0" y="344.0" class="section">5 阶段流水线 STAGES</text>
+  <rect x="880.0" y="320.0" width="290.0" height="180.0" rx="16.0" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <text x="898.0" y="344.0" class="section">LLM 网关</text>
+  <rect x="30.0" y="520.0" width="1140.0" height="110.0" rx="16.0" fill="#eff6ff" stroke="#2563eb" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <text x="48.0" y="544.0" class="section">存储层 STORAGE</text>
+  <path d="M 230.0,186.0 L 600.0,238.0" fill="none" stroke="#2563eb" stroke-width="2.4" marker-end="url(#arrowC)"/>
+  <path d="M 590.0,186.0 L 600.0,238.0" fill="none" stroke="#2563eb" stroke-width="2.4" marker-end="url(#arrowC)"/>
+  <path d="M 600.0,288.0 L 200.0,425.0" fill="none" stroke="#f97316" stroke-width="2.4" marker-end="url(#arrowE)"/>
+  <path d="M 200.0,425.0 L 210.0,425.0" fill="none" stroke="#f97316" stroke-width="2.4" marker-end="url(#arrowE)"/>
+  <path d="M 360.0,425.0 L 370.0,425.0" fill="none" stroke="#f97316" stroke-width="2.4" marker-end="url(#arrowE)"/>
+  <path d="M 520.0,425.0 L 530.0,425.0" fill="none" stroke="#f97316" stroke-width="2.4" marker-end="url(#arrowE)"/>
+  <path d="M 680.0,425.0 L 690.0,425.0" fill="none" stroke="#f97316" stroke-width="2.4" marker-end="url(#arrowE)"/>
+  <path d="M 360.0,425.0 L 905.0,425.0" fill="none" stroke="#7c3aed" stroke-width="2.4" marker-end="url(#arrowA)"/>
+  <path d="M 520.0,425.0 L 905.0,425.0" fill="none" stroke="#7c3aed" stroke-width="2.4" marker-end="url(#arrowA)"/>
+  <path d="M 680.0,425.0 L 905.0,425.0" fill="none" stroke="#7c3aed" stroke-width="2.4" marker-end="url(#arrowA)"/>
+  <path d="M 960.0,186.0 L 360.0,425.0" fill="none" stroke="#2563eb" stroke-width="2.4" marker-end="url(#arrowC)"/>
+  <path d="M 690.0,425.0 L 240.0,555.0" fill="none" stroke="#10b981" stroke-width="2.4" marker-end="url(#arrowB)"/>
+  <path d="M 765.0,480.0 L 600.0,555.0" fill="none" stroke="#10b981" stroke-width="2.4" marker-end="url(#arrowB)"/>
+  <path d="M 765.0,480.0 L 960.0,555.0" fill="none" stroke="#10b981" stroke-width="2.4" marker-end="url(#arrowB)"/>
+  <ellipse cx="230.0" cy="137.0" rx="85.0" ry="7.0" fill="#ecfdf5" stroke="#10b981" stroke-width="2.2"/>
+  <rect x="60.0" y="137.0" width="340.0" height="42.0" fill="#ecfdf5" stroke="#10b981" stroke-width="2.2"/>
+  <ellipse cx="230.0" cy="179.0" rx="85.0" ry="7.0" fill="#ecfdf5" stroke="#10b981" stroke-width="2.2"/>
+  <ellipse cx="230.0" cy="151.28" rx="85.0" ry="7.0" fill="none" stroke="#10b981" stroke-opacity="0.45" stroke-width="1.2"/>
+  <ellipse cx="230.0" cy="163.6" rx="85.0" ry="7.0" fill="none" stroke="#10b981" stroke-opacity="0.25" stroke-width="1.2"/>
+  <text x="230.0" y="152.0" text-anchor="middle" class="node-title">云 Doris 生产</text>
+  <text x="230.0" y="176.0" text-anchor="middle" class="node-sub">10.242.0.1:9030 · ods_zbzx · 只读 gz_kt5</text>
+  <ellipse cx="590.0" cy="137.0" rx="85.0" ry="7.0" fill="#ecfdf5" stroke="#10b981" stroke-width="2.2"/>
+  <rect x="420.0" y="137.0" width="340.0" height="42.0" fill="#ecfdf5" stroke="#10b981" stroke-width="2.2"/>
+  <ellipse cx="590.0" cy="179.0" rx="85.0" ry="7.0" fill="#ecfdf5" stroke="#10b981" stroke-width="2.2"/>
+  <ellipse cx="590.0" cy="151.28" rx="85.0" ry="7.0" fill="none" stroke="#10b981" stroke-opacity="0.45" stroke-width="1.2"/>
+  <ellipse cx="590.0" cy="163.6" rx="85.0" ry="7.0" fill="none" stroke="#10b981" stroke-opacity="0.25" stroke-width="1.2"/>
+  <text x="590.0" y="152.0" text-anchor="middle" class="node-title">本地 Doris dev 子集</text>
+  <text x="590.0" y="176.0" text-anchor="middle" class="node-sub">127.0.0.1:9030 · 20% 抽样灌数</text>
+  <path d="M 780.0 148.0 L 801.6 148.0 L 811.32 130.0 L 834.0 130.0 L 1140.0 130.0 L 1140.0 186.0 L 780.0 186.0 Z" fill="#fef3c7" stroke="#d97706" stroke-width="2.0" filter="url(#shadowSoft)"/>
+  <line x1="802.0" y1="172.0" x2="1118.0" y2="172.0" stroke="#d97706" stroke-opacity="0.35" stroke-width="1.2"/>
+  <line x1="802.0" y1="186.0" x2="1118.0" y2="186.0" stroke="#d97706" stroke-opacity="0.35" stroke-width="1.2"/>
+  <line x1="802.0" y1="200.0" x2="1118.0" y2="200.0" stroke="#d97706" stroke-opacity="0.35" stroke-width="1.2"/>
+  <text x="960.0" y="212.0" text-anchor="middle" class="node-title">附件表 clean_content</text>
+  <text x="960.0" y="230.0" text-anchor="middle" class="node-sub">正文文本 · ContentMine 输入</text>
+  <rect x="200.0" y="238.0" width="800.0" height="50.0" rx="10.0" fill="#fff7ed" stroke="#f59e0b" stroke-width="1.8" filter="url(#shadowSoft)"/>
+  <text x="600.0" y="263.0" text-anchor="middle" class="node-title">BatchOrchestrator</text>
+  <text x="600.0" y="285.0" text-anchor="middle" class="node-sub">id-keyset 拉批 · Semaphore 并发 · _active_types 同类型互斥 · watermark 断点续传</text>
+  <rect x="50.0" y="370.0" width="150.0" height="110.0" rx="10.0" fill="#dcfce7" stroke="#16a34a" stroke-width="1.8" filter="url(#shadowSoft)"/>
+  <text x="125.0" y="425.0" text-anchor="middle" class="node-title">① Extract</text>
+  <text x="125.0" y="447.0" text-anchor="middle" class="node-sub">表→表 · apply_mapping · staging dict</text>
+  <rect x="210.0" y="370.0" width="150.0" height="110.0" rx="10.0" fill="#dcfce7" stroke="#16a34a" stroke-width="1.8" filter="url(#shadowSoft)"/>
+  <text x="285.0" y="425.0" text-anchor="middle" class="node-title">② ContentMine</text>
+  <text x="285.0" y="447.0" text-anchor="middle" class="node-sub">附件正文 LLM 抽取</text>
+  <rect x="370.0" y="370.0" width="150.0" height="110.0" rx="10.0" fill="#dcfce7" stroke="#16a34a" stroke-width="1.8" filter="url(#shadowSoft)"/>
+  <text x="445.0" y="425.0" text-anchor="middle" class="node-title">③ Resolve/Merge</text>
+  <text x="445.0" y="447.0" text-anchor="middle" class="node-sub">强键归并 · 弱键 name 簇 · LLM 消歧</text>
+  <rect x="530.0" y="370.0" width="150.0" height="110.0" rx="10.0" fill="#dcfce7" stroke="#16a34a" stroke-width="1.8" filter="url(#shadowSoft)"/>
+  <text x="605.0" y="425.0" text-anchor="middle" class="node-title">④ Score</text>
+  <text x="605.0" y="447.0" text-anchor="middle" class="node-sub">veracity / timeliness · LLM · 失败兜底 0</text>
+  <rect x="690.0" y="370.0" width="150.0" height="110.0" rx="10.0" fill="#dcfce7" stroke="#16a34a" stroke-width="1.8" filter="url(#shadowSoft)"/>
+  <text x="765.0" y="425.0" text-anchor="middle" class="node-title">⑤ Write</text>
+  <text x="765.0" y="447.0" text-anchor="middle" class="node-sub">profile upsert · 关系→Neo4j · 变更日志</text>
+  <rect x="905.0" y="370.0" width="240.0" height="110.0" rx="10.0" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.8" filter="url(#shadowSoft)"/>
+  <text x="1025.0" y="425.0" text-anchor="middle" class="node-title">LLMGateway</text>
+  <text x="1025.0" y="447.0" text-anchor="middle" class="node-sub">deepseek-chat 生成 · qwen2.5-72b 抽取</text>
+  <ellipse cx="240.0" cy="562.5" rx="90.0" ry="7.5" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/>
+  <rect x="60.0" y="562.5" width="360.0" height="45.0" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/>
+  <ellipse cx="240.0" cy="607.5" rx="90.0" ry="7.5" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/>
+  <ellipse cx="240.0" cy="577.8" rx="90.0" ry="7.5" fill="none" stroke="#2563eb" stroke-opacity="0.45" stroke-width="1.2"/>
+  <ellipse cx="240.0" cy="591.0" rx="90.0" ry="7.5" fill="none" stroke="#2563eb" stroke-opacity="0.25" stroke-width="1.2"/>
+  <text x="240.0" y="579.0" text-anchor="middle" class="node-title">PostgreSQL</text>
+  <text x="240.0" y="603.0" text-anchor="middle" class="node-sub">profile 主表+评分 · staging · 变更日志</text>
+  <ellipse cx="600.0" cy="562.5" rx="80.0" ry="7.5" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/>
+  <rect x="440.0" y="562.5" width="320.0" height="45.0" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/>
+  <ellipse cx="600.0" cy="607.5" rx="80.0" ry="7.5" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/>
+  <ellipse cx="600.0" cy="577.8" rx="80.0" ry="7.5" fill="none" stroke="#2563eb" stroke-opacity="0.45" stroke-width="1.2"/>
+  <ellipse cx="600.0" cy="591.0" rx="80.0" ry="7.5" fill="none" stroke="#2563eb" stroke-opacity="0.25" stroke-width="1.2"/>
+  <text x="600.0" y="579.0" text-anchor="middle" class="node-title">Neo4j</text>
+  <text x="600.0" y="603.0" text-anchor="middle" class="node-sub">profile 节点 · 关系图</text>
+  <ellipse cx="960.0" cy="562.5" rx="90.0" ry="7.5" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/>
+  <rect x="780.0" y="562.5" width="360.0" height="45.0" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/>
+  <ellipse cx="960.0" cy="607.5" rx="90.0" ry="7.5" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/>
+  <ellipse cx="960.0" cy="577.8" rx="90.0" ry="7.5" fill="none" stroke="#2563eb" stroke-opacity="0.45" stroke-width="1.2"/>
+  <ellipse cx="960.0" cy="591.0" rx="90.0" ry="7.5" fill="none" stroke="#2563eb" stroke-opacity="0.25" stroke-width="1.2"/>
+  <text x="960.0" y="579.0" text-anchor="middle" class="node-title">Elasticsearch</text>
+  <text x="960.0" y="603.0" text-anchor="middle" class="node-sub">全文检索 · 向量索引</text>
+  <rect x="390.5" y="198.0" width="49" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="415.0" y="212.0" text-anchor="middle" class="arrow-label">ODS 行</text>
+  <rect x="382.0" y="342.5" width="36" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="400.0" y="356.5" text-anchor="middle" class="arrow-label">控制</text>
+  <rect x="604.5" y="411.0" width="56" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="632.5" y="425.0" text-anchor="middle" class="arrow-label">附件 LLM</text>
+  <rect x="694.5" y="411.0" width="36" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="712.5" y="425.0" text-anchor="middle" class="arrow-label">消歧</text>
+  <rect x="774.5" y="411.0" width="36" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="792.5" y="425.0" text-anchor="middle" class="arrow-label">评分</text>
+  <rect x="642.0" y="291.5" width="36" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="660.0" y="305.5" text-anchor="middle" class="arrow-label">正文</text>
+  <rect x="409.0" y="492.0" width="112" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="465.0" y="506.0" text-anchor="middle" class="arrow-label">profile upsert</text>
+  <rect x="626.5" y="487.5" width="112" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="682.5" y="501.5" text-anchor="middle" class="arrow-label">RelationTriple</text>
+  <rect x="838.0" y="487.5" width="49" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="862.5" y="501.5" text-anchor="middle" class="arrow-label">embed</text>
+  <line x1="1036.0" y1="578.0" x2="1066.0" y2="578.0" stroke="#2563eb" stroke-width="2.4" marker-end="url(#arrowC)"/>
+  <text x="1076.0" y="582.0" class="legend">主数据流 (蓝)</text>
+  <line x1="1036.0" y1="600.0" x2="1066.0" y2="600.0" stroke="#f97316" stroke-width="2.4" marker-end="url(#arrowE)"/>
+  <text x="1076.0" y="604.0" class="legend">编排控制 (橙)</text>
+  <line x1="1036.0" y1="622.0" x2="1066.0" y2="622.0" stroke="#7c3aed" stroke-width="2.4" marker-end="url(#arrowA)"/>
+  <text x="1076.0" y="626.0" class="legend">LLM 调用 (紫)</text>
+  <line x1="1036.0" y1="644.0" x2="1066.0" y2="644.0" stroke="#10b981" stroke-width="2.4" marker-end="url(#arrowB)"/>
+  <text x="1076.0" y="648.0" class="legend">写入 (绿)</text>
+</svg>

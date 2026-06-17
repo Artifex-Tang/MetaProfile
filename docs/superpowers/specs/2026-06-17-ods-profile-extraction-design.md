@@ -379,7 +379,7 @@ key_events_cn:
 | **map_predicate（文本 LLM）** | 全 31 种（含 5 卫星对） | `_PREDICATE_MAP` 52 条覆盖全 31；同值谓词按 (主,客) 元组消歧。 |
 | **staging 待补** | LLM 抽出但谓词未映射 | `map_predicate` 返回 None 的谓词落 `RelationStagingORM`，不丢，待人工/补映射。 |
 
-详见 §19.3 全矩阵 + 4 张架构/关系图（Part D 待生成，路径见 §19.4）。
+详见 §19.3 全矩阵 + 4 张架构/关系图（Part D 已生成，路径见 §19.4）。
 
 ---
 
@@ -588,13 +588,13 @@ key_events_cn:
 
 > 上表 #16-31 涉及 Strategy/Event/Enterprise/Contract/Package 等 5 卫星 EntityType（见 §19.1.7）；具体 RelationType 命名以实现期 `shared/schemas/relations.py` 枚举为准（本表给出方向性占位，重在展示三路覆盖——结构化规则负责 5 种字段隐含关系、map_predicate 覆盖全 31 含卫星对、未映射谓词进 staging）。
 
-### 19.4 架构与关系图（Part D 待生成）
+### 19.4 架构与关系图（Part D 已生成）
 
-实现期 4 张图（Part D，由 fireworks-tech-graph 生成）：
+实现期 4 张图（Part D，由 fireworks-tech-graph 生成，SVG 主格式 + PNG 经 Playwright Chromium 渲染，CJK 忠实）：
 
-- `docs/diagrams/ods-arch.{svg,png}` — ODS 抽取流水线总体架构（5 阶段 + 两路径 LLM + staging）。
-- `docs/diagrams/ods-relations.{svg,png}` — 31 RelationType 关系图谱（主体/客体/卫星 EntityType，标注三路来源）。
-- `docs/diagrams/ods-watermark.{svg,png}` — 批次编排 + watermark 原子提交 + per-table 命名空间（C2/C3）。
-- `docs/diagrams/ods-name-pk.{svg,png}` — NameIndex (type,name)→PK 解析 + 卫星 ensure + profile Neo4j 节点。
+- `docs/diagrams/ods-arch.{svg,png}` — ODS 抽取流水线总体架构（5 阶段 + 两路径 LLM + staging + 混合存储）。
+- `docs/diagrams/ods-flow.{svg,png}` — 端到端抽取流程（per-table id-keyset · unmapped/empty 判断 · watermark 原子提交 · 单实体失败不杀批 · resume 回环）。
+- `docs/diagrams/ods-relation-matrix.{svg,png}` — 31 RelationType 关系全覆盖矩阵（按 主体→客体 分组，三路来源：结构化规则 / map_predicate / staging，对应 §11.1 全矩阵）。
+- `docs/diagrams/ods-dataflow.{svg,png}` — 数据流与部署拓扑（云→本地灌数 20% 抽样 · 管线写 PG/Neo4j/ES · profile_*_relation_service 读 Neo4j → 前端 RelationGraph）。
 
-> 文件尚未创建（forward link）；Part D 完成后路径不变，§11.1 的图链与此对齐。
+> 文件已落地；§11.1 的关系矩阵与此 §19.4 第三张（ods-relation-matrix）一致。SVG 为浏览器原生 CJK 渲染，PNG 为 Playwright @2x 同源导出。

@@ -7,11 +7,35 @@ from typing import Any
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from metaprofile.ingest_ods.domain.mappings import get_mapping
 from metaprofile.ingest_ods.domain.orm_models import DBConnectionORM
 from metaprofile.ingest_ods.services.connections import resolve_dsn
 from metaprofile.ingest_ods.services.watermark import WatermarkStore
 
 logger = structlog.get_logger(__name__)
+
+# 强键优先级（依次尝试，返回首个存在值的 str(...)）
+_STRONG_KEYS: tuple[str, ...] = (
+    "company_id", "usc_code", "orcid", "patent_number", "doi", "email",
+)
+
+
+def compute_entity_id(entity_key: dict, attrs: dict) -> str | None:
+    """统一计算 entity_id：强键优先 → name 兜底 → None。
+
+    name 可能是 list（如 project 的 name_cn=['M1']，由 _one transform 产出），
+    归一为首个元素，避免 entity_id 变成 "name:['M1']" 这种 list repr 破坏 PK。
+    """
+    for k in _STRONG_KEYS:
+        v = entity_key.get(k)
+        if v:
+            return str(v)
+    name = attrs.get("name_cn") or attrs.get("tech_name_cn")
+    if isinstance(name, list):
+        name = name[0] if name else None
+    if name:
+        return f"name:{name}"
+    return None
 
 # 进程内活跃 profile_type 集合 → 同类型互斥，跨类型并行
 _active_types: set[str] = set()
@@ -39,7 +63,13 @@ class BatchOrchestrator:
 
         total_imported = 0
         for table in tables:
-            last_id = WatermarkStore.get(source, WatermarkStore.KEY_ID) or 0
+            # I1: 未映射表跳过（避免静默拉空 + 浪费 Doris 读）
+            if get_mapping(table) is None:
+                logger.warning("table_unmapped_skipped", table=table)
+                continue
+            # C2: watermark last_id 按表命名空间，避免多表 source 互相跳过/覆盖
+            wm_key = f"{WatermarkStore.KEY_ID}:{table}"
+            last_id = WatermarkStore.get(source, wm_key) or 0
             while True:
                 rows = await self._extractor.extract_batch(
                     dsn=dsn, table=table, last_id=last_id,
@@ -54,18 +84,16 @@ class BatchOrchestrator:
                     await asyncio.sleep(0.5)
                 _active_types.add(ptype)
                 try:
-                    imported = await self._process_batch(session, task, source, rows, mode)
+                    imported = await self._process_batch(
+                        session, task, source, rows, mode, table, last_id)
                     total_imported += imported
                     logger.info("batch_processed", table=table, ptype=ptype,
                                 imported=imported, last_id=last_id)
                 finally:
                     _active_types.discard(ptype)
-
-                WatermarkStore.set(source, WatermarkStore.KEY_ID, last_id)
-                await session.flush()
         return total_imported
 
-    async def _process_batch(self, session, task, source, rows, mode) -> int:
+    async def _process_batch(self, session, task, source, rows, mode, table, last_id) -> int:
         # TODO: 并发执行 entity 评分/写入（asyncio.Semaphore(workers)），当前批量较小时顺序执行即可。
         # mode == "content_mine" / "both" 的附件内容挖掘由 ContentMiner 在 collector (T13) 层接入，
         # 这里仅负责结构化抽取路径。
@@ -99,28 +127,18 @@ class BatchOrchestrator:
                 )
                 scores = {"veracity_score": 0.0, "timeliness_score": 0.0,
                           "data_as_of": None}
-            # M4: 强键优先，无名实体防静默碰撞 → record_error 跳过
-            entity_id = (ent["entity_key"].get("company_id")
-                         or ent["entity_key"].get("usc_code")
-                         or ent["entity_key"].get("orcid")
-                         or ent["entity_key"].get("email")
-                         or ent["entity_key"].get("patent_number")
-                         or ent["entity_key"].get("doi"))
-            if entity_id:
-                entity_id = str(entity_id)
-            else:
-                name = attrs.get("name_cn") or attrs.get("tech_name_cn")
-                if name:
-                    entity_id = f"name:{name}"
-                else:
-                    logger.warning("entity_no_identity",
-                                   profile_type=ent["profile_type"])
-                    await self._writer.record_error(
-                        session, batch_id=task.id, stage="identity",
-                        error_msg="no strong key and no name for entity",
-                        source_table=rows[0].get("source_table"),
-                    )
-                    continue
+            # M4/C1: 强键优先，name 归一 list（project name_cn=['M1']→'name:M1'），
+            # 无名实体防静默碰撞 → record_error 跳过
+            entity_id = compute_entity_id(ent["entity_key"], attrs)
+            if not entity_id:
+                logger.warning("entity_no_identity",
+                               profile_type=ent["profile_type"])
+                await self._writer.record_error(
+                    session, batch_id=task.id, stage="identity",
+                    error_msg="no strong key and no name for entity",
+                    source_table=rows[0].get("source_table"),
+                )
+                continue
             try:
                 await self._writer.write_profile(
                     session, profile_type=ent["profile_type"], entity_id=entity_id,
@@ -134,6 +152,9 @@ class BatchOrchestrator:
                     session, batch_id=task.id, stage="write",
                     error_msg=str(exc), source_table=rows[0].get("source_table"),
                 )
+        # C3: watermark 与 profile 原子提交（在 commit 前 set，崩溃不分歧）
+        wm_key = f"{WatermarkStore.KEY_ID}:{table}"
+        WatermarkStore.set(source, wm_key, last_id)
         await session.commit()
         task.records_imported = (task.records_imported or 0) + imported
         return imported

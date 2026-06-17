@@ -78,35 +78,52 @@ async def run_sql_warehouse_collection(
         connections=resolve_dsn,
     )
 
-    own_session = session is None
-    if own_session:
+    async def _run(sess):
+        imported = await orch.run(sess, task=task, source=source)
+        await _maybe_content_mine(sess, source, llm, writer)
+        return imported
+
+    if session is None:
         async with get_session() as sess:
-            imported = await orch.run(sess, task=task, source=source)
-            await _maybe_content_mine(sess, source, llm, writer)
-            return imported
-    imported = await orch.run(session, task=task, source=source)
-    await _maybe_content_mine(session, source, llm, writer)
-    return imported
+            return await _run(sess)
+    return await _run(session)
 
 
 async def _maybe_content_mine(sess: AsyncSession, source, llm, writer: Writer) -> None:
-    """mode in (content_mine, both) 且 enable_relations → 挖附件 → 写关系三元组。"""
+    """mode in (content_mine, both) 且 enable_relations → 挖附件 → 写关系三元组。
+
+    I1: 内容挖掘是次要富集；附件拉取/LLM/Neo4j 任一失败都不应杀掉
+    orchestrator.run 已写入的结构化灌库结果 —— 整体 try/except 吞掉并记录。
+    """
     cfg = source.config_json or {}
     if cfg.get("mode") not in ("content_mine", "both"):
         return
     if not cfg.get("enable_relations", True):
         return
-    conn_orm = await sess.get(DBConnectionORM, cfg["db_connection_id"])
-    if conn_orm is None:
-        logger.warning("content_mine_no_connection", db_connection_id=cfg.get("db_connection_id"))
-        return
-    dsn = resolve_dsn(conn_orm)
-    att_table = cfg.get("attachment_table", "ods_science_literature_attachment")
-    original_ids = (cfg.get("content_mine_original_ids") or [])[:500]
-    atts = _fetch_attachments(dsn, att_table, original_ids)
-    if not atts:
-        return
-    miner = ContentMiner(llm=llm)
-    _entities, relations = await miner.mine(atts)
-    if relations:
-        await writer.write_relations(relations)
+    try:
+        db_id = cfg.get("db_connection_id")  # M6: .get 守卫
+        if db_id is None:
+            logger.warning("content_mine_skipped_no_db_connection")
+            return
+        conn_orm = await sess.get(DBConnectionORM, db_id)
+        if conn_orm is None:
+            logger.warning("content_mine_skipped_no_db_connection_row", db_connection_id=db_id)
+            return
+        dsn = resolve_dsn(conn_orm)
+        att_table = cfg.get("attachment_table", "ods_science_literature_attachment")
+        original_ids = cfg.get("content_mine_original_ids") or []  # M3: 处理 None
+        original_ids = original_ids[:500]
+        if not original_ids:
+            logger.info("content_mine_skipped_no_ids")  # M3: 跳过可见化
+            return
+        atts = _fetch_attachments(dsn, att_table, original_ids)
+        if not atts:
+            logger.info("content_mine_skipped_no_attachments")
+            return
+        miner = ContentMiner(llm=llm)
+        _entities, relations = await miner.mine(atts)
+        if relations:
+            await writer.write_relations(relations)
+            logger.info("content_mine_relations_written", count=len(relations))
+    except Exception as exc:  # noqa: BLE001  I1: 富集失败不影响结构化灌库结果
+        logger.exception("content_mine_failed", error=str(exc))

@@ -193,7 +193,7 @@ docker exec -it mp-doris-fe mysql -h 127.0.0.1 -P 9030 -u root ods_zbzx -e "SHOW
 
 **company_basic_info 占 ~17h（85.8M 行）**。Org 映射 + 跨源匹配测试不需要 8500 万行。两选：
 - **A. 全 20%（~20h）**：最大保真；一夜后台慢同步（断点续传，可 kill/续）。
-- **B. 20% + company 封顶 ~10M 行（~6-8h，推荐）**：company 只 ~2.3%（仍 50× 于旧 30K 样本），其余全 20%。dev/test 保真几乎不损，时间砍 1/3。
+- **B. 20% + company 封顶 ~10M 行（~6-8h，推荐）✅ 已选定**：company 只 ~2.3%（仍 50× 于旧 30K 样本），其余全 20%。dev/test 保真几乎不损，时间砍 1/3。
 
 附件不参与 20%（否则 +220GB/+25h），仅各 1K 供内容挖掘测试。
 

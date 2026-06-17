@@ -107,11 +107,17 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    from sqlalchemy import inspect
+    insp = inspect(op.get_bind())
+
     for tbl in ("tech_profile", "org_profile", "person_profile", "project_profile"):
-        op.drop_column(tbl, "data_as_of")
-        op.drop_column(tbl, "timeliness_score")
-        op.drop_column(tbl, "veracity_score")
-    op.drop_table("ingest_errors")
-    op.drop_table("relation_staging")
-    op.drop_table("ingest_raw")
-    op.drop_table("db_connections")
+        cols = {c["name"] for c in insp.get_columns(tbl)}
+        if "data_as_of" in cols:
+            op.drop_column(tbl, "data_as_of")
+        if "timeliness_score" in cols:
+            op.drop_column(tbl, "timeliness_score")
+        if "veracity_score" in cols:
+            op.drop_column(tbl, "veracity_score")
+    for tbl in ("ingest_errors", "relation_staging", "ingest_raw", "db_connections"):
+        if insp.has_table(tbl):
+            op.drop_table(tbl)

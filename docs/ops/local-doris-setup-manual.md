@@ -42,96 +42,55 @@
 
 ## 2. 写配置文件
 
-在仓库根 `E:\ccode\MetaProfile` 下建 `docker/doris/` 目录，放 4 个文件。
+Doris 已**并入主 compose** `deploy/docker-compose.yml`（service `doris-fe`/`doris-be`，`profiles: [doris]`），**无需单独建 compose 文件**。配置全走环境变量，镜像 entrypoint 自动注入 `fe.conf`/`be.conf`。
 
-### 2.1 `docker/doris/docker-compose.yml`
+### 2.1 Doris 服务（已在 `deploy/docker-compose.yml`）
+
+关键片段（完整见仓库 `deploy/docker-compose.yml`）：
 
 ```yaml
-version: "3"
-services:
   doris-fe:
     image: apache/doris:doris-2.1.11-fe
-    container_name: mp-doris-fe
-    hostname: fe
+    profiles: ["doris"]
     environment:
       FE_SERVERS: "fe1:172.28.80.10:9010:9020:9030"
       FE_ID: "1"
-      PRIORITY_NETWORKS: "172.28.80.0/24"
+      PRIORITY_NETWORKS: "172.28.80.0/24"   # 锁定 docker 子网，避免通告成不可达地址
     ports:
-      - "127.0.0.1:8030:8030"
-      - "127.0.0.1:9030:9030"
+      - "127.0.0.1:8030:8030"   # FE Web UI
+      - "127.0.0.1:9030:9030"   # MySQL 协议（提取器/客户端连此）
     volumes:
       - H:/docker/doris/fe/doris-meta:/opt/apache-doris/fe/doris-meta
       - H:/docker/doris/fe/log:/opt/apache-doris/fe/log
-      - ./fe.conf:/opt/apache-doris/fe/conf/fe.conf
-    networks:
-      dorisnet:
-        ipv4_address: 172.28.80.10
-    restart: unless-stopped
+    networks: { dorisnet: { ipv4_address: 172.28.80.10 } }
 
   doris-be:
     image: apache/doris:doris-2.1.11-be
-    container_name: mp-doris-be
-    hostname: be
+    profiles: ["doris"]
+    mem_limit: 8g
     environment:
       PRIORITY_NETWORKS: "172.28.80.0/24"
       BE_ADDR: "172.28.80.20:9050"
+    ports: ["127.0.0.1:8040:8040"]
     volumes:
       - H:/docker/doris/be/storage:/opt/apache-doris/be/storage
       - H:/docker/doris/be/log:/opt/apache-doris/be/log
-      - ./be.conf:/opt/apache-doris/be/conf/be.conf
-    ports:
-      - "127.0.0.1:8040:8040"
+    networks: { dorisnet: { ipv4_address: 172.28.80.20 } }
     depends_on: [doris-fe]
-    networks:
-      dorisnet:
-        ipv4_address: 172.28.80.20
-    restart: unless-stopped
-
-networks:
-  dorisnet:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.28.80.0/24
 ```
 
-> H 盘路径需先建好目录（见 §3 步骤1）。Windows 下 `H:/docker/...` 在 compose 里用正斜杠。
+> `profiles: [doris]` = **opt-in**：`docker compose up` 不启动 Doris（重 + 需手动初始化），要显式 `--profile doris`（见 §3）。
+> H 盘路径需先建好目录（见 §3 步骤1）。C 盘仅 29G，故 Doris（占盘大）绑 H 盘，其余服务用命名卷。
+> 端口 9030 与 mp-mysql(3307) 不冲突，过渡期可并存。
 
-### 2.2 `docker/doris/fe.conf`（关键覆盖项）
+### 2.2 配置说明（env 注入，默认无需建 conf 文件）
 
-```ini
-# 网络：锁定 docker 子网，避免通告成容器内不可达地址
-priority_networks = 172.28.80.0/24
+- `PRIORITY_NETWORKS`：锁定 `172.28.80.0/24`，FE/BE 通告地址可达（否则 `SHOW BACKENDS` 里 Alive=false）。
+- `FE_SERVERS` / `FE_ID`：单 FE 集群身份。
+- `BE_ADDR`：BE 自报地址；**实际加入集群仍需 `ALTER SYSTEM ADD BACKEND`**（§3 步4，镜像不自动加）。
+- BE 内存：`mem_limit: 8g`（Doris 读 cgroup 自动取 ~80%≈6.4g）；主机紧张调小。
 
-# 端口（与镜像默认一致，显式写更稳）
-edit_log_port = 9010
-query_port = 9030
-http_port = 8030
-rpc_port = 9020
-
-# 内存（本地单节点，保守）
-JAVA_OPTS="-Xmx2048m -XX:+UseG1GC"
-```
-
-### 2.3 `docker/doris/be.conf`（关键覆盖项）
-
-```ini
-priority_networks = 172.28.80.0/24
-
-be_port = 9050
-webserver_port = 8040
-heartbeats_service_port = 9050
-brpc_port = 8060
-
-# 内存上限（按主机空闲调，8GB 够结构化阶段）
-mem_limit = 8g
-
-# 存储
-storage_root_path = /opt/apache-doris/be/storage
-```
-
-> `heartbeats_service_port` 与 `be_port` 在 2.1 默认都是 9050（heartbeat 复用 be_port），保持默认即可，不要乱改。
+**高级覆盖（可选）**：如需改端口/JVM/存储路径，另建 `deploy/doris/fe.conf`、`deploy/doris/be.conf` 并在 compose 加挂载 `- ./doris/fe.conf:/opt/apache-doris/fe/conf/fe.conf`（挂载=整文件替换，须含全部所需项）。默认不必。
 
 ---
 
@@ -143,12 +102,12 @@ mkdir -p /h/docker/doris/fe/doris-meta /h/docker/doris/fe/log \
          /h/docker/doris/be/storage /h/docker/doris/be/log
 ```
 
-**步骤 2 — 拉镜像 + 起服务：**
+**步骤 2 — 拉镜像 + 起服务（opt-in profile）：**
 ```bash
-cd /e/ccode/MetaProfile/docker/doris
-docker compose pull        # 拉两个镜像（各 ~2GB，首次慢）
-docker compose up -d
-docker compose ps          # 期望 mp-doris-fe / mp-doris-be 都 Up
+cd /e/ccode/MetaProfile/deploy
+docker compose --profile doris pull doris-fe doris-be   # 拉两个镜像（各 ~2GB，首次慢）
+docker compose --profile doris up -d doris-fe doris-be
+docker compose --profile doris ps                       # 期望 mp-doris-fe / mp-doris-be 都 Up
 ```
 
 **步骤 3 — 等 FE 就绪（约 20-40s）：**
@@ -297,8 +256,8 @@ VALUES
 
 | 操作 | 命令 |
 |---|---|
-| 启 | `cd docker/doris && docker compose up -d` |
-| 停 | `docker compose down`（保留数据） |
+| 启 | `cd deploy && docker compose --profile doris up -d doris-fe doris-be` |
+| 停 | `docker compose --profile doris down`（保留数据） |
 | 看状态 | `docker compose ps` + `docker exec mp-doris-fe mysql ... -e "SHOW FRONTENDS\G; SHOW BACKENDS\G"` |
 | FE Web UI | 浏览器 `http://127.0.0.1:8030`（root/无密码或你设的） |
 | BE Web UI | `http://127.0.0.1:8040` |
@@ -342,10 +301,10 @@ VALUES
 
 ```bash
 # 0. 前置：TUN 关，Docker 起，H 盘够
-# 1. 写 docker/doris/{docker-compose.yml,fe.conf,be.conf}（见 §2）
+# 1. Doris 已在 deploy/docker-compose.yml（profile=doris），无需另写
 mkdir -p /h/docker/doris/fe/doris-meta /h/docker/doris/fe/log /h/docker/doris/be/storage /h/docker/doris/be/log
-cd /e/ccode/MetaProfile/docker/doris
-docker compose pull && docker compose up -d
+cd /e/ccode/MetaProfile/deploy
+docker compose --profile doris pull doris-fe doris-be && docker compose --profile doris up -d doris-fe doris-be
 # 2. 等 FE 起来，加 BE（§3 步4）
 docker exec -it mp-doris-fe mysql -h 127.0.0.1 -P 9030 -u root -e "ALTER SYSTEM ADD BACKEND '172.28.80.20:9050'; SHOW BACKENDS\G"
 # 3. 建库

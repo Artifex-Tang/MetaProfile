@@ -16,6 +16,14 @@ class EntityType(StrEnum):
     ORG = "ORG"
     PERSON = "PERSON"
 
+    # 卫星实体(关系端点,非画像类型):为全 48 关系进图做铺垫,
+    # Neo4j label/前端 TYPE_META/_PREDICATE_MAP 由后续任务补。
+    STRATEGY = "战略规划"
+    EVENT = "事件"
+    ENTERPRISE = "企业"
+    CONTRACT = "采购合同"
+    PACKAGE = "项目包"
+
 
 class SourceMethod(StrEnum):
     """字段抽取来源：用于审计追溯。"""

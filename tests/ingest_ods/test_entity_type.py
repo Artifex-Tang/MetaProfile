@@ -35,3 +35,18 @@ def test_relation_triple_accepts_satellite_endpoints():
     )
     assert tri.object_type == EntityType.STRATEGY
     assert tri.subject_type == EntityType.ORG
+
+
+def test_neo4j_labels_cover_satellites():
+    """Neo4j label 图覆盖 5 卫星类(两个消费点:repo EntityType 键 + triple_writer value 键)。"""
+    from metaprofile.foundation.storage.neo4j_repo import _ENTITY_LABELS as repo_labels
+    from metaprofile.foundation.relation.triple_writer import _ENTITY_LABELS as tw_labels
+
+    satellites = (EntityType.STRATEGY, EntityType.EVENT, EntityType.ENTERPRISE,
+                  EntityType.CONTRACT, EntityType.PACKAGE)
+    for et in satellites:
+        assert repo_labels[et], f"neo4j_repo 缺 label: {et}"
+        assert tw_labels[et.value], f"triple_writer 缺 label: {et.value}"
+    # label 值合理(首字母大写英文)
+    assert repo_labels[EntityType.STRATEGY] == "Strategy"
+    assert tw_labels["ENTERPRISE"] == "Enterprise"

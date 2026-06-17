@@ -18,6 +18,12 @@ _ENTITY_LABELS: dict[str, str] = {
     "ORG": "Org",
     "PERSON": "Person",
     "PROJECT": "Project",
+    # 卫星实体(关系端点,非画像类型)
+    "STRATEGY": "Strategy",
+    "EVENT": "Event",
+    "ENTERPRISE": "Enterprise",
+    "CONTRACT": "Contract",
+    "PACKAGE": "Package",
 }
 
 

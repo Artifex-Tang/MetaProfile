@@ -23,6 +23,12 @@ _ENTITY_LABELS: dict[EntityType, str] = {
     EntityType.ORG: "Org",
     EntityType.PERSON: "Person",
     EntityType.PROJECT: "Project",
+    # 卫星实体(关系端点,非画像类型)
+    EntityType.STRATEGY: "Strategy",
+    EntityType.EVENT: "Event",
+    EntityType.ENTERPRISE: "Enterprise",
+    EntityType.CONTRACT: "Contract",
+    EntityType.PACKAGE: "Package",
 }
 
 

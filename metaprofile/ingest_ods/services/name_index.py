@@ -3,9 +3,15 @@
 GAP2: 关系端点解析 —— 命中→用 profile PK(对齐 Neo4j profile 节点);
 未命中→保留 name: 卫星 id。这样结构化/内容挖掘产出的关系端点能与
 ingest 创建的 profile 节点(entity_id=PK)连成同一张图,而非碎片化。
+
+LIMITATION — 批内作用域：NameIndex 仅记录当前批次内 materialize 的实体。
+在其他批次（或同一次 run 的其他表）中物化的实体**不会**被解析，
+对应的关系端点会保留为 ``name:`` 卫星节点。跨批/跨表的 (type,name)→PK
+解析需要一个持久化存储（follow-up），当前实现**不应**被视为 bug。
 """
 from __future__ import annotations
 
+from metaprofile.ingest_ods.domain.relation_rules import NAME_SATELLITE_PREFIX
 from metaprofile.shared.schemas.base import EntityType
 
 
@@ -35,6 +41,6 @@ class NameIndex:
             self._m[(entity_type.value, nm)] = entity_id
 
     def resolve(self, entity_type: EntityType, name: str) -> str:
-        """返回 PK id(命中)或 f"name:{name}"(未命中,卫星实体)。"""
+        """返回 PK id(命中)或 f"{NAME_SATELLITE_PREFIX}{name}"(未命中,卫星实体)。"""
         pk = self._m.get((entity_type.value, str(name).strip()))
-        return pk if pk else f"name:{name}"
+        return pk if pk else f"{NAME_SATELLITE_PREFIX}{name}"

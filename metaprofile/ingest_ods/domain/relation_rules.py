@@ -15,6 +15,11 @@ from metaprofile.ingest_ods.domain.mappings import _feat, _resolve
 from metaprofile.shared.schemas.base import EntityType, SourceMethod
 from metaprofile.shared.schemas.relations import RelationTriple, RelationType
 
+# 未能解析为 PK 的关系端点使用此前缀 + 名称 作为占位 entity_id（"卫星"实体节点）。
+# 解析命中 NameIndex 的端点会用 profile PK 替换；未命中保留 name:<name>。
+# 集中常量避免散落各处的字面量 "name:" 漂移。
+NAME_SATELLITE_PREFIX = "name:"
+
 
 @dataclass
 class StructRelationRule:
@@ -113,7 +118,7 @@ def extract_structured_relations(
         raw = _resolve(row, rule.obj_name_src)
         names = _to_name_list(raw, is_list=rule.is_list)
         for nm in names:
-            other_id = f"name:{nm}"
+            other_id = f"{NAME_SATELLITE_PREFIX}{nm}"
             if rule.current_as == "subject":
                 # current=subject, other=object
                 tri = RelationTriple(

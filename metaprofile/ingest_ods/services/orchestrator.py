@@ -9,7 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaprofile.ingest_ods.domain.mappings import get_mapping
 from metaprofile.ingest_ods.domain.orm_models import DBConnectionORM
-from metaprofile.ingest_ods.domain.relation_rules import extract_structured_relations
+from metaprofile.ingest_ods.domain.relation_rules import (
+    NAME_SATELLITE_PREFIX,
+    extract_structured_relations,
+)
 from metaprofile.ingest_ods.services.connections import resolve_dsn
 from metaprofile.ingest_ods.services.name_index import NameIndex
 from metaprofile.ingest_ods.services.watermark import WatermarkStore
@@ -38,10 +41,10 @@ def resolve_triple(triple: RelationTriple, idx: NameIndex) -> RelationTriple:
     命中时复制为新的 RelationTriple(避免变更跨批共享对象);未命中保留 name: 卫星。
     """
     sid = triple.subject_id
-    if sid.startswith("name:") and triple.subject_name:
+    if sid.startswith(NAME_SATELLITE_PREFIX) and triple.subject_name:
         sid = idx.resolve(triple.subject_type, triple.subject_name)
     oid = triple.object_id
-    if oid.startswith("name:") and triple.object_name:
+    if oid.startswith(NAME_SATELLITE_PREFIX) and triple.object_name:
         oid = idx.resolve(triple.object_type, triple.object_name)
     if sid == triple.subject_id and oid == triple.object_id:
         return triple
@@ -75,7 +78,7 @@ def compute_entity_id(entity_key: dict, attrs: dict) -> str | None:
     if isinstance(name, list):
         name = name[0] if name else None
     if name:
-        return f"name:{name}"
+        return f"{NAME_SATELLITE_PREFIX}{name}"
     return None
 
 # 进程内活跃 profile_type 集合 → 同类型互斥，跨类型并行
@@ -152,6 +155,9 @@ class BatchOrchestrator:
             return 0
         imported = 0
         # GAP2: 批内 NameIndex —— 关系端点解析(PK 对齐 profile 节点)
+        # NOTE: NameIndex 是批内作用域 —— 在其他批次(或同一次 run 的其他表)中物化
+        # 的实体不会解析,对应关系端点保留为 name: 卫星节点。跨批/跨表解析需持久化
+        # (type,name)→PK store(follow-up);此处不应被当作 bug。
         name_index = NameIndex()
         # GAP1: 收集本批结构化关系,稍后统一解析端点+写图
         structured_triples: list[RelationTriple] = []

@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -31,6 +32,61 @@ async def test_write_relations_delegates_to_triple_writer() -> None:
     w = Writer(triple_writer=tw)
     await w.write_relations([{"relation": "PERSON_AFFILIATED_ORG"}])
     tw.write_batch.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_write_relations_ensures_satellite_nodes_before_write() -> None:
+    """Regression: Neo4j upsert_relation 是 MATCH 基 —— name: 卫星端点必须在
+    写边之前 ensure,否则 MATCH 返回空、MERGE 不建边也不报错,边被静默丢弃。
+
+    用真 Writer + 真 TripleWriter + mock FoundationNeo4jRepo 验证:
+      (a) name: 卫星端点(张三)在写边前被 upsert_entity_node ensure;
+      (b) PK 端点(ORG_1)不在此重复 ensure(已由 upsert_profile_node 处理);
+      (c) upsert_relation 收到两个端点 id("ORG_1" 与 "name:张三")。
+    """
+    from metaprofile.foundation.relation.triple_writer import TripleWriter
+    from metaprofile.ingest_ods.domain.relation_rules import NAME_SATELLITE_PREFIX
+    from metaprofile.shared.schemas.base import EntityType, SourceMethod
+    from metaprofile.shared.schemas.relations import RelationTriple, RelationType
+
+    # FoundationNeo4jRepo:upsert_entity_node 直接异步;upsert_relation 在 _repo 上。
+    neo4j = AsyncMock()
+    neo4j._repo.upsert_relation = AsyncMock()
+
+    tw = TripleWriter(neo4j)
+    w = Writer(triple_writer=tw, neo4j_repo=neo4j)
+
+    tri = RelationTriple(
+        subject_id="ORG_1",
+        subject_type=EntityType.ORG,
+        subject_name="甲公司",
+        relation=RelationType.ORG_EMPLOY,
+        object_id=f"{NAME_SATELLITE_PREFIX}张三",
+        object_type=EntityType.PERSON,
+        object_name="张三",
+        confidence=1.0,
+        method=SourceMethod.RULE,
+        extracted_at=datetime.now(timezone.utc),
+    )
+    await w.write_relations([tri])
+
+    # (a) 卫星节点(张三) MUST 在写边前被 ensure
+    neo4j.upsert_entity_node.assert_any_call(
+        EntityType.PERSON,
+        f"{NAME_SATELLITE_PREFIX}张三",
+        {"name_cn": "张三"},
+    )
+    # (c) upsert_relation 收到双端点(PK ORG_1 + 卫星 name:张三)
+    neo4j._repo.upsert_relation.assert_awaited_once()
+    kwargs = neo4j._repo.upsert_relation.await_args.kwargs
+    assert kwargs["from_id"] == "ORG_1"
+    assert kwargs["to_id"] == f"{NAME_SATELLITE_PREFIX}张三"
+    # (b) PK 端点(ORG_1)不应被 ensure(只 ensure name: 卫星)
+    pk_ensures = [
+        c for c in neo4j.upsert_entity_node.call_args_list
+        if c.args and len(c.args) > 1 and c.args[1] == "ORG_1"
+    ]
+    assert pk_ensures == []
 
 
 @pytest.mark.asyncio

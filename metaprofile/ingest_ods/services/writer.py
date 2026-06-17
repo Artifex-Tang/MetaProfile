@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaprofile.foundation.relation.triple_writer import TripleWriter
+from metaprofile.ingest_ods.domain.relation_rules import NAME_SATELLITE_PREFIX
 from metaprofile.ingest_ods.domain.orm_models import IngestErrorORM
 from metaprofile.profile_org.domain.orm_models import OrgProfileORM
 from metaprofile.profile_person.domain.orm_models import PersonProfileORM
@@ -143,7 +144,25 @@ class Writer:
     async def write_relations(self, triples: list) -> None:
         if not triples or self._tw is None:
             return
+        # Neo4j upsert_relation 是 MATCH 基 —— 两端节点必须已存在,否则 MATCH
+        # 返回空 → MERGE 不建边也不报错,关系被静默丢弃。PK 端点由 upsert_profile_node
+        # 在 _process_batch 中已建;此处仅 ensure name: 卫星端点(未解析为 PK 的实体)。
+        if self._neo4j is not None:
+            for t in triples:
+                await self._ensure_satellite_node(t.subject_type, t.subject_id, t.subject_name)
+                await self._ensure_satellite_node(t.object_type, t.object_id, t.object_name)
         await self._tw.write_batch(triples)
+
+    async def _ensure_satellite_node(self, etype, entity_id: str, name) -> None:
+        """确保 name: 前缀的卫星端点节点存在(防 MATCH 基 Cypher 静默丢边)。
+
+        PK 端点(强键或已解析为 PK 的)已由 upsert_profile_node 创建,此处跳过 —— 只
+        处理 NAME_SATELLITE_PREFIX 开头的占位 id,name 缺失时回退到 id 去前缀部分。
+        """
+        if not entity_id or not entity_id.startswith(NAME_SATELLITE_PREFIX):
+            return
+        display = name or entity_id[len(NAME_SATELLITE_PREFIX):]
+        await self._neo4j.upsert_entity_node(etype, entity_id, {"name_cn": display})
 
     async def record_error(self, session: AsyncSession, *, batch_id: int,
                            stage: str, error_msg: str,

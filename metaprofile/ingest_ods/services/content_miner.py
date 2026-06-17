@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import structlog
 from pydantic import TypeAdapter
 
+from metaprofile.ingest_ods.domain.relation_rules import NAME_SATELLITE_PREFIX
 from metaprofile.ingest_ods.llm.prompts import (
     MINE_SYSTEM_PROMPT, MinedEntity, MinedRelation, map_predicate,
 )
@@ -66,11 +67,11 @@ class ContentMiner:
                     if rel is None:
                         continue
                     rels.append(RelationTriple(
-                        subject_id=f"name:{r.subject_name}",
+                        subject_id=f"{NAME_SATELLITE_PREFIX}{r.subject_name}",
                         subject_type=_ENT_TYPES[r.subject_type],
                         subject_name=r.subject_name,
                         relation=rel,
-                        object_id=f"name:{r.object_name}",
+                        object_id=f"{NAME_SATELLITE_PREFIX}{r.object_name}",
                         object_type=_ENT_TYPES[r.object_type],
                         object_name=r.object_name,
                         evidence=r.evidence, confidence=r.confidence,

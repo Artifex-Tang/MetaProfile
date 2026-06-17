@@ -20,6 +20,9 @@ const TYPE_META: Record<string, { color: string; label: string }> = {
   project: { color: '#722ed1', label: '项目' },
   enterprise: { color: '#13c2c2', label: '企业' },
   strategy: { color: '#eb2f96', label: '战略' },
+  event: { color: '#faad14', label: '事件' },
+  contract: { color: '#a0522d', label: '采购合同' },
+  package: { color: '#2f54eb', label: '项目包' },
 }
 
 function metaOf(type?: string | null) {

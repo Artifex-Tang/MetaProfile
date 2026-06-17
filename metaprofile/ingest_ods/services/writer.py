@@ -80,19 +80,32 @@ class Writer:
                 old_value=None, new_value={"action": "ingest_create"},
                 method=method, changed_at=now,
             ))
+            action = "create"
         else:
-            for k, v in merged.items():
-                if k == id_col:
-                    continue
-                old = getattr(orm, k, None)
-                if old != v:
-                    setattr(orm, k, v)
-            session.add(EntityChangeLogORM(
-                entity_id=entity_id, entity_type=profile_type, field="*",
-                old_value=None, new_value={"action": "ingest_update"},
-                method=method, changed_at=now,
-            ))
+            # I1: capture pre-update values BEFORE mutating
+            pre = {k: getattr(orm, k, None) for k in merged if k != id_col}
+            # I3: only mutate + log fields that actually changed
+            changed = {
+                k: v for k, v in merged.items()
+                if k != id_col and pre.get(k) != v
+            }
+            for k, v in changed.items():
+                setattr(orm, k, v)
+            if changed:
+                session.add(EntityChangeLogORM(
+                    entity_id=entity_id, entity_type=profile_type, field="*",
+                    old_value={k: pre[k] for k in changed},
+                    new_value={"action": "ingest_update", "fields": changed},
+                    method=method, changed_at=now,
+                ))
+            action = "update"
         await session.flush()
+        logger.info(
+            "profile_upserted",
+            profile_type=profile_type,
+            entity_id=entity_id,
+            action=action,
+        )
         return entity_id
 
     async def write_relations(self, triples: list) -> None:

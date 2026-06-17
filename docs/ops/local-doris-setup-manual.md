@@ -170,21 +170,32 @@ docker exec -it mp-doris-fe mysql -h 127.0.0.1 -P 9030 -u root ods_zbzx -e "SHOW
 
 ## 5. 同步数据（云 → 本地）
 
-### 5.1 目标：开发/测试子集（非全库镜像）
+### 5.1 目标：开发/测试子集（20% 抽样）
 
-**生产代码部署到云端运行，直接读云 Doris（同机房快）。本地 Doris 只为开发/测试**，同步一个够用子集即可——不必镜像 company 429M / 附件 1.1TB。慢同步 + 断点续传，子集几小时（WAN 2.4MB/s）搞定。
+**生产代码部署到云端运行，直接读云 Doris（同机房快）。本地 Doris 只为开发/测试**，同步一个够用子集——不必镜像全库。**抽样 20%**（小表全量），慢同步 + 断点续传。
 
-样本量策略（够覆盖：字段映射 / 实体合并消歧 / 增量水位 / LLM 抽取 / 关系 / 真实性时效性评分 / 断点续传）：
+> ⚠️ **TUN 必须关**：关→2.4MB/s，开→0.04MB/s（差 60 倍，20% 会变 ~50 天）。
 
-| 表 | 本地样本 | 说明 |
-|---|---|---|
-| `ods_item_category` / `ods_key_events_cn` / `ods_talent_info_cn` / `ods_oversea_company_info` / `ods_financial_info_cn` | **全量** | 均小（≤881K），全拉 |
-| `ods_science_literature` / `ods_invention_patent_cn` / `ods_market_analysis_cn` | 各 **50K** | Tech/Project/Person/Org 主映射 + 跨源消歧 |
-| `ods_strategic_policy_cn` / `ods_industry_report_cn` / `ods_international_news` | 各 **20-30K** | 辅助源 |
-| `ods_company_basic_info` | **30K** | Org 跨源匹配测试（不必 429M） |
-| 8 张 `*_attachment[_cn]` | 各 **1000 行 `WHERE clean_content IS NOT NULL`** | 内容挖掘 + 关系抽取测试 |
+20% 同步时间估算（@2.4MB/s，pymysql 非压缩传输）：
 
-总量 << 50GB。
+| 表 | 云端行 | 20% / 本地 | 估传输 | 估时 |
+|---|---|---|---|---|
+| `ods_company_basic_info` | 429M | 85.8M | ~145GB | **~17h** ← 时间大头 |
+| `ods_market_analysis_cn` | 36.4M | 7.3M | ~11GB | ~1.3h |
+| `ods_invention_patent_cn` | 29.5M | 5.9M | ~10GB | ~1.2h |
+| `ods_science_literature` | 6.85M | 1.37M | ~5GB | ~35min |
+| `ods_strategic_policy_cn` | 3.81M | 0.76M | ~0.4GB | ~3min |
+| `ods_industry_report_cn` / `ods_international_news` | 1.9M / 1.8M | 20% | ~0.5GB | ~3min |
+| `ods_financial_info_cn` / `ods_oversea_company_info` | 881K / 234K | 全量 | ~0.2GB | <1min |
+| `ods_talent_info_cn` / `ods_key_events_cn` / `ods_item_category` | 11K / 6.7K / 4432 | 全量 | tiny | <1min |
+| 8 张 `*_attachment[_cn]` | — | 各 1000 行 `WHERE clean_content IS NOT NULL` | ~2-3GB | ~15min |
+| **合计（全 20%）** | | | **~175GB** | **~20h** |
+
+**company_basic_info 占 ~17h（85.8M 行）**。Org 映射 + 跨源匹配测试不需要 8500 万行。两选：
+- **A. 全 20%（~20h）**：最大保真；一夜后台慢同步（断点续传，可 kill/续）。
+- **B. 20% + company 封顶 ~10M 行（~6-8h，推荐）**：company 只 ~2.3%（仍 50× 于旧 30K 样本），其余全 20%。dev/test 保真几乎不损，时间砍 1/3。
+
+附件不参与 20%（否则 +220GB/+25h），仅各 1K 供内容挖掘测试。
 
 ### 5.2 同步工具：复用 chunked loader（改目标 + 样本上限）
 

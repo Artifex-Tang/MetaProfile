@@ -5,10 +5,17 @@ import json
 from collections import defaultdict
 from typing import Any
 
+import structlog
+
 from metaprofile.ingest_ods.llm.prompts import DISAMBIG_SYSTEM_PROMPT, DisambigResult
 from metaprofile.shared.config.settings import settings
 
-_STRONG_KEYS = {"company_id", "usc_code", "orcid", "email", "doi", "patent_number"}
+logger = structlog.get_logger(__name__)
+
+# 有序：稳定性高的标识优先（company_id/usc_code 比易变的 email 更稳）
+_STRONG_KEYS: tuple[str, ...] = (
+    "company_id", "usc_code", "orcid", "patent_number", "doi", "email",
+)
 
 
 def _strong_key(entity_key: dict) -> str | None:
@@ -41,7 +48,8 @@ class EntityResolver:
         )
         try:
             return bool(DisambigResult(**json.loads(resp.content.strip())).same)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("disambig_parse_failed", error=str(exc))
             return False
 
     async def resolve(self, rows: list[dict]) -> list[dict]:

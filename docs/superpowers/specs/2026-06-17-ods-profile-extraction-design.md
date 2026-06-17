@@ -19,7 +19,7 @@
 
 并支持**定期批量更新**（存量首跑全量 + 后续增量）。
 
-实际运行**读取本地 Doris 镜像**（与云端同方言，仅地址不同）；云端兜底/取最新。
+**生产代码部署到云端运行，直接读云 Doris**（同机房，快）；**本地 Doris 仅用于开发/测试**，同步一个够用的子集即可（非全库镜像）。两源同方言，提取器零分叉。
 
 ---
 
@@ -433,10 +433,11 @@ key_events_cn:
 ## 17. 前置依赖与范围边界
 
 **本地基础设施（in scope，配独立操作手册）：**
-- 本地 Doris 集群（FE+BE，Docker）搭建 + `ods_zbzx` 39 表 DDL + 云→本地数据同步。
-- 同步方案：复用 `_load_chunked*.py` 思路，**目标从 mp-mysql 改为本地 Doris FE**（同为 Doris 方言，DDL 直接 `SHOW CREATE TABLE` 从云端取、零转换，比 Doris→MySQL 更简单）。WAN 瓶颈不变（TUN 关 ~2.4MB/s，全量 1.53TB ≈ 7 天；建议先同步结构化主表，附件按需后补）。
+- 本地 Doris 集群（FE+BE，Docker，opt-in profile）搭建 + `ods_zbzx` 39 表 DDL + 云→本地数据同步。
+- **本地 Doris 仅用于开发/测试**：同步一个够用的子集（结构化主表抽样 + 附件少量 clean_content），非全库镜像。**生产代码部署到云端，直接读云 Doris**（同机房快）。故本地不必镜像 company 429M / 附件 1.1TB。
+- 同步方案：复用 `_load_chunked*.py` 思路，目标改本地 Doris FE（同方言，DDL `SHOW CREATE TABLE` 零转换）+ 每表样本上限（SAMPLE_CAP）。慢同步 + 断点续传（last_id state）。WAN 瓶颈（TUN 关 ~2.4MB/s）下子集几小时搞定。
 - **详细搭建/同步/运维步骤见** `docs/ops/local-doris-setup-manual.md`（用户可依此手动执行）。
-- 现有 mp-mysql 镜像 + Doris→MySQL loader 对"提取读"目的作废（可保留作过渡）。
+- **mp-mysql（旧 MySQL 镜像）已删除**：Doris 转向后对"提取读"作废，容器 + H 盘卷已清。
 
 **范围（本设计实现）：**
 - `ingest_ods` 模块（orchestrator/extractor/content_miner/resolver/scorer/writer/watermark/mappings）。

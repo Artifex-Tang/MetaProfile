@@ -36,7 +36,7 @@
   - `127.0.0.1:9030 → fe:9030`（MySQL 协议，**提取器/客户端连这个**）
   - `127.0.0.1:8030 → fe:8030`（FE Web UI）
   - `127.0.0.1:8040 → be:8040`（BE Web UI）
-- 数据卷：**H 盘**（`H:/docker/doris/{fe,be}/...`），与现有 mp-mysql 同策略（C 盘只剩 29G）。
+- 数据卷：**H 盘**（`H:/docker/doris/{fe,be}/...`，C 盘只剩 29G，故占盘大的 Doris 绑 H 盘）。
 
 ---
 
@@ -81,7 +81,7 @@ Doris 已**并入主 compose** `deploy/docker-compose.yml`（service `doris-fe`/
 
 > `profiles: [doris]` = **opt-in**：`docker compose up` 不启动 Doris（重 + 需手动初始化），要显式 `--profile doris`（见 §3）。
 > H 盘路径需先建好目录（见 §3 步骤1）。C 盘仅 29G，故 Doris（占盘大）绑 H 盘，其余服务用命名卷。
-> 端口 9030 与 mp-mysql(3307) 不冲突，过渡期可并存。
+> mp-mysql（旧 MySQL 镜像 3307）已删除，9030 独占，无端口冲突。
 
 ### 2.2 配置说明（env 注入，默认无需建 conf 文件）
 
@@ -170,36 +170,36 @@ docker exec -it mp-doris-fe mysql -h 127.0.0.1 -P 9030 -u root ods_zbzx -e "SHOW
 
 ## 5. 同步数据（云 → 本地）
 
-### 5.1 策略（分阶段，控体积 + WAN 瓶颈）
+### 5.1 目标：开发/测试子集（非全库镜像）
 
-| 阶段 | 表 | 云端量 | 目的 |
-|---|---|---|---|
-| P1 结构化主表（先） | science/patent/policy/industry/market/news/financial/talent/key_events | ~126GB | 画像抽取主燃料 |
-| P2 company_basic_info | company_basic_info 429M | ~304GB | Org 全量（最大） |
-| P3 附件（按需） | *_attachment 的 clean_content | ~1.1TB | 内容挖掘（设计里 `content_mine_filter` 控制，可后补） |
+**生产代码部署到云端运行，直接读云 Doris（同机房快）。本地 Doris 只为开发/测试**，同步一个够用子集即可——不必镜像 company 429M / 附件 1.1TB。慢同步 + 断点续传，子集几小时（WAN 2.4MB/s）搞定。
 
-### 5.2 改 loader 目标到本地 Doris
+样本量策略（够覆盖：字段映射 / 实体合并消歧 / 增量水位 / LLM 抽取 / 关系 / 真实性时效性评分 / 断点续传）：
 
-现有 `_load_chunked.py` / `_load_chunked_big.py` 当前写 mp-mysql(3307)。改成本地 Doris：
+| 表 | 本地样本 | 说明 |
+|---|---|---|
+| `ods_item_category` / `ods_key_events_cn` / `ods_talent_info_cn` / `ods_oversea_company_info` / `ods_financial_info_cn` | **全量** | 均小（≤881K），全拉 |
+| `ods_science_literature` / `ods_invention_patent_cn` / `ods_market_analysis_cn` | 各 **50K** | Tech/Project/Person/Org 主映射 + 跨源消歧 |
+| `ods_strategic_policy_cn` / `ods_industry_report_cn` / `ods_international_news` | 各 **20-30K** | 辅助源 |
+| `ods_company_basic_info` | **30K** | Org 跨源匹配测试（不必 429M） |
+| 8 张 `*_attachment[_cn]` | 各 **1000 行 `WHERE clean_content IS NOT NULL`** | 内容挖掘 + 关系抽取测试 |
 
-**编辑 `_load_chunked.py` 顶部目标连接**（把 MySQL DSN 换成本地 Doris）：
-```python
-# 原（MySQL 镜像）：
-# DEST = dict(host="127.0.0.1", port=3307, user="root", password="mp_dev_2026", database="ods_zbzx", ...)
-# 改（本地 Doris）：
-DEST = dict(host="127.0.0.1", port=9030, user="root", password="", database="ods_zbzx",
-            charset="utf8mb4")
-```
+总量 << 50GB。
 
-**注意 Doris 与 MySQL 的差异（loader 要点）：**
-1. **去重**：Doris 无 `INSERT IGNORE`。用 Doris Unique Key 模型表自然去重，或 loader 先 `DELETE FROM t WHERE id BETWEEN ...` 再插。最简：表建成 Unique Key(id) ——但云端是 DUPLICATE KEY。**推荐**：loader 用"先 DELETE 窗口再 INSERT"做续传（替代 INSERT IGNORE）。
-2. **流式插入**：pymysql 逐行 INSERT 对 Doris 较慢（Doris 偏批）。**优化**：用 **Stream Load**（HTTP `PUT /api/{db}/{table}/_stream_load`，CSV/JSON），单次几万行。loader 可加 stream-load 分支。WAN 是主瓶颈，先 pymysql 跑通再优化。
-3. **大表分窗**：复用 `_load_chunked_big.py` 的 COUNT 二分 id 窗（绕云端 BE OOM），这点不变（瓶颈在云端读，与目标引擎无关）。
-4. **字符集**：Doris 默认 `utf8mb4`，pymysql 已 patch 脏字节处理，沿用。
+### 5.2 同步工具：复用 chunked loader（改目标 + 样本上限）
 
-**P1 启动（小表先，验证链路）：**
+现有 `_load_chunked*.py`（原写已删除的 mp-mysql）改两点：
+1. **目标改本地 Doris**：`DEST = dict(host="127.0.0.1", port=9030, user="root", password="", database="ods_zbzx", charset="utf8mb4")`。
+2. **加 `SAMPLE_CAP`**（每表上限，见 §5.1 表），取满即停；小表设 `None`=全量。断点续传逻辑不变。
+
+**Doris 写入要点：**
+1. **去重/续传**：Doris 无 `INSERT IGNORE` → loader 用"按 id 窗 `DELETE` 再 `INSERT`"做幂等续传（替代 INSERT IGNORE）。
+2. **批量**：pymysql 逐行 INSERT 较慢；优化用 **Stream Load**（`PUT /api/{db}/{table}/_stream_load`）。WAN 是主瓶颈，先 pymysql 跑通再优化。
+3. **大表云端 OOM**：复用 `_load_chunked_big.py` COUNT 二分 id 窗；样本上限下基本不触发。
+4. **字符集** utf8mb4，pymysql 已 patch 脏字节，沿用。
+
+**启动（Start-Process 脱离，git-bash nohup& 会杀子）：**
 ```bash
-# powershell Start-Process 脱离（git-bash nohup& 会杀子，memory 教训）
 powershell Start-Process python -ArgumentList '-u','E:/ccode/MetaProfile/_load_chunked.py' \
   -WorkingDirectory 'E:/ccode/MetaProfile' -WindowStyle Hidden \
   -RedirectStandardError 'E:/ccode/MetaProfile/_load_local.err'
@@ -285,7 +285,7 @@ VALUES
 | 现象 | 原因 / 处理 |
 |---|---|
 | `SHOW BACKENDS` Alive=false | BE 没起 / priority_networks 没生效。`docker logs mp-doris-be` 看；确认 `be.conf` 挂载生效、`BE_ADDR=172.28.80.20:9050` 与 FE ADD 的地址一致。 |
-| 宿主连 9030 拒绝 | FE 没起好（等 30s）或端口冲突。`netstat -ano \| findstr 9030`；若 mp-mysql 占用，停它或改映射（如 `127.0.0.1:9130:9030`，同步改 loader/PY DSN）。 |
+| 宿主连 9030 拒绝 | FE 没起好（等 30s）或端口被占。`netstat -ano \| findstr 9030`；若被占，改 compose 映射（如 `127.0.0.1:9130:9030`，同步改 loader/PY DSN）。 |
 | 建表报 `Failed to find enough host with storage medium` | 副本数 > BE 数。确认 `_doris_ddl_sync.py` 把 `replication_allocation` 改成 `: 1` 了（检查 `_doris_local_schema.sql`）。 |
 | 同步极慢（40KB/s） | **Clash TUN 开着**。关 TUN，System Proxy 保留。重测 `SELECT * FROM ods_science_literature LIMIT 5000`（<10s=通）。 |
 | 云端大表 SELECT OOM (`FullGC`) | 全表扫吃云端 BE 内存。用 `_load_chunked_big.py` COUNT 二分 id 窗，禁全表 `SELECT *` / `ORDER BY id` 无 LIMIT。 |

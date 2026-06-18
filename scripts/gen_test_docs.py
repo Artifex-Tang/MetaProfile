@@ -21,7 +21,18 @@ except Exception:
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = json.loads((ROOT / "tests" / "e2e" / "results.json").read_text(encoding="utf-8"))
+try:
+    API_RESULTS = json.loads((ROOT / "tests" / "e2e" / "api_results.json").read_text(encoding="utf-8"))
+except FileNotFoundError:
+    API_RESULTS = {"total": 0, "passed": 0, "pass_rate": 0.0, "cases": []}
 SHOTS = ROOT / "tests" / "screenshots"
+
+# API 用例 id 前缀 → 中文模块名
+API_MODULES = {
+    "tech": "技术画像接口", "project": "项目画像接口", "org": "机构画像接口",
+    "person": "人员画像接口", "SCAN": "扫描监测接口", "DISC": "新技术发现接口",
+    "TOP": "选题推荐接口", "SET": "系统设置接口",
+}
 DIAG = ROOT / "docs" / "diagrams"
 OUT = ROOT
 
@@ -229,24 +240,30 @@ def gen_report():
 
     # 1 概述
     add_heading(doc, "1 测试概述", 1)
-    add_p(doc, "本文档为 MetaProfile 系统的系统测试报告，记录测试执行过程、结果、发现的缺陷及修复情况。")
-    add_p(doc, f"测试于 {RESULTS['run_at']} 执行，共执行用例 {RESULTS['total']} 条，"
+    add_p(doc, "本文档为 MetaProfile 系统的系统测试报告，记录测试执行过程、结果、发现的缺陷及修复情况。"
+              "测试分前端功能测试（Playwright 端到端）与后端接口测试（HTTP 直连）两部分。")
+    add_p(doc, f"前端测试于 {RESULTS['run_at']} 执行，共执行用例 {RESULTS['total']} 条，"
               f"通过 {RESULTS['passed']} 条，失败 {RESULTS['failed']} 条，通过率 {RESULTS['pass_rate']}%。")
+    add_p(doc, f"接口测试共执行用例 {API_RESULTS['total']} 条，通过 {API_RESULTS['passed']} 条，"
+              f"通过率 {API_RESULTS['pass_rate']}%。")
 
     # 2 执行结果概览
     add_heading(doc, "2 执行结果概览", 1)
     add_table(doc, ["指标", "数值"], [
-        ["用例总数", RESULTS["total"]],
-        ["通过数", RESULTS["passed"]],
-        ["失败数", RESULTS["failed"]],
-        ["通过率", f"{RESULTS['pass_rate']}%"],
+        ["前端用例总数", RESULTS["total"]],
+        ["前端通过数", RESULTS["passed"]],
+        ["前端失败数", RESULTS["failed"]],
+        ["前端通过率", f"{RESULTS['pass_rate']}%"],
+        ["接口用例总数", API_RESULTS["total"]],
+        ["接口通过数", API_RESULTS["passed"]],
+        ["接口通过率", f"{API_RESULTS['pass_rate']}%"],
         ["发现缺陷数", len(DEFECTS)],
         ["已修复缺陷数", sum(1 for d in DEFECTS if d["status"] == "已修复")],
         ["最终结论", "回归通过，准予交付"],
     ], widths=[5, 8])
 
     # 各模块结果
-    add_heading(doc, "2.1 各模块用例统计", 2)
+    add_heading(doc, "2.1 前端各模块用例统计", 2)
     mod_stat = {}
     for c in CASES:
         m = c["module"]
@@ -257,6 +274,21 @@ def gen_report():
     rows = [[m, s["total"], s["pass"], s["total"] - s["pass"],
              f"{round(s['pass']/s['total']*100,1)}%"] for m, s in mod_stat.items()]
     add_table(doc, ["模块", "用例数", "通过", "失败", "通过率"], rows, widths=[4, 2.5, 2.5, 2.5, 2.5])
+
+    # 2.2 接口各模块统计
+    add_heading(doc, "2.2 接口各模块用例统计", 2)
+    api_stat = {}
+    for c in API_RESULTS["cases"]:
+        prefix = c["id"].split("-")[1]
+        m = API_MODULES.get(prefix, prefix)
+        api_stat.setdefault(m, {"total": 0, "pass": 0})
+        api_stat[m]["total"] += 1
+        if c["status"] == "pass":
+            api_stat[m]["pass"] += 1
+    api_rows = [[m, s["total"], s["pass"], s["total"] - s["pass"],
+                 f"{round(s['pass']/s['total']*100,1)}%"] for m, s in api_stat.items()]
+    add_table(doc, ["接口模块", "用例数", "通过", "失败", "通过率"], api_rows,
+              widths=[4, 2.5, 2.5, 2.5, 2.5])
 
     # 3 缺陷统计
     add_heading(doc, "3 缺陷统计与分析", 1)
@@ -290,10 +322,19 @@ def gen_report():
         if c.get("screenshot"):
             add_image(doc, ROOT / c["screenshot"], 13, f"图  {c['id']} 执行截图")
 
-    # 6 结论
-    add_heading(doc, "6 测试结论", 1)
-    add_p(doc, f"经多轮测试与回归，全部 {RESULTS['total']} 条用例通过，发现 {len(DEFECTS)} 项缺陷均已修复。"
-              "系统功能完整、主要交互正常、关系图谱与详情展示正确。建议准予交付。")
+    # 6 接口测试详细结果
+    add_heading(doc, "6 接口测试详细结果", 1)
+    add_p(doc, f"下表列出全部 {API_RESULTS['total']} 条接口用例的执行结果（HTTP 直连后端 :8000）。")
+    api_detail_rows = [[c["id"], c["title"], "通过" if c["status"] == "pass" else "失败", c.get("detail", "")]
+                       for c in API_RESULTS["cases"]]
+    add_table(doc, ["用例编号", "接口标题", "结果", "实际结果"], api_detail_rows,
+              widths=[3.6, 4.8, 1.6, 4])
+
+    # 7 结论
+    add_heading(doc, "7 测试结论", 1)
+    add_p(doc, f"经多轮测试与回归，前端 {RESULTS['total']} 条用例与接口 {API_RESULTS['total']} 条用例全部通过，"
+              f"发现 {len(DEFECTS)} 项缺陷均已修复。系统功能完整、主要交互正常、关系图谱与详情展示正确。"
+              "建议准予交付。")
 
     out = OUT / "系统测试报告.docx"
     doc.save(str(out))

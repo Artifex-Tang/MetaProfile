@@ -7,9 +7,12 @@ from typing import Any
 
 import httpx
 import structlog
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from metaprofile.ingest_ods.domain.orm_models import IngestErrorORM, IngestRawORM
 from metaprofile.settings_api.domain.orm_models import CollectionTaskORM, DataSourceConfigORM
+from metaprofile.settings_api.schemas.models import CollectionTaskStats
 
 logger = structlog.get_logger(__name__)
 
@@ -340,3 +343,43 @@ def _get_nested(obj: dict, key: str) -> Any:
             return _get_nested(sub, parts[1])
         return None
     return obj.get(key)
+
+
+async def get_task_stats(db: AsyncSession, task_id: int) -> CollectionTaskStats:
+    """聚合单个采集任务的运行统计：ingest_raw 总数/失败数 + ingest_errors 数。
+
+    raw_success = raw_total - raw_failed（status='failed' 之外视为成功）。
+    """
+    raw_total = (
+        await db.execute(
+            select(func.count()).select_from(IngestRawORM).where(
+                IngestRawORM.batch_id == task_id
+            )
+        )
+    ).scalar_one()
+
+    raw_failed = (
+        await db.execute(
+            select(func.count()).select_from(IngestRawORM).where(
+                IngestRawORM.batch_id == task_id,
+                IngestRawORM.status == "failed",
+            )
+        )
+    ).scalar_one()
+
+    errors = (
+        await db.execute(
+            select(func.count()).select_from(IngestErrorORM).where(
+                IngestErrorORM.batch_id == task_id
+            )
+        )
+    ).scalar_one()
+
+    return CollectionTaskStats(
+        task_id=task_id,
+        raw_total=raw_total,
+        raw_success=max(raw_total - raw_failed, 0),
+        raw_failed=raw_failed,
+        errors=errors,
+    )
+

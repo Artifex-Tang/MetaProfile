@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaprofile.shared.db.session import get_db
 from metaprofile.settings_api.domain.orm_models import CollectionTaskORM, DataSourceConfigORM
-from metaprofile.settings_api.schemas.models import CollectionTaskOut, TriggerCollectionResponse
-from metaprofile.settings_api.services.collector_service import trigger_collection
+from metaprofile.settings_api.schemas.models import CollectionTaskOut, CollectionTaskStats, TriggerCollectionResponse
+from metaprofile.settings_api.services.collector_service import get_task_stats, trigger_collection
 
 router = APIRouter(prefix="/api/v1/settings/collection", tags=["采集任务"])
 
@@ -49,3 +49,12 @@ async def get_task(task_id: int, db: AsyncSession = Depends(get_db)):
     if not task:
         raise HTTPException(404, "任务不存在")
     return task
+
+
+@router.get("/tasks/{task_id}/stats", response_model=CollectionTaskStats)
+async def get_task_statistics(task_id: int, db: AsyncSession = Depends(get_db)):
+    """采集任务运行统计（ingest_raw / ingest_errors 聚合）。"""
+    task = await db.get(CollectionTaskORM, task_id)
+    if not task:
+        raise HTTPException(404, "任务不存在")
+    return await get_task_stats(db, task_id)

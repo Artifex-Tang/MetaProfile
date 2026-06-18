@@ -149,6 +149,65 @@ class TriggerCollectionResponse(BaseModel):
     message: str
 
 
+# ── 数据连接（ODS Doris 等外部 DB，密码加密）─────────────────────────────────
+
+class DbConnectionCreate(BaseModel):
+    name: str
+    dialect: str = "doris"
+    host: str
+    port: int
+    database: str
+    username: str
+    password: str  # 明文，服务层加密存 password_enc
+    charset: str = "utf8mb4"
+    pool_size: int = 8
+    read_only: bool = True
+    is_enabled: bool = True
+
+
+class DbConnectionUpdate(BaseModel):
+    name: str | None = None
+    dialect: str | None = None
+    host: str | None = None
+    port: int | None = None
+    database: str | None = None
+    username: str | None = None
+    password: str | None = None  # 提供则重新加密
+    charset: str | None = None
+    pool_size: int | None = None
+    read_only: bool | None = None
+    is_enabled: bool | None = None
+
+
+class DbConnectionOut(BaseModel):
+    """脱敏输出：不含 password_enc。"""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    dialect: str
+    host: str
+    port: int
+    database: str
+    username: str
+    charset: str
+    pool_size: int
+    read_only: bool
+    is_enabled: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+# ── 采集任务运行统计（ingest_raw / ingest_errors 聚合）────────────────────────
+
+class CollectionTaskStats(BaseModel):
+    task_id: int
+    raw_total: int = 0
+    raw_success: int = 0
+    raw_failed: int = 0
+    errors: int = 0
+
+
 class LLMTestResponse(BaseModel):
     success: bool
     message: str

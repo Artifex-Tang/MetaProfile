@@ -197,6 +197,22 @@ services:
       timeout: 5s
       retries: 8
 
+  # ── Celery worker（消费 enrich 补全任务，直写 typed ORM） ─────────────────────
+
+  backend-worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: celery -A metaprofile.shared.worker.celery_app worker --loglevel=info --concurrency=2
+    env_file: [.env]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   # ── 前端（单一镜像，nginx 反代到 backend） ─────────────────────────────────
 
   frontend:

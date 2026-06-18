@@ -25,3 +25,12 @@ async def trigger_enrichment(
     if task is None:
         raise HTTPException(status_code=404, detail=f"org_id={org_id} not found")
     return task
+
+
+@router.get("/profile/org/enrich/task/{task_id}")
+async def get_enrichment_task_status(
+    task_id: str,
+    service: OrgEnrichmentService = Depends(get_enrichment_service),
+) -> dict:
+    """查询补全任务状态（celery AsyncResult，前端轮询）。"""
+    return await service.get_task_status(task_id)

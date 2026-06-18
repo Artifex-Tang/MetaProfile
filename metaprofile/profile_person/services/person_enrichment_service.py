@@ -5,11 +5,14 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import structlog
+from celery.result import AsyncResult
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaprofile.profile_person.domain.orm_models import PersonProfileORM
 from metaprofile.profile_person.schemas.response import EnrichmentTaskResponse
+from metaprofile.shared.worker.celery_app import celery_app
+from metaprofile.shared.worker.enrich_tasks import enrich_person
 
 logger = structlog.get_logger(__name__)
 
@@ -17,14 +20,10 @@ _ENRICH_THRESHOLD = 0.6
 
 
 class PersonEnrichmentService:
-    """对完整度低于阈值（默认 60%）的人员画像，触发 RAG 补全任务。
+    """对完整度低于阈值（默认 60%）的人员画像，派发异步 celery 补全任务。
 
-    流程：
-    1. 校验 person_id 存在
-    2. 计算当前完整度
-    3. 若 < 阈值，向 RabbitMQ 投递补全任务，返回 task_id
-    4. Worker 消费任务：foundation/enrichment 模块执行 RAG 检索 + LLM 抽取，
-       confidence ≥ 0.8 自动入库，0.6~0.8 进入审核队列，<0.6 丢弃
+    Worker 消费 enrich_person → shared/enrich/orm_enricher 直写 typed ORM
+    （LLM 填缺失字段 + 重算 completeness + data_as_of + ChangeLog）。
     """
 
     async def trigger(
@@ -41,29 +40,50 @@ class PersonEnrichmentService:
             return None
 
         completeness = float(row[0])
-        task_id = uuid4().hex
+        now = datetime.now(timezone.utc)
 
         if completeness < _ENRICH_THRESHOLD:
-            # TODO: 推送任务到 RabbitMQ
+            result = enrich_person.delay(person_id)
             logger.info(
-                "enrichment_task_queued",
+                "enrichment_task_dispatched",
                 person_id=person_id,
-                task_id=task_id,
+                task_id=result.id,
                 completeness=completeness,
             )
-            status = "queued"
-        else:
-            logger.info(
-                "enrichment_skipped_completeness_sufficient",
+            return EnrichmentTaskResponse(
+                task_id=result.id,
                 person_id=person_id,
-                completeness=completeness,
+                submitted_at=now,
+                current_completeness=completeness,
+                status="queued",
             )
-            status = "skipped"
 
-        return EnrichmentTaskResponse(
-            task_id=task_id,
+        logger.info(
+            "enrichment_skipped_completeness_sufficient",
             person_id=person_id,
-            submitted_at=datetime.now(timezone.utc),
-            current_completeness=completeness,
-            status=status,
+            completeness=completeness,
         )
+        return EnrichmentTaskResponse(
+            task_id=uuid4().hex,
+            person_id=person_id,
+            submitted_at=now,
+            current_completeness=completeness,
+            status="skipped",
+        )
+
+    async def get_task_status(self, task_id: str) -> dict:
+        """查询 celery 任务状态（前端轮询）。"""
+        res = AsyncResult(task_id, app=celery_app)
+        payload: dict = {"task_id": task_id, "state": res.state}
+        if res.state == "SUCCESS":
+            result = res.result or {}
+            payload["status"] = result.get("status")
+            payload["completeness_after"] = result.get("completeness_after")
+            payload["filled_fields"] = result.get("filled_fields", [])
+            payload["error"] = result.get("error")
+        elif res.state == "FAILURE":
+            payload["status"] = "failed"
+            payload["error"] = str(res.result)
+        else:
+            payload["status"] = "pending"
+        return payload

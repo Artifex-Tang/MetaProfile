@@ -477,17 +477,26 @@ class TestPersonEnrichmentService:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_trigger_returns_queued_when_below_threshold(self):
+    async def test_trigger_dispatches_task_when_below_threshold(self):
         session = AsyncMock()
         result_mock = MagicMock()
         result_mock.first.return_value = (0.3,)
         session.execute.return_value = result_mock
+        fake_result = MagicMock()
+        fake_result.id = "celery-task-id"
 
-        svc = PersonEnrichmentService()
-        result = await svc.trigger(session, person_id="PERS_001")
+        with patch(
+            "metaprofile.profile_person.services.person_enrichment_service.enrich_person"
+        ) as mock_task:
+            mock_task.delay.return_value = fake_result
+            svc = PersonEnrichmentService()
+            result = await svc.trigger(session, person_id="PERS_001")
+
         assert result is not None
         assert result.status == "queued"
+        assert result.task_id == "celery-task-id"
         assert result.current_completeness == pytest.approx(0.3)
+        mock_task.delay.assert_called_once_with("PERS_001")
 
     @pytest.mark.asyncio
     async def test_trigger_returns_skipped_when_above_threshold(self):
@@ -503,14 +512,29 @@ class TestPersonEnrichmentService:
         assert result.current_completeness == pytest.approx(0.8)
 
     @pytest.mark.asyncio
-    async def test_trigger_returns_task_id(self):
-        session = AsyncMock()
-        result_mock = MagicMock()
-        result_mock.first.return_value = (0.4,)
-        session.execute.return_value = result_mock
+    async def test_get_task_status_success(self):
+        with patch(
+            "metaprofile.profile_person.services.person_enrichment_service.AsyncResult"
+        ) as AR:
+            inst = MagicMock()
+            inst.state = "SUCCESS"
+            inst.result = {"status": "done", "completeness_after": 0.6, "filled_fields": ["summary"]}
+            AR.return_value = inst
+            svc = PersonEnrichmentService()
+            status = await svc.get_task_status("celery-task-id")
+        assert status["state"] == "SUCCESS"
+        assert status["status"] == "done"
+        assert status["completeness_after"] == 0.6
 
-        svc = PersonEnrichmentService()
-        result = await svc.trigger(session, person_id="PERS_001")
-        assert result is not None
-        assert len(result.task_id) == 32
-        assert result.person_id == "PERS_001"
+    @pytest.mark.asyncio
+    async def test_get_task_status_pending(self):
+        with patch(
+            "metaprofile.profile_person.services.person_enrichment_service.AsyncResult"
+        ) as AR:
+            inst = MagicMock()
+            inst.state = "PENDING"
+            inst.result = None
+            AR.return_value = inst
+            svc = PersonEnrichmentService()
+            status = await svc.get_task_status("celery-task-id")
+        assert status["status"] == "pending"

@@ -97,6 +97,9 @@ def profile_api_tests(t: str):
     _, _, body = req("GET", f"{p}/api/v1/profile/{t}/{eid}")
     if isinstance(body, dict):
         body[f"{t}_id"] = new_id
+        # 剥离 response-only 字段（ingest_ods scorer 产出，非 import 输入；TechProfile extra=forbid）
+        for k in ("veracity_score", "timeliness_score", "data_as_of"):
+            body.pop(k, None)
         if t == "project":
             body["project_no"] = int(ts)  # uq_project_profile_project_no 避免唯一约束冲突
         code, _, d8 = req("POST", f"{p}/api/v1/profile/{t}/import", {"profiles": [body]})
@@ -118,11 +121,17 @@ def profile_api_tests(t: str):
                f"code=200 keys={list(d10.keys())[:4] if isinstance(d10, dict) else 0}")
     else:
         record(f"API-{t}-10-semantic", f"{t} 语义检索(IK未装已知限制)", code == 500, f"code={code}")
-    # 11. enrich：触发受理（真实 RAG 补全为 TODO 未实现，校验任务受理结构 task_id+status）
+    # 11. enrich：异步 celery 派发（task_id+status）+ 任务状态查询
     code, _, d11 = req("POST", f"{p}/api/v1/profile/{t}/{eid}/enrich")
     ok = code in (200, 202) and isinstance(d11, dict) and "task_id" in d11
-    record(f"API-{t}-11-enrich", f"{t} 补全任务受理", ok,
+    record(f"API-{t}-11-enrich", f"{t} 补全任务派发", ok,
            f"code={code} status={d11.get('status') if isinstance(d11, dict) else '?'}")
+    if ok and isinstance(d11, dict) and d11.get("status") == "queued":
+        tid = d11["task_id"]
+        c2, _, d2 = req("GET", f"{p}/api/v1/profile/{t}/enrich/task/{tid}")
+        record(f"API-{t}-11b-enrich-status", f"{t} 补全任务状态查询",
+               c2 == 200 and isinstance(d2, dict) and "state" in d2,
+               f"code={c2} state={d2.get('state') if isinstance(d2, dict) else '?'}")
 
 
 def analysis_tests():
@@ -218,8 +227,30 @@ def settings_crud_tests():
         if task_id:
             code, _, d = req("GET", f"api-settings/api/v1/settings/collection/tasks/{task_id}")
             record("API-SET-16-task-detail", "采集任务详情", code == 200 and d and d.get("id") == task_id, f"code={code}")
+            code, _, d = req("GET", f"api-settings/api/v1/settings/collection/tasks/{task_id}/stats")
+            record("API-SET-16b-task-stats", "采集任务运行统计",
+                   code == 200 and isinstance(d, dict) and "raw_total" in d, f"code={code}")
         code, _, _ = req("DELETE", f"{ds}/{col_id}")
         record("API-SET-17-col-delete", "采集数据源删除", code == 204, f"code={code}")
+
+    # ── 数据连接 CRUD（db_connections，密码加密存/脱敏读）──
+    dbc = "api-settings/api/v1/settings/db-connections"
+    code, _, d = req("POST", dbc, {
+        "name": f"e2e-dbc-{suffix}", "dialect": "doris", "host": "localhost",
+        "port": 9030, "database": "ods_zbzx", "username": "root", "password": "e2e-secret",
+    })
+    record("API-SET-18-dbc-create", "数据连接创建", code == 201 and isinstance(d, dict) and "id" in d, f"code={code}")
+    dbc_id = d.get("id") if isinstance(d, dict) else None
+    if dbc_id:
+        # 脱敏：响应不含 password/password_enc
+        masked = isinstance(d, dict) and "password" not in d and "password_enc" not in d
+        record("API-SET-19-dbc-masked", "数据连接密码脱敏", masked, f"keys={list(d.keys())[:6] if isinstance(d, dict) else '?'}")
+        code, _, d = req("GET", f"{dbc}/{dbc_id}")
+        record("API-SET-20-dbc-get", "数据连接详情", code == 200 and d and d.get("id") == dbc_id, f"code={code}")
+        code, _, d = req("PUT", f"{dbc}/{dbc_id}", {"host": "127.0.0.1"})
+        record("API-SET-21-dbc-update", "数据连接更新", code == 200 and d and d.get("host") == "127.0.0.1", f"code={code}")
+        code, _, _ = req("DELETE", f"{dbc}/{dbc_id}")
+        record("API-SET-22-dbc-delete", "数据连接删除", code == 204, f"code={code}")
 
 
 def analysis_detail_tests():

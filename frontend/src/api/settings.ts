@@ -82,6 +82,44 @@ export interface LLMTestResponse {
   latency_ms: number | null
 }
 
+export interface DbConnection {
+  id: number
+  name: string
+  dialect: string
+  host: string
+  port: number
+  database: string
+  username: string
+  charset: string
+  pool_size: number
+  read_only: boolean
+  is_enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface DbConnectionCreate {
+  name: string
+  dialect?: string
+  host: string
+  port: number
+  database: string
+  username: string
+  password: string
+  charset?: string
+  pool_size?: number
+  read_only?: boolean
+  is_enabled?: boolean
+}
+
+export interface CollectionTaskStats {
+  task_id: number
+  raw_total: number
+  raw_success: number
+  raw_failed: number
+  errors: number
+}
+
 export const settingsService = {
   // LLM 配置
   listLLM: () =>
@@ -129,4 +167,20 @@ export const settingsService = {
 
   getTask: (taskId: number) =>
     settingsApi.get<CollectionTask>(`/api/v1/settings/collection/tasks/${taskId}`).then(r => r.data),
+
+  getTaskStats: (taskId: number) =>
+    settingsApi.get<CollectionTaskStats>(`/api/v1/settings/collection/tasks/${taskId}/stats`).then(r => r.data),
+
+  // 数据连接（ODS Doris 等外部 DB）
+  listDbConnections: () =>
+    settingsApi.get<DbConnection[]>('/api/v1/settings/db-connections').then(r => r.data),
+
+  createDbConnection: (body: DbConnectionCreate) =>
+    settingsApi.post<DbConnection>('/api/v1/settings/db-connections', body).then(r => r.data),
+
+  updateDbConnection: (id: number, body: Partial<DbConnectionCreate>) =>
+    settingsApi.put<DbConnection>(`/api/v1/settings/db-connections/${id}`, body).then(r => r.data),
+
+  deleteDbConnection: (id: number) =>
+    settingsApi.delete(`/api/v1/settings/db-connections/${id}`),
 }

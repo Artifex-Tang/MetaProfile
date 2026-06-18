@@ -15,6 +15,8 @@ import {
   type LLMProviderConfig,
   type DataSourceConfig,
   type CollectionTask,
+  type DbConnection,
+  type DbConnectionCreate,
 } from '../../api/settings'
 
 const { Option } = Select
@@ -426,6 +428,12 @@ function TasksTab() {
     refetchInterval: 5000, // 5秒轮询
   })
 
+  const stats = useQuery({
+    queryKey: ['task-stats', logDrawer?.id],
+    queryFn: () => settingsService.getTaskStats(logDrawer!.id),
+    enabled: !!logDrawer,
+  })
+
   const cols = [
     { title: 'ID', dataIndex: 'id', width: 60 },
     { title: '数据源', dataIndex: 'source_name', ellipsis: true },
@@ -474,6 +482,9 @@ function TasksTab() {
               <Descriptions.Item label="画像类型">{logDrawer.profile_type}</Descriptions.Item>
               <Descriptions.Item label="获取">{logDrawer.records_fetched}</Descriptions.Item>
               <Descriptions.Item label="导入">{logDrawer.records_imported}</Descriptions.Item>
+              <Descriptions.Item label="原始行数">{stats.data?.raw_total ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="成功/失败">{stats.data ? `${stats.data.raw_success} / ${stats.data.raw_failed}` : '-'}</Descriptions.Item>
+              <Descriptions.Item label="错误数">{stats.data?.errors ?? '-'}</Descriptions.Item>
             </Descriptions>
             {logDrawer.error_msg && (
               <Alert type="error" message={logDrawer.error_msg} style={{ marginBottom: 12 }} />
@@ -491,6 +502,126 @@ function TasksTab() {
   )
 }
 
+// ── 数据连接 Tab（ODS Doris 等外部 DB）────────────────────────────────────────
+
+function DbConnectionsTab() {
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<DbConnection | null>(null)
+  const [form] = Form.useForm<DbConnectionCreate>()
+
+  const { data = [], isLoading } = useQuery({
+    queryKey: ['db-connections'],
+    queryFn: () => settingsService.listDbConnections(),
+  })
+
+  const createMut = useMutation({
+    mutationFn: (b: DbConnectionCreate) => settingsService.createDbConnection(b),
+    onSuccess: () => { message.success('已创建'); qc.invalidateQueries({ queryKey: ['db-connections'] }); setOpen(false) },
+    onError: () => message.error('创建失败'),
+  })
+  const updateMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: Partial<DbConnectionCreate> }) =>
+      settingsService.updateDbConnection(id, body),
+    onSuccess: () => { message.success('已更新'); qc.invalidateQueries({ queryKey: ['db-connections'] }); setOpen(false) },
+    onError: () => message.error('更新失败'),
+  })
+  const delMut = useMutation({
+    mutationFn: (id: number) => settingsService.deleteDbConnection(id),
+    onSuccess: () => { message.success('已删除'); qc.invalidateQueries({ queryKey: ['db-connections'] }) },
+    onError: () => message.error('删除失败'),
+  })
+
+  const openCreate = () => {
+    setEditing(null)
+    form.resetFields()
+    form.setFieldsValue({ dialect: 'doris', port: 9030, charset: 'utf8mb4', pool_size: 8, read_only: true, is_enabled: true })
+    setOpen(true)
+  }
+  const openEdit = (r: DbConnection) => {
+    setEditing(r)
+    form.resetFields()
+    form.setFieldsValue({ ...r, password: '' })
+    setOpen(true)
+  }
+  const submit = () => {
+    form.validateFields().then(v => {
+      const body: DbConnectionCreate = { ...v }
+      if (editing) {
+        const patch: Partial<DbConnectionCreate> = { ...body }
+        if (!patch.password) delete patch.password
+        updateMut.mutate({ id: editing.id, body: patch })
+      } else {
+        createMut.mutate(body)
+      }
+    })
+  }
+
+  const cols = [
+    { title: 'ID', dataIndex: 'id', width: 60 },
+    { title: '名称', dataIndex: 'name' },
+    { title: '类型', dataIndex: 'dialect', width: 90 },
+    { title: '主机', dataIndex: 'host' },
+    { title: '端口', dataIndex: 'port', width: 70 },
+    { title: '库', dataIndex: 'database' },
+    { title: '用户', dataIndex: 'username', width: 100 },
+    { title: '只读', dataIndex: 'read_only', width: 60, render: (v: boolean) => (v ? <Tag color="blue">是</Tag> : <Tag>否</Tag>) },
+    { title: '启用', dataIndex: 'is_enabled', width: 60, render: (v: boolean) => (v ? <Tag color="green">是</Tag> : <Tag>否</Tag>) },
+    {
+      title: '操作', width: 120,
+      render: (_: unknown, r: DbConnection) => (
+        <Space>
+          <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
+          <Popconfirm title="确认删除？" onConfirm={() => delMut.mutate(r.id)}>
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ]
+
+  return (
+    <>
+      <Space style={{ marginBottom: 16 }}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增数据连接</Button>
+        <Button icon={<ReloadOutlined />} onClick={() => qc.invalidateQueries({ queryKey: ['db-connections'] })}>刷新</Button>
+      </Space>
+      <Table loading={isLoading} dataSource={data} columns={cols} rowKey="id" size="small" />
+
+      <Modal
+        title={editing ? '编辑数据连接' : '新增数据连接'}
+        open={open}
+        onCancel={() => setOpen(false)}
+        onOk={submit}
+        confirmLoading={createMut.isPending || updateMut.isPending}
+        width={560}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input placeholder="如：ODS-Doris-本地" /></Form.Item>
+          <Space style={{ width: '100%' }}>
+            <Form.Item name="dialect" label="类型" rules={[{ required: true }]} style={{ width: 140 }}>
+              <Select options={[{ value: 'doris', label: 'Doris' }, { value: 'mysql', label: 'MySQL' }, { value: 'postgresql', label: 'PostgreSQL' }]} />
+            </Form.Item>
+            <Form.Item name="host" label="主机" rules={[{ required: true }]} style={{ width: 200 }}><Input placeholder="localhost" /></Form.Item>
+            <Form.Item name="port" label="端口" rules={[{ required: true }]} style={{ width: 100 }}><InputNumber style={{ width: '100%' }} /></Form.Item>
+          </Space>
+          <Space style={{ width: '100%' }}>
+            <Form.Item name="database" label="数据库" rules={[{ required: true }]} style={{ width: 200 }}><Input /></Form.Item>
+            <Form.Item name="username" label="用户名" rules={[{ required: true }]} style={{ width: 160 }}><Input /></Form.Item>
+          </Space>
+          <Form.Item name="password" label={editing ? '密码（留空不改）' : '密码'} rules={editing ? [] : [{ required: true }]}>
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <Space>
+            <Form.Item name="read_only" label="只读" valuePropName="checked" initialValue={true}><Switch /></Form.Item>
+            <Form.Item name="is_enabled" label="启用" valuePropName="checked" initialValue={true}><Switch /></Form.Item>
+          </Space>
+        </Form>
+      </Modal>
+    </>
+  )
+}
+
 // ── 主页面 ─────────────────────────────────────────────────────────────────────
 
 export default function Settings() {
@@ -500,6 +631,7 @@ export default function Settings() {
       items={[
         { key: 'llm',        label: <><ApiOutlined />大模型配置</>,   children: <LLMTab /> },
         { key: 'datasource', label: <><PlayCircleOutlined />数据源配置</>, children: <DataSourceTab /> },
+        { key: 'dbconn',     label: <><ApiOutlined />数据连接</>,     children: <DbConnectionsTab /> },
         { key: 'tasks',      label: <><SyncOutlined />采集任务</>,     children: <TasksTab /> },
       ]}
     />

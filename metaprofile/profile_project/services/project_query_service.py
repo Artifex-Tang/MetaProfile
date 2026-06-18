@@ -80,6 +80,9 @@ def orm_to_response(orm: ProjectProfileORM) -> ProjectProfileResponse:
         parent_package_name=orm.parent_package_name,
         previous_phase_name=orm.previous_phase_name,
         confidence=orm.confidence,
+        veracity_score=orm.veracity_score,
+        timeliness_score=orm.timeliness_score,
+        data_as_of=orm.data_as_of,
         histories=[
             ProjectHistory(
                 change_date=h.change_date,

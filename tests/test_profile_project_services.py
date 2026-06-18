@@ -62,6 +62,9 @@ def _make_project_orm(**kwargs: Any) -> ProjectProfileORM:
         previous_phase_name=None,
         confidence=0.85,
         completeness=0.7,
+        veracity_score=0.0,
+        timeliness_score=0.0,
+        data_as_of=None,
         histories=[],
         budgets=[],
         outputs=[],
@@ -99,6 +102,23 @@ def _make_minimal_project(**kwargs: Any) -> ProjectProfile:
     )
     defaults.update(kwargs)
     return ProjectProfile(**defaults)
+
+
+# ─── orm_to_response: 评分字段流通（B1） ──────────────────────────────────────
+
+def test_orm_to_response_exposes_score_fields():
+    """veracity_score/timeliness_score/data_as_of 从 ORM 流入 response。"""
+    from metaprofile.profile_project.services.project_query_service import orm_to_response
+
+    orm = _make_project_orm(
+        veracity_score=0.83,
+        timeliness_score=0.79,
+        data_as_of=date(2026, 6, 18),
+    )
+    resp = orm_to_response(orm)
+    assert resp.veracity_score == 0.83
+    assert resp.timeliness_score == 0.79
+    assert resp.data_as_of == date(2026, 6, 18)
 
 
 # ─── ProjectQueryService ──────────────────────────────────────────────────────

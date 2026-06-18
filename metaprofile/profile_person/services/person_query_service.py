@@ -95,6 +95,9 @@ def orm_to_response(orm: PersonProfileORM) -> PersonProfileResponse:
         management_philosophy=orm.management_philosophy,
         remark=orm.remark,
         confidence=orm.confidence,
+        veracity_score=orm.veracity_score,
+        timeliness_score=orm.timeliness_score,
+        data_as_of=orm.data_as_of,
         educations=[
             PersonEducation(
                 start_date=e.start_date,

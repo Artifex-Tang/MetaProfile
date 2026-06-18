@@ -69,6 +69,9 @@ def orm_to_response(orm: TechProfileORM) -> TechProfileResponse:
         trend=orm.trend,
         remark=orm.remark,
         confidence=orm.confidence,
+        veracity_score=orm.veracity_score,
+        timeliness_score=orm.timeliness_score,
+        data_as_of=orm.data_as_of,
         dev_milestones=[
             TechDevMilestone(
                 milestone_date=m.milestone_date,

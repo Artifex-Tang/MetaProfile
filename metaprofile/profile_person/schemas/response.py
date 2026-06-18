@@ -1,7 +1,7 @@
 """人员画像 API 响应模型。"""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -15,6 +15,11 @@ class _Resp(BaseModel):
 
 class PersonProfileResponse(PersonProfile):
     """完整人员画像响应（继承自 PersonProfile）。"""
+
+    # ingest_ods scorer 产出的数据质量评分（output-only，系统计算）
+    veracity_score: float = Field(default=0.0, ge=0.0, le=1.0, description="真实性评分")
+    timeliness_score: float = Field(default=0.0, ge=0.0, le=1.0, description="时效性评分")
+    data_as_of: date | None = Field(default=None, description="数据截止日期")
 
 
 class PersonSearchResultItem(_Resp):

@@ -53,6 +53,9 @@ def _make_tech_orm(**kwargs: Any) -> TechProfileORM:
         remark=None,
         confidence=0.85,
         completeness=0.7,
+        veracity_score=0.0,
+        timeliness_score=0.0,
+        data_as_of=None,
         dev_milestones=[],
         review_impacts=[],
         fundings=[],
@@ -90,6 +93,23 @@ def _make_minimal_profile(**kwargs: Any) -> TechProfile:
     )
     defaults.update(kwargs)
     return TechProfile(**defaults)
+
+
+# ─── orm_to_response: 评分字段流通（B1） ──────────────────────────────────────
+
+def test_orm_to_response_exposes_score_fields():
+    """veracity_score/timeliness_score/data_as_of 从 ORM 流入 response。"""
+    from metaprofile.profile_tech.services.tech_query_service import orm_to_response
+
+    orm = _make_tech_orm(
+        veracity_score=0.92,
+        timeliness_score=0.81,
+        data_as_of=date(2026, 6, 18),
+    )
+    resp = orm_to_response(orm)
+    assert resp.veracity_score == 0.92
+    assert resp.timeliness_score == 0.81
+    assert resp.data_as_of == date(2026, 6, 18)
 
 
 # ─── TechQueryService ─────────────────────────────────────────────────────────

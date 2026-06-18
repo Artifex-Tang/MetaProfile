@@ -59,6 +59,9 @@ def _make_person_orm(**kwargs: Any) -> PersonProfileORM:
         remark=[],
         confidence=0.9,
         completeness=0.75,
+        veracity_score=0.0,
+        timeliness_score=0.0,
+        data_as_of=None,
         educations=[],
         careers=[],
         awards=[],
@@ -101,6 +104,23 @@ def _make_minimal_person(**kwargs: Any) -> PersonProfile:
     )
     defaults.update(kwargs)
     return PersonProfile(**defaults)
+
+
+# ─── orm_to_response: 评分字段流通（B1） ──────────────────────────────────────
+
+def test_orm_to_response_exposes_score_fields():
+    """veracity_score/timeliness_score/data_as_of 从 ORM 流入 response。"""
+    from metaprofile.profile_person.services.person_query_service import orm_to_response
+
+    orm = _make_person_orm(
+        veracity_score=0.91,
+        timeliness_score=0.70,
+        data_as_of=date(2026, 6, 18),
+    )
+    resp = orm_to_response(orm)
+    assert resp.veracity_score == 0.91
+    assert resp.timeliness_score == 0.70
+    assert resp.data_as_of == date(2026, 6, 18)
 
 
 # ─── PersonQueryService ───────────────────────────────────────────────────────

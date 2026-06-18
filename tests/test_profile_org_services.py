@@ -55,6 +55,9 @@ def _make_org_orm(**kwargs: Any) -> OrgProfileORM:
         remark=None,
         confidence=0.95,
         completeness=0.8,
+        veracity_score=0.0,
+        timeliness_score=0.0,
+        data_as_of=None,
         histories=[],
         affiliations=[],
         awards=[],
@@ -102,6 +105,23 @@ def _make_minimal_org(**kwargs: Any) -> OrgProfile:
     )
     defaults.update(kwargs)
     return OrgProfile(**defaults)
+
+
+# ─── orm_to_response: 评分字段流通（B1） ──────────────────────────────────────
+
+def test_orm_to_response_exposes_score_fields():
+    """veracity_score/timeliness_score/data_as_of 从 ORM 流入 response。"""
+    from metaprofile.profile_org.services.org_query_service import orm_to_response
+
+    orm = _make_org_orm(
+        veracity_score=0.88,
+        timeliness_score=0.76,
+        data_as_of=date(2026, 6, 18),
+    )
+    resp = orm_to_response(orm)
+    assert resp.veracity_score == 0.88
+    assert resp.timeliness_score == 0.76
+    assert resp.data_as_of == date(2026, 6, 18)
 
 
 # ─── OrgQueryService ──────────────────────────────────────────────────────────

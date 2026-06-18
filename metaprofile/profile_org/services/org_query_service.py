@@ -95,6 +95,9 @@ def orm_to_response(orm: OrgProfileORM) -> OrgProfileResponse:
         new_key_projects=orm.new_key_projects,
         remark=orm.remark,
         confidence=orm.confidence,
+        veracity_score=orm.veracity_score,
+        timeliness_score=orm.timeliness_score,
+        data_as_of=orm.data_as_of,
         histories=[
             OrgHistory(
                 change_date=h.change_date,

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import RelationGraph from '../../components/RelationGraph'
 import JumpBreadcrumb from '../../components/JumpBreadcrumb'
+import DataQualityCard from '../../components/DataQualityCard'
 import { useCrossProfileJump, NAV_TYPES } from '../../utils/crossProfile'
 import {
   Input, Button, Table, Tag, Drawer, Tabs, Spin, Alert,
@@ -39,6 +40,7 @@ function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boole
           {
             key: 'info', label: '基本信息',
             children: (
+              <>
               <Descriptions column={1} size="small" bordered>
                 <Descriptions.Item label="机构名（中）">{p.name_cn}</Descriptions.Item>
                 <Descriptions.Item label="机构名（英）">{p.name_en ?? '-'}</Descriptions.Item>
@@ -59,6 +61,12 @@ function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boole
                 </Descriptions.Item>
                 <Descriptions.Item label="置信度">{(p.confidence * 100).toFixed(1)}%</Descriptions.Item>
               </Descriptions>
+              <DataQualityCard
+                veracityScore={p.veracity_score}
+                timelinessScore={p.timeliness_score}
+                dataAsOf={p.data_as_of}
+              />
+              </>
             ),
           },
           {

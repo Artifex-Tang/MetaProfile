@@ -59,6 +59,9 @@ export interface TechProfile {
   reviewed_by_enterprises: EntityRef[]
   confidence: number
   completeness?: number
+  veracity_score?: number
+  timeliness_score?: number
+  data_as_of?: string
 }
 
 export interface EntityRef {
@@ -167,6 +170,9 @@ export interface PersonProfile {
   researched_projects: EntityRef[]
   confidence: number
   completeness?: number
+  veracity_score?: number
+  timeliness_score?: number
+  data_as_of?: string
 }
 
 export interface PersonSearchItem {
@@ -235,6 +241,9 @@ export interface OrgProfile {
   child_orgs: EntityRef[]
   confidence: number
   completeness?: number
+  veracity_score?: number
+  timeliness_score?: number
+  data_as_of?: string
 }
 
 export interface OrgSearchItem {
@@ -291,6 +300,9 @@ export interface ProjectProfile {
   tech_refs: EntityRef[]
   confidence: number
   completeness?: number
+  veracity_score?: number
+  timeliness_score?: number
+  data_as_of?: string
 }
 
 export interface ProjectSearchItem {

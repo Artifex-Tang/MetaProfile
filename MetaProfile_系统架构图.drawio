@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-04-27T00:00:00.000Z" agent="MetaProfile" version="24.0.0" type="device">
+  <diagram name="MetaProfile系统架构" id="metaprofile-arch">
+    <mxGraphModel dx="2000" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- 标题 -->
+        <mxCell id="title" value="MetaProfile 重点目标对象跟踪系统 — 总体架构图" style="text;html=1;align=center;verticalAlign=middle;fontSize=22;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="500" y="20" width="700" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- 下游消费方层 -->
+        <mxCell id="consumer-layer" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;dashed=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="80" y="80" width="1540" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="consumer-label" value="下游消费方" style="text;html=1;align=left;verticalAlign=top;fontSize=14;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="100" y="90" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="cons1" value="情报分析师&#10;工作台" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="120" y="115" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cons2" value="决策支持&#10;BI 看板" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="300" y="115" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cons3" value="情报报告&#10;自动生成" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="480" y="115" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cons4" value="预警推送&#10;订阅服务" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="660" y="115" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cons5" value="第三方&#10;API 集成" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="840" y="115" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- API 网关 -->
+        <mxCell id="gateway" value="API Gateway&#10;鉴权 / 限流 / 路由 / 计量" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD966;strokeColor=#BF9000;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="700" y="210" width="300" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- 分析层 -->
+        <mxCell id="analysis-layer" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="80" y="290" width="1540" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="analysis-label" value="❶ 分析层（消费上层 — 通过 REST 调用画像层）" style="text;html=1;align=left;verticalAlign=top;fontSize=15;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="100" y="300" width="600" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="scan_monitor" value="⑤ 产业前沿技术&#10;扫描监测&#10;━━━━━━━━━━&#10;五维信号融合&#10;LLM Agent 4 步验证&#10;RAG-LLM TRL 标注" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE699;strokeColor=#996600;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="220" y="335" width="280" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="new_tech_discovery" value="⑥ 产业新技术&#10;发现&#10;━━━━━━━━━━&#10;弱信号识别（创新点 2）&#10;NLP+异常检测+趋势识别&#10;信号关联网络构建" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE699;strokeColor=#996600;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="710" y="335" width="280" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="topic_selection" value="⑦ 产业科技动态&#10;选题&#10;━━━━━━━━━━&#10;五策略融合&#10;LLM 评审员 4 维度评分&#10;反馈闭环" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE699;strokeColor=#996600;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="335" width="280" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- 画像层 -->
+        <mxCell id="profile-layer" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="80" y="480" width="1540" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="profile-label" value="❷ 画像层（中间层 — 面向业务的封装层，每工具独立部署）" style="text;html=1;align=left;verticalAlign=top;fontSize=15;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="100" y="490" width="700" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="profile_tech" value="① 产业前沿科技&#10;技术画像&#10;━━━━━━━━━━&#10;Port 8001 · 11 个标准 REST&#10;查询/搜索/语义/批量&#10;更新/导入/统计/关系&#10;路径/变更/补全" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B6D7A8;strokeColor=#38761D;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="120" y="525" width="320" height="105" as="geometry" />
+        </mxCell>
+
+        <mxCell id="profile_project" value="② 产业重大科技&#10;项目画像&#10;━━━━━━━━━━&#10;Port 8002 · 11 个标准 REST&#10;查询/搜索/语义/批量&#10;更新/导入/统计/关系&#10;路径/变更/补全" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B6D7A8;strokeColor=#38761D;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="490" y="525" width="320" height="105" as="geometry" />
+        </mxCell>
+
+        <mxCell id="profile_org" value="③ 产业前沿科技&#10;机构画像&#10;━━━━━━━━━━&#10;Port 8003 · 11 个标准 REST&#10;查询/搜索/语义/批量&#10;更新/导入/统计/关系&#10;路径/变更/补全" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B6D7A8;strokeColor=#38761D;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="860" y="525" width="320" height="105" as="geometry" />
+        </mxCell>
+
+        <mxCell id="profile_person" value="④ 产业重点&#10;人物画像&#10;━━━━━━━━━━&#10;Port 8004 · 11 个标准 REST&#10;查询/搜索/语义/批量&#10;更新/导入/统计/关系&#10;路径/变更/补全" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B6D7A8;strokeColor=#38761D;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="525" width="320" height="105" as="geometry" />
+        </mxCell>
+
+        <!-- 底座层 -->
+        <mxCell id="foundation-layer" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="80" y="670" width="1540" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="foundation-label" value="❸ 底座层 foundation（共享基础设施 — 重点目标对象模型）" style="text;html=1;align=left;verticalAlign=top;fontSize=15;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="100" y="680" width="600" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f1" value="collectors&#10;━━━━━&#10;专利/论文&#10;项目/政策&#10;企业/招标" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9FC5E8;strokeColor=#0B5394;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="100" y="715" width="150" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f2" value="cleaners&#10;━━━━━&#10;去重&#10;格式标准化&#10;字段校验" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9FC5E8;strokeColor=#0B5394;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="265" y="715" width="150" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f3" value="ner&#10;━━━━━&#10;BERT-CRF&#10;UIE&#10;多模型集成" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9FC5E8;strokeColor=#0B5394;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="430" y="715" width="150" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f4" value="extractors&#10;━━━━━&#10;LLM Function&#10;Calling&#10;Schema-Guided" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9FC5E8;strokeColor=#0B5394;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="595" y="715" width="150" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f5" value="relation&#10;━━━━━&#10;规则抽取&#10;LLM 分类&#10;三元组写入" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9FC5E8;strokeColor=#0B5394;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="760" y="715" width="150" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f6" value="disambiguation&#10;━━━━━&#10;Embedding 召回&#10;LLM 精判&#10;实体合并" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9FC5E8;strokeColor=#0B5394;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="925" y="715" width="150" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f7" value="storage&#10;━━━━━&#10;PostgreSQL&#10;Elasticsearch&#10;Neo4j" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9FC5E8;strokeColor=#0B5394;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="715" width="150" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f8" value="enrichment&#10;━━━━━&#10;完整度评分&#10;RAG 检索&#10;LLM 补全" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9FC5E8;strokeColor=#0B5394;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1255" y="715" width="150" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f9" value="stats&#10;━━━━━&#10;总量/增量&#10;分布/排名&#10;完整度直方" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9FC5E8;strokeColor=#0B5394;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1420" y="715" width="150" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- 共享层 -->
+        <mxCell id="shared-layer" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="80" y="870" width="1540" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="shared-label" value="❹ 共享层 shared（横切关注 — 所有模块依赖）" style="text;html=1;align=left;verticalAlign=top;fontSize=15;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="100" y="880" width="500" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s1" value="config&#10;pydantic-settings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5A6BD;strokeColor=#76608A;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="120" y="910" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" value="db&#10;PG / ES / Neo4j / Redis" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5A6BD;strokeColor=#76608A;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="370" y="910" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="llm&#10;Gateway / FunctionCall / Embedding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5A6BD;strokeColor=#76608A;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="620" y="910" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" value="schemas&#10;实体 Pydantic 模型 + 关系定义" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5A6BD;strokeColor=#76608A;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="920" y="910" width="320" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="s5" value="utils + nlp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5A6BD;strokeColor=#76608A;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="910" width="300" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- 数据源 -->
+        <mxCell id="ds-layer" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4CCCC;strokeColor=#990000;strokeWidth=1;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1000" width="1540" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ds-label" value="数据源：CNIPA / WIPO 专利 · CNKI / WoS 论文 · NSFC / 重点研发计划 · 天眼查 / 企查查 · 政府门户 · 政府采购网 · 主流媒体 · 行业研报" style="text;html=1;align=center;verticalAlign=middle;fontSize=12;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1010" width="1500" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- 连接：消费方→网关 -->
+        <mxCell id="e1" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666;" edge="1" parent="1" source="cons1" target="gateway">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666;" edge="1" parent="1" source="cons2" target="gateway">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666;" edge="1" parent="1" source="cons3" target="gateway">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666;" edge="1" parent="1" source="cons4" target="gateway">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="endArrow=classic;html=1;rounded=0;strokeColor=#666666;" edge="1" parent="1" source="cons5" target="gateway">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 网关→分析层 -->
+        <mxCell id="e6" style="endArrow=classic;html=1;rounded=0;strokeColor=#996600;strokeWidth=2;" edge="1" parent="1" source="gateway" target="scan_monitor">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" style="endArrow=classic;html=1;rounded=0;strokeColor=#996600;strokeWidth=2;" edge="1" parent="1" source="gateway" target="new_tech_discovery">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" style="endArrow=classic;html=1;rounded=0;strokeColor=#996600;strokeWidth=2;" edge="1" parent="1" source="gateway" target="topic_selection">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 分析层→画像层 -->
+        <mxCell id="e9" style="endArrow=classic;html=1;rounded=0;strokeColor=#38761D;strokeWidth=2;" edge="1" parent="1" source="scan_monitor" target="profile_tech">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" style="endArrow=classic;html=1;rounded=0;strokeColor=#38761D;strokeWidth=2;" edge="1" parent="1" source="new_tech_discovery" target="profile_org">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" style="endArrow=classic;html=1;rounded=0;strokeColor=#38761D;strokeWidth=2;" edge="1" parent="1" source="topic_selection" target="profile_person">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" style="endArrow=classic;html=1;rounded=0;strokeColor=#38761D;strokeWidth=2;dashed=1;" edge="1" parent="1" source="topic_selection" target="profile_project">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 画像层→底座层（向下虚线表示画像工具调用底座作为 internal service） -->
+        <mxCell id="e13" style="endArrow=classic;html=1;rounded=0;strokeColor=#0B5394;strokeWidth=2;dashed=0;" edge="1" parent="1" source="profile_tech" target="f4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" style="endArrow=classic;html=1;rounded=0;strokeColor=#0B5394;strokeWidth=2;dashed=0;" edge="1" parent="1" source="profile_project" target="f6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" style="endArrow=classic;html=1;rounded=0;strokeColor=#0B5394;strokeWidth=2;dashed=0;" edge="1" parent="1" source="profile_org" target="f7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" style="endArrow=classic;html=1;rounded=0;strokeColor=#0B5394;strokeWidth=2;dashed=0;" edge="1" parent="1" source="profile_person" target="f8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 底座→数据源 -->
+        <mxCell id="e17" style="endArrow=classic;html=1;rounded=0;strokeColor=#990000;strokeWidth=2;" edge="1" parent="1" source="f1" target="ds-layer">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 注：外侧加方向标签 -->
+        <mxCell id="lbl1" value="REST" style="text;html=1;align=center;verticalAlign=middle;fontSize=10;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="850" y="270" width="40" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl2" value="REST" style="text;html=1;align=center;verticalAlign=middle;fontSize=10;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="350" y="455" width="40" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl3" value="内部&#10;调用" style="text;html=1;align=center;verticalAlign=middle;fontSize=10;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="280" y="650" width="40" height="28" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

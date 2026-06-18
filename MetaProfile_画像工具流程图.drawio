@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-04-27T00:00:00.000Z" agent="MetaProfile" version="24.0.0" type="device">
+  <diagram name="画像工具内部流程" id="metaprofile-flow">
+    <mxGraphModel dx="2200" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="2200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- 标题 -->
+        <mxCell id="title" value="MetaProfile 画像工具内部处理流程图（4 工具同构）" style="text;html=1;align=center;verticalAlign=middle;fontSize=22;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="500" y="20" width="700" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="① 技术画像 / ② 项目画像 / ③ 机构画像 / ④ 人员画像 流程一致，差异在于实体类型与字段集" style="text;html=1;align=center;verticalAlign=middle;fontSize=13;fillColor=none;strokeColor=none;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="400" y="60" width="900" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" value="ISO 流程图规范：● 椭圆 = 起止节点  ● 矩形 = 处理过程  ● 菱形 = 决策（仅 QA 步使用）" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fillColor=#FFF8DC;strokeColor=#888888;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="400" y="92" width="900" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 起止节点 - 开始 ============ -->
+        <mxCell id="start" value="开始：定时触发 / API 调用" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;strokeWidth=2;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="700" y="140" width="280" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 步骤 1 ============ -->
+        <mxCell id="s1" value="步骤 1 — 数据接入&#10;━━━━━━━━━━━━━━━&#10;读取 collectors 清洗后的中间表&#10;按批次（默认 100 条/批）拉取增量数据&#10;过滤已处理记录" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="640" y="240" width="400" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 步骤 2 ============ -->
+        <mxCell id="s2" value="步骤 2 — 实体识别（NER）&#10;━━━━━━━━━━━━━━━&#10;BERT-CRF 主模型 + UIE 辅模型集成&#10;识别本工具对应实体类型的实体 span&#10;输出实体上下文（span ± 500 字）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="640" y="380" width="400" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 步骤 3 ============ -->
+        <mxCell id="s3" value="步骤 3 — 属性抽取（Schema-Guided IE）&#10;━━━━━━━━━━━━━━━&#10;LLM Function Calling，schema 来自 entity_xxx.py&#10;严格按《实体画像数据规范》字段输出&#10;必填字段缺失则补 confidence 标记" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="640" y="520" width="400" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 步骤 4 ============ -->
+        <mxCell id="s4" value="步骤 4 — 关系抽取&#10;━━━━━━━━━━━━━━━&#10;规则抽取（结构化字段）+ LLM 关系分类&#10;按数据规范关系定义生成三元组&#10;关系置信度 ≥ 0.6 入图谱" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="640" y="660" width="400" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 步骤 5 ============ -->
+        <mxCell id="s5" value="步骤 5 — 实体消歧&#10;━━━━━━━━━━━━━━━&#10;Embedding 召回 Top 20 候选&#10;阈值分流：≥0.95 自动合并 / 0.70~0.95 LLM 精判 / &lt;0.70 丢弃&#10;LLM 精判输出 is_same + reason + 主记录 ID" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="640" y="800" width="400" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 步骤 6 ============ -->
+        <mxCell id="s6" value="步骤 6 — 画像合成与入库&#10;━━━━━━━━━━━━━━━&#10;基本属性 + 扩展属性 + 关系合成完整画像&#10;PostgreSQL 强一致写入主表 + 扩展属性表&#10;ES / Neo4j 通过 outbox 异步同步&#10;每条更新写入 entity_change_log" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="640" y="940" width="400" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 步骤 7 ============ -->
+        <mxCell id="s7" value="步骤 7 — 完整度评估&#10;━━━━━━━━━━━━━━━&#10;按字段权重计算每个画像的完整度分&#10;必填字段权重 0.7，可选字段权重 0.3&#10;触发阈值：completeness &lt; 0.60 进入下一步" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="640" y="1090" width="400" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 步骤 8 ============ -->
+        <mxCell id="s8" value="步骤 8 — RAG 画像补全&#10;━━━━━━━━━━━━━━━&#10;混合检索（BM25 + Embedding kNN）召回 Top 20 文档&#10;LLM Function Calling 抽取缺失字段&#10;confidence ≥ 0.8 自动入库 / 0.6~0.8 进入审核 / &lt;0.6 丢弃" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="640" y="1230" width="400" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ============ QA 决策 - 唯一菱形 ============ -->
+        <mxCell id="qa" value="QA 质量检查&#10;字段必填率 ≥ 95%？&#10;LLM 抽取置信度均值 ≥ 0.8？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;strokeWidth=2;fontSize=12;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="600" y="1370" width="480" height="160" as="geometry" />
+        </mxCell>
+
+        <!-- 不通过分支 -->
+        <mxCell id="fail" value="质检不通过&#10;━━━━━━━━━━━━━━━&#10;标记为待人工审核&#10;写入审核队列（profile_review_queue）&#10;不影响已通过的画像入库" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;strokeWidth=2;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1410" width="320" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 步骤 9 ============ -->
+        <mxCell id="s9" value="步骤 9 — 统计计算&#10;━━━━━━━━━━━━━━━&#10;总量/增量/更新量、领域分布、活跃度排名&#10;完整度直方图、LLM 贡献度、关系密度&#10;结果缓存到 Redis（TTL 24h）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="640" y="1580" width="400" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 步骤 10 ============ -->
+        <mxCell id="s10" value="步骤 10 — 对外服务&#10;━━━━━━━━━━━━━━━&#10;暴露 11 个标准 REST 接口给分析层 &amp; 第三方&#10;查询/搜索/语义/批量 · 更新/导入&#10;统计 · 关系/路径 · 变更 · 补全" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="640" y="1720" width="400" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 起止节点 - 结束 ============ -->
+        <mxCell id="end" value="结束：等待下个调度周期 / 处理下批数据" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;strokeWidth=2;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="680" y="1860" width="320" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 连线 ============ -->
+        <mxCell id="c1" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="start" target="s1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="s1" target="s2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="s2" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="s3" target="s4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="s4" target="s5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="s5" target="s6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="s6" target="s7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c8" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="s7" target="s8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c9" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="s8" target="qa">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- QA 通过分支：向下到统计 -->
+        <mxCell id="c10" value="是" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;fontSize=13;fontStyle=1;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="qa" target="s9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- QA 不通过分支：向左到 fail -->
+        <mxCell id="c11" value="否" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;fontSize=13;fontStyle=1;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="qa" target="fail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c12" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="s9" target="s10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="s10" target="end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

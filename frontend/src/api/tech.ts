@@ -12,6 +12,15 @@ interface EnrichmentTaskResponse {
   submitted_at: string
 }
 
+export interface EnrichTaskStatus {
+  task_id: string
+  state: string
+  status?: string
+  completeness_after?: number
+  filled_fields?: string[]
+  error?: string | null
+}
+
 export const techService = {
   search: (keyword: string, page = 1, pageSize = 20) =>
     techApi.post<SearchResultList<TechSearchResultItem>>('/api/v1/profile/tech/search', {
@@ -37,4 +46,7 @@ export const techService = {
 
   enrich: (id: string) =>
     techApi.post<EnrichmentTaskResponse>(`/api/v1/profile/tech/${id}/enrich`).then(r => r.data),
+
+  getEnrichTaskStatus: (taskId: string) =>
+    techApi.get<EnrichTaskStatus>(`/api/v1/profile/tech/enrich/task/${taskId}`).then(r => r.data),
 }

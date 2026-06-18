@@ -4,6 +4,7 @@ import RelationGraph from '../../components/RelationGraph'
 import JumpBreadcrumb from '../../components/JumpBreadcrumb'
 import DataQualityCard from '../../components/DataQualityCard'
 import { useCrossProfileJump, NAV_TYPES } from '../../utils/crossProfile'
+import { enrichStatusLabel, isEnrichTerminal } from '../../utils/enrichStatus'
 import {
   Input, Button, Table, Tag, Drawer, Tabs, Spin, Alert,
   Descriptions, Space, Typography, Row, Col, Card, Statistic,
@@ -74,14 +75,40 @@ function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boole
     queryKey: ['stats', 'tech'],
     queryFn: techService.getStats,
   })
+  const [enrichTaskId, setEnrichTaskId] = useState<string | null>(null)
   const enrichMut = useMutation({
     mutationFn: () => techService.enrich(id),
     onSuccess: (res) => {
-      message.success(`LLM补全任务已提交: ${res.task_id}`)
-      qc.invalidateQueries({ queryKey: ['tech', id] })
+      if (res.status === 'skipped') {
+        message.info('完整度充足，无需补全')
+        return
+      }
+      setEnrichTaskId(res.task_id)
+      message.loading({ content: 'LLM补全任务已提交，执行中...', key: 'enrich', duration: 2 })
     },
     onError: () => message.error('提交补全任务失败'),
   })
+  const enrichStatus = useQuery({
+    queryKey: ['enrich-task', enrichTaskId],
+    queryFn: () => techService.getEnrichTaskStatus(enrichTaskId!),
+    enabled: !!enrichTaskId,
+    refetchInterval: (q) => isEnrichTerminal(q.state.data?.status) ? false : 2000,
+  })
+  useEffect(() => {
+    const st = enrichStatus.data?.status
+    if (!st || !isEnrichTerminal(st)) return
+    if (st === 'done') {
+      message.success('LLM补全完成')
+      qc.invalidateQueries({ queryKey: ['tech', id] })
+    } else if (st === 'skipped') {
+      message.info('完整度充足，无需补全')
+    } else if (st === 'no_fill') {
+      message.info('无字段可补')
+    } else {
+      message.error(`补全${enrichStatusLabel(st)}`)
+    }
+    setEnrichTaskId(null)
+  }, [enrichStatus.data?.status])
 
   const p = profile.data
   const { ctx, handleNodeClick } = useCrossProfileJump(selfType, id, p?.tech_name_cn ?? null)
@@ -102,10 +129,10 @@ function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boole
       <Button
         size="small"
         icon={<ThunderboltOutlined />}
-        loading={enrichMut.isPending}
+        loading={enrichMut.isPending || (!!enrichTaskId && !isEnrichTerminal(enrichStatus.data?.status))}
         onClick={() => enrichMut.mutate()}
       >
-        LLM补全
+        {enrichTaskId ? enrichStatusLabel(enrichStatus.data?.status) : 'LLM补全'}
       </Button>
     </Space>
   )

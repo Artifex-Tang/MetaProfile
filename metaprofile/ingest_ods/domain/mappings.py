@@ -39,6 +39,21 @@ def _one(value: Any) -> list:
     return [value] if value not in (None, "") else []
 
 
+def _split_kw(value: Any) -> list:
+    """关键词串 → list：兼容 ; ；, ， | 分隔与已为 list 的输入，去空白项。
+
+    ODS keyword 多为分隔符字符串（如 '量子计算; 机器学习'），key_points 目标字段为 list。
+    """
+    if isinstance(value, list):
+        return [str(v).strip() for v in value if str(v).strip()]
+    if value in (None, ""):
+        return []
+    s = str(value)
+    for sep in (";", "；", ",", "，", "|"):
+        s = s.replace(sep, "\n")
+    return [p.strip() for p in s.splitlines() if p.strip()]
+
+
 MAPPINGS: dict[str, MappingSet] = {
     "ods_company_basic_info": MappingSet(
         profile_type="org",
@@ -79,7 +94,7 @@ MAPPINGS: dict[str, MappingSet] = {
             # (而非 tech_name_cn,避免英文塞中文字段);tech_name_cn 对英文源天然缺失
             FieldMap("title", "tech_name_en"),
             FieldMap("abstract", "tech_summary"),
-            FieldMap("keyword", "key_points"),
+            FieldMap("keyword", "key_points", _split_kw),
             FieldMap(_feat("doi"), "doi"),
             FieldMap(_feat("pubdate"), "invention_date"),
         ],

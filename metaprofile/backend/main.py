@@ -69,8 +69,35 @@ PREFIX = settings.api_prefix  # /api/v1
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     logger.info("metaprofile_backend_starting", env=settings.env, prefix=PREFIX)
+    await _recover_orphan_collection_tasks()
     yield
     logger.info("metaprofile_backend_stopping")
+
+
+async def _recover_orphan_collection_tasks() -> None:
+    """startup 把上次进程中断遗留的 pending/running 采集任务标 failed（免 UI 永久卡 pending）。
+
+    asyncio 采集任务随进程死亡而消失，status 不会回写；重启后这些记录将永远停在 pending/running。
+    启动时一次性清扫为 failed。失败不阻断启动（DB 未就绪等情况）。
+    """
+    from sqlalchemy import update
+
+    from metaprofile.settings_api.domain.orm_models import CollectionTaskORM
+    from metaprofile.shared.db.postgres import get_session
+
+    try:
+        async with get_session() as session:
+            res = await session.execute(
+                update(CollectionTaskORM)
+                .where(CollectionTaskORM.status.in_(("pending", "running")))
+                .values(status="failed", error_msg="进程重启，任务中断（已自动标记失败）")
+            )
+            await session.commit()
+            count = getattr(res, "rowcount", 0)
+            if count:
+                logger.info("orphan_collection_tasks_recovered", count=count)
+    except Exception as e:  # noqa: BLE001 — 启动恢复失败不应阻断应用启动
+        logger.warning("orphan_collection_tasks_recover_failed", error=str(e))
 
 
 app = FastAPI(

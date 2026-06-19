@@ -1,18 +1,32 @@
-"""阶段④ 真实性 + 时效性 LLM 评分。"""
+"""阶段④ 数据质量评分（规则型，零 LLM，ISO 25012 对齐）。
+
+返回 dict：completeness / veracity_score / timeliness_score / data_as_of / dq_index。
+接口 score(profile_type, attrs, source_rows) 与原 LLM Scorer 一致 → orchestrator 零改。
+"""
 from __future__ import annotations
 
-import json
 from datetime import date
 
 import structlog
 
-from metaprofile.ingest_ods.llm.prompts import SCORE_SYSTEM_PROMPT, ScoreOutput
+from metaprofile.foundation.enrichment.completeness import score_completeness
+from metaprofile.ingest_ods.services.quality_rules import (
+    credibility_score, timeliness_score,
+)
 from metaprofile.shared.config.settings import settings
+from metaprofile.shared.schemas.base import EntityType
 
 logger = structlog.get_logger(__name__)
 
+# profile_type 字符串 → EntityType 枚举（score_completeness 需要）
+_PT2ET = {
+    "tech": EntityType.TECH, "org": EntityType.ORG,
+    "person": EntityType.PERSON, "project": EntityType.PROJECT,
+}
+
 
 def _latest_as_of(source_rows: list[dict]) -> date | None:
+    """取 source_rows 中最新 update_time/event_time 为 data_as_of。"""
     best: date | None = None
     for r in source_rows:
         rp = r.get("raw_payload", {}) if isinstance(r, dict) else {}
@@ -29,25 +43,32 @@ def _latest_as_of(source_rows: list[dict]) -> date | None:
     return best
 
 
-class Scorer:
-    def __init__(self, llm) -> None:
+class RuleScorer:
+    """确定性规则评分器（无 LLM 依赖）。"""
+
+    def __init__(self, llm=None) -> None:  # llm 保留仅为接口兼容，忽略
         self._llm = llm
 
     async def score(self, profile_type: str, attrs: dict,
                     source_rows: list[dict]) -> dict:
+        t = settings.thresholds
+        et = _PT2ET.get(profile_type)
+        completeness = score_completeness(et, attrs).score if et is not None else 0.0
         data_as_of = _latest_as_of(source_rows)
-        prompt = (f"实体类型：{profile_type}\n属性：{json.dumps(attrs, ensure_ascii=False)}\n"
-                  f"最新源时间：{data_as_of}\n评判真实性与时效性。")
-        try:
-            resp = await self._llm.complete(
-                model=settings.llm.generation_model,
-                messages=[{"role": "system", "content": SCORE_SYSTEM_PROMPT},
-                          {"role": "user", "content": prompt}],
-                temperature=0.0, caller="ods_ingest_score",
-            )
-            out = ScoreOutput(**json.loads(resp.content.strip()))
-            return {"veracity_score": out.veracity,
-                    "timeliness_score": out.timeliness, "data_as_of": data_as_of}
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("scorer_failed", error=str(exc))
-            return {"veracity_score": 0.0, "timeliness_score": 0.0, "data_as_of": data_as_of}
+        veracity = credibility_score(source_rows[0] if source_rows else {}, attrs, profile_type)
+        timeliness = timeliness_score(data_as_of)
+        dq = (t.dq_weight_completeness * completeness
+              + t.dq_weight_veracity * veracity
+              + t.dq_weight_timeliness * timeliness)
+        return {
+            "completeness": round(completeness, 4),
+            "veracity_score": round(veracity, 4),
+            "timeliness_score": round(timeliness, 4),
+            "data_as_of": data_as_of,
+            "dq_index": round(dq, 4),
+        }
+
+
+# 向后兼容别名：sql_warehouse.py 仍 `from ...scorer import Scorer`（Task 4 将切换为 RuleScorer）。
+# 新代码请直接使用 RuleScorer。
+Scorer = RuleScorer

@@ -78,7 +78,14 @@ def compute_entity_id(entity_key: dict, attrs: dict) -> str | None:
     if isinstance(name, list):
         name = name[0] if name else None
     if name:
-        return f"{NAME_SATELLITE_PREFIX}{name}"
+        nm = str(name)
+        # name: 卫星兜底时,真实标题/名称可能很长(论文标题 100+ 字符)溢出
+        # profile *_id VARCHAR(64)。超 58 字符(留 "name:" 前缀+余量)截断+md5
+        # 后缀保唯一与幂等(同标题→同 ID)。
+        if len(nm) > 58:
+            import hashlib
+            nm = nm[:42] + "_" + hashlib.md5(nm.encode()).hexdigest()[:15]
+        return f"{NAME_SATELLITE_PREFIX}{nm}"
     return None
 
 # 进程内活跃 profile_type 集合 → 同类型互斥，跨类型并行
@@ -100,6 +107,7 @@ class BatchOrchestrator:
         workers: int = int(cfg.get("workers", 4))
         batch_size: int = int(cfg.get("batch_size", workers * 125))
         mode: str = cfg.get("mode", "structured_only")
+        max_rows = cfg.get("max_rows")  # per-run 行数上限(小批量/冒烟); None=不限跑完
         watermark: str | None = WatermarkStore.get(source, WatermarkStore.KEY_WM)
 
         conn_orm = await session.get(DBConnectionORM, cfg["db_connection_id"])
@@ -133,6 +141,10 @@ class BatchOrchestrator:
                     total_imported += imported
                     logger.info("batch_processed", table=table, ptype=ptype,
                                 imported=imported, last_id=last_id)
+                    if max_rows and total_imported >= max_rows:
+                        logger.info("max_rows_cap_hit", table=table,
+                                    total_imported=total_imported, max_rows=max_rows)
+                        return total_imported
                 finally:
                     _active_types.discard(ptype)
         return total_imported

@@ -6,6 +6,23 @@ import type {
   ProjectProfile, ProjectSearchItem,
 } from './types'
 
+/** enrich 补全任务提交响应（4 画像共用形状）。 */
+interface EnrichmentTaskResponse {
+  task_id: string
+  status: string
+  current_completeness?: number
+}
+
+/** enrich 补全任务状态轮询响应（celery AsyncResult，与 tech 一致）。 */
+export interface EnrichTaskStatus {
+  task_id: string
+  state: string
+  status?: string
+  completeness_after?: number
+  filled_fields?: string[]
+  error?: string | null
+}
+
 export const personService = {
   search: (keyword: string, page = 1, pageSize = 20) =>
     personApi.post<SearchResultList<PersonSearchItem>>('/api/v1/profile/person/search', {
@@ -23,6 +40,12 @@ export const personService = {
 
   getStats: () =>
     personApi.get<{ total: number }>('/api/v1/stats/person').then(r => r.data),
+
+  enrich: (id: string) =>
+    personApi.post<EnrichmentTaskResponse>(`/api/v1/profile/person/${id}/enrich`).then(r => r.data),
+
+  getEnrichTaskStatus: (taskId: string) =>
+    personApi.get<EnrichTaskStatus>(`/api/v1/profile/person/enrich/task/${taskId}`).then(r => r.data),
 }
 
 export const orgService = {
@@ -42,6 +65,12 @@ export const orgService = {
 
   getStats: () =>
     orgApi.get<{ total: number }>('/api/v1/stats/org').then(r => r.data),
+
+  enrich: (id: string) =>
+    orgApi.post<EnrichmentTaskResponse>(`/api/v1/profile/org/${id}/enrich`).then(r => r.data),
+
+  getEnrichTaskStatus: (taskId: string) =>
+    orgApi.get<EnrichTaskStatus>(`/api/v1/profile/org/enrich/task/${taskId}`).then(r => r.data),
 }
 
 export const projectService = {
@@ -61,4 +90,10 @@ export const projectService = {
 
   getStats: () =>
     projectApi.get<{ total: number }>('/api/v1/stats/project').then(r => r.data),
+
+  enrich: (id: string) =>
+    projectApi.post<EnrichmentTaskResponse>(`/api/v1/profile/project/${id}/enrich`).then(r => r.data),
+
+  getEnrichTaskStatus: (taskId: string) =>
+    projectApi.get<EnrichTaskStatus>(`/api/v1/profile/project/enrich/task/${taskId}`).then(r => r.data),
 }

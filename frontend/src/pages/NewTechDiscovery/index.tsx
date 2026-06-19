@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Row, Col, Card, Table, Tag, Button, Space, Alert,
   Drawer, Descriptions, Typography, message, Spin,
@@ -6,6 +7,7 @@ import {
 import { PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { discoveryService } from '../../api/discovery'
+import { NAV_TYPES } from '../../utils/crossProfile'
 import type { WeakSignalItem, SignalNetwork } from '../../api/types'
 import G6 from '@antv/g6'
 
@@ -18,7 +20,9 @@ const NODE_TYPE_COLOR: Record<string, string> = {
   signal: '#722ed1',
 }
 
-function SignalGraph({ network }: { network: SignalNetwork }) {
+function SignalGraph({
+  network, onNodeClick,
+}: { network: SignalNetwork; onNodeClick?: (node: { id: string; entityType: string }) => void }) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -43,6 +47,7 @@ function SignalGraph({ network }: { network: SignalNetwork }) {
     const nodes = network.nodes.map(n => ({
       id: n.entity_id,
       label: (n.name ?? n.entity_id).slice(0, 12),
+      entityType: n.entity_type,
       style: { fill: NODE_TYPE_COLOR[n.entity_type] ?? '#888' },
     }))
     const edges = network.edges.map((e, i) => ({
@@ -55,8 +60,16 @@ function SignalGraph({ network }: { network: SignalNetwork }) {
 
     graph.data({ nodes, edges })
     graph.render()
+
+    if (onNodeClick) {
+      graph.on('node:click', (e: { item?: { getModel: () => { id?: string; entityType?: string } } }) => {
+        const model = e.item?.getModel()
+        if (model?.id && model?.entityType) onNodeClick({ id: model.id, entityType: model.entityType })
+      })
+    }
+
     return () => graph.destroy()
-  }, [network])
+  }, [network, onNodeClick])
 
   return <div ref={ref} style={{ width: '100%', height: 380, background: '#fafafa', borderRadius: 4 }} />
 }
@@ -64,11 +77,18 @@ function SignalGraph({ network }: { network: SignalNetwork }) {
 function SignalDrawer({
   signal, open, onClose,
 }: { signal: WeakSignalItem | null; open: boolean; onClose: () => void }) {
+  const navigate = useNavigate()
   const netQ = useQuery({
     queryKey: ['signal-network', signal?.signal_id],
     queryFn: () => discoveryService.getNetwork(signal!.signal_id),
     enabled: open && !!signal,
   })
+
+  const handleNodeClick = ({ id, entityType }: { id: string; entityType: string }) => {
+    const t = entityType.toLowerCase()
+    if (!NAV_TYPES.has(t)) return
+    navigate(`/${t}/${encodeURIComponent(id)}`)
+  }
 
   if (!signal) return null
   return (
@@ -91,7 +111,7 @@ function SignalDrawer({
       {netQ.isLoading ? <Spin style={{ display: 'block', margin: '24px auto' }} /> :
        netQ.isError ? <Alert type="error" message="网络加载失败" /> :
        netQ.data && netQ.data.nodes.length > 0
-         ? <SignalGraph network={netQ.data} />
+         ? <SignalGraph network={netQ.data} onNodeClick={handleNodeClick} />
          : <Text type="secondary">暂无关联节点</Text>}
     </Drawer>
   )

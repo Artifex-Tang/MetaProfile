@@ -28,9 +28,35 @@ const statusColor = (s: string) =>
 function TechDetailDrawer({
   item, open, onClose,
 }: { item: FrontierTechItem | null; open: boolean; onClose: () => void }) {
+  const qc = useQueryClient()
+  const verifyMut = useMutation({
+    mutationFn: (status: 'validated' | 'rejected') => scanService.verify(item!.id, status),
+    onSuccess: (_d, status) => {
+      message.success(status === 'validated' ? '已标记为已验证' : '已排除该技术')
+      qc.invalidateQueries({ queryKey: ['frontier'] })
+      onClose()
+    },
+    onError: () => message.error('操作失败'),
+  })
+
   if (!item) return null
   return (
-    <Drawer title={item.tech_name} width={520} open={open} onClose={onClose}>
+    <Drawer
+      title={item.tech_name}
+      width={520}
+      open={open}
+      onClose={onClose}
+      extra={item.status === 'pending' && (
+        <Space>
+          <Button size="small" type="primary" loading={verifyMut.isPending} onClick={() => verifyMut.mutate('validated')}>
+            验证
+          </Button>
+          <Button size="small" danger loading={verifyMut.isPending} onClick={() => verifyMut.mutate('rejected')}>
+            排除
+          </Button>
+        </Space>
+      )}
+    >
       <Descriptions column={1} size="small" bordered>
         <Descriptions.Item label="技术名称">{item.tech_name}</Descriptions.Item>
         <Descriptions.Item label="领域">

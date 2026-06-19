@@ -8,9 +8,14 @@ from fastapi import APIRouter, Query
 from sqlalchemy import desc, select
 
 from metaprofile.scan_monitor.domain.orm_models import FrontierTechORM
-from metaprofile.scan_monitor.schemas.models import FrontierTechItem, FrontierTechList, ScanTaskResponse
+from metaprofile.scan_monitor.schemas.models import (
+    FrontierTechItem,
+    FrontierTechList,
+    FrontierVerifyRequest,
+    ScanTaskResponse,
+)
 from metaprofile.shared.db.session import get_db
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
@@ -86,3 +91,23 @@ async def trigger_scan(
     await generate_frontier(db, period_from=pf, period_to=pt,
                             count=8, seed=abs(hash(task_id)) % 1000)
     return ScanTaskResponse(task_id=task_id, period_from=pf, period_to=pt)
+
+
+@router.post("/frontier-tech/{frontier_id}/verify", response_model=FrontierTechItem)
+async def verify_frontier_tech(
+    frontier_id: int,
+    payload: FrontierVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+) -> FrontierTechItem:
+    """人工验证前沿技术：将 pending 置为 validated（确认）或 rejected（排除）。"""
+    row = (
+        await db.execute(
+            select(FrontierTechORM).where(FrontierTechORM.id == frontier_id)
+        )
+    ).scalars().first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="frontier tech not found")
+    row.status = payload.status
+    await db.commit()
+    await db.refresh(row)
+    return FrontierTechItem.model_validate(row)

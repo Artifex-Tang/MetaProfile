@@ -19,4 +19,7 @@ export const scanService = {
 
   getFrontierTech: (id: string) =>
     scanApi.get<FrontierTechItem>(`/api/v1/frontier-tech/${id}`).then(r => r.data),
+
+  verify: (id: number, status: 'validated' | 'rejected') =>
+    scanApi.post<FrontierTechItem>(`/api/v1/frontier-tech/${id}/verify`, { status }).then(r => r.data),
 }

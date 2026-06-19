@@ -4,11 +4,12 @@ import RelationGraph from '../../components/RelationGraph'
 import JumpBreadcrumb from '../../components/JumpBreadcrumb'
 import DataQualityCard from '../../components/DataQualityCard'
 import { useCrossProfileJump, NAV_TYPES } from '../../utils/crossProfile'
+import { enrichStatusLabel, isEnrichTerminal } from '../../utils/enrichStatus'
 import {
   Input, Button, Table, Tag, Drawer, Tabs, Spin, Alert,
   Descriptions, Space, Typography, Upload, message, Timeline, Card,
 } from 'antd'
-import { SearchOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons'
+import { SearchOutlined, ReloadOutlined, UploadOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { projectService } from '../../api/profile'
 import type { ProjectProfile, ProjectSearchItem, RelationItem } from '../../api/types'
@@ -32,8 +33,58 @@ function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boole
 
   const primaryName = p?.name_cn?.[0] ?? id
 
+  const qc = useQueryClient()
+  const [enrichTaskId, setEnrichTaskId] = useState<string | null>(null)
+  const enrichMut = useMutation({
+    mutationFn: () => projectService.enrich(id),
+    onSuccess: (res) => {
+      if (res.status === 'skipped') {
+        message.info('完整度充足，无需补全')
+        return
+      }
+      setEnrichTaskId(res.task_id)
+      message.loading({ content: 'LLM补全任务已提交，执行中...', key: 'enrich', duration: 2 })
+    },
+    onError: () => message.error('提交补全任务失败'),
+  })
+  const enrichStatus = useQuery({
+    queryKey: ['project-enrich-task', enrichTaskId],
+    queryFn: () => projectService.getEnrichTaskStatus(enrichTaskId!),
+    enabled: !!enrichTaskId,
+    refetchInterval: (q) => isEnrichTerminal(q.state.data?.status) ? false : 2000,
+  })
+  useEffect(() => {
+    const st = enrichStatus.data?.status
+    if (!st || !isEnrichTerminal(st)) return
+    if (st === 'done') {
+      message.success('LLM补全完成')
+      qc.invalidateQueries({ queryKey: ['project', id] })
+    } else if (st === 'skipped') {
+      message.info('完整度充足，无需补全')
+    } else if (st === 'no_fill') {
+      message.info('无字段可补')
+    } else {
+      message.error(`补全${enrichStatusLabel(st)}`)
+    }
+    setEnrichTaskId(null)
+  }, [enrichStatus.data?.status])
+
+  const drawerTitle = (
+    <Space>
+      <span>{primaryName}</span>
+      <Button
+        size="small"
+        icon={<ThunderboltOutlined />}
+        loading={enrichMut.isPending || (!!enrichTaskId && !isEnrichTerminal(enrichStatus.data?.status))}
+        onClick={() => enrichMut.mutate()}
+      >
+        {enrichTaskId ? enrichStatusLabel(enrichStatus.data?.status) : 'LLM补全'}
+      </Button>
+    </Space>
+  )
+
   return (
-    <Drawer title={primaryName} width={700} open={open} onClose={onClose} destroyOnClose>
+    <Drawer title={drawerTitle} width={700} open={open} onClose={onClose} destroyOnClose>
       {profile.isLoading ? <Spin /> : profile.isError ? <Alert type="error" message="加载失败" /> : p && (
         <>
         <JumpBreadcrumb ctx={ctx} />

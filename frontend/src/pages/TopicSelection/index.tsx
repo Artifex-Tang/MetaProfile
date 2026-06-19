@@ -6,7 +6,9 @@ import {
 } from 'antd'
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { topicService } from '../../api/topic'
+import { NAV_TYPES } from '../../utils/crossProfile'
 import type { TopicItem, TopicDetail } from '../../api/types'
 import dayjs from 'dayjs'
 
@@ -38,6 +40,21 @@ function scoreBar(label: string, value: number) {
       </div>
       <Text style={{ marginLeft: 8, fontSize: 12 }}>{value.toFixed(3)}</Text>
     </div>
+  )
+}
+
+/** 关联实体 Tag：点击跳转对应画像详情（tech/org/project 可跳）。 */
+function JumpTag({ type, id, label, color }: { type: string; id: string; label: string; color: string }) {
+  const navigate = useNavigate()
+  if (!NAV_TYPES.has(type.toLowerCase())) return <Tag color={color}>{label}</Tag>
+  return (
+    <Tag
+      color={color}
+      style={{ cursor: 'pointer' }}
+      onClick={() => navigate(`/${type.toLowerCase()}/${encodeURIComponent(id)}`)}
+    >
+      {label}
+    </Tag>
   )
 }
 
@@ -116,22 +133,22 @@ function TopicDrawer({
 
           {d.related_tech_ids.length > 0 && (
             <Card size="small" title="关联技术">
-              {(d.related_tech_names?.length ? d.related_tech_names : d.related_tech_ids).map((v, i) => (
-                <Tag key={i} color="blue">{v}</Tag>
+              {d.related_tech_ids.map((id, i) => (
+                <JumpTag key={`tech-${id}-${i}`} type="tech" id={id} label={d.related_tech_names?.[i] ?? id} color="blue" />
               ))}
             </Card>
           )}
           {d.related_org_ids?.length > 0 && (
             <Card size="small" title="关联机构">
-              {(d.related_org_names?.length ? d.related_org_names : d.related_org_ids).map((v, i) => (
-                <Tag key={i} color="green">{v}</Tag>
+              {d.related_org_ids.map((id, i) => (
+                <JumpTag key={`org-${id}-${i}`} type="org" id={id} label={d.related_org_names?.[i] ?? id} color="green" />
               ))}
             </Card>
           )}
           {d.related_project_ids?.length > 0 && (
             <Card size="small" title="关联项目">
-              {(d.related_project_names?.length ? d.related_project_names : d.related_project_ids).map((v, i) => (
-                <Tag key={i} color="purple">{v}</Tag>
+              {d.related_project_ids.map((id, i) => (
+                <JumpTag key={`proj-${id}-${i}`} type="project" id={id} label={d.related_project_names?.[i] ?? id} color="purple" />
               ))}
             </Card>
           )}

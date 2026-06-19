@@ -74,7 +74,8 @@ def compute_entity_id(entity_key: dict, attrs: dict) -> str | None:
         v = entity_key.get(k)
         if v:
             return str(v)
-    name = attrs.get("name_cn") or attrs.get("tech_name_cn")
+    name = (attrs.get("name_cn") or attrs.get("tech_name_cn")
+            or attrs.get("name_en") or attrs.get("tech_name_en"))
     if isinstance(name, list):
         name = name[0] if name else None
     if name:

@@ -75,7 +75,9 @@ MAPPINGS: dict[str, MappingSet] = {
         profile_type="tech",
         key_fields=["title"],
         fields=[
-            FieldMap("title", "tech_name_cn"),
+            # science_literature 是英文论文,title 为英文 → 进 tech_name_en
+            # (而非 tech_name_cn,避免英文塞中文字段);tech_name_cn 对英文源天然缺失
+            FieldMap("title", "tech_name_en"),
             FieldMap("abstract", "tech_summary"),
             FieldMap("keyword", "key_points"),
             FieldMap(_feat("doi"), "doi"),

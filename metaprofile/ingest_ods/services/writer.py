@@ -102,6 +102,9 @@ class Writer:
         merged["veracity_score"] = scores.get("veracity_score", 0.0)
         merged["timeliness_score"] = scores.get("timeliness_score", 0.0)
         merged["data_as_of"] = scores.get("data_as_of")
+        if scores.get("completeness") is not None:
+            merged["completeness"] = scores.get("completeness")
+        merged["dq_index"] = scores.get("dq_index", 0.0)
 
         now = datetime.now(timezone.utc)
         if orm is None:

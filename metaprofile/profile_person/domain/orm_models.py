@@ -61,6 +61,7 @@ class PersonProfileORM(Base, TimestampMixin):
     # 质量评分（抽取管线写入）
     veracity_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     timeliness_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    dq_index: Mapped[float] = mapped_column(Float, default=0.0, nullable=False, comment="数据质量综合评分0-1")
     data_as_of: Mapped[date | None] = mapped_column(Date)
 
     educations: Mapped[list["PersonEducationORM"]] = relationship(

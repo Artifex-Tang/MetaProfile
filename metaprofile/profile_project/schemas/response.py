@@ -19,6 +19,7 @@ class ProjectProfileResponse(ProjectProfile):
     # ingest_ods scorer 产出的数据质量评分（output-only，系统计算）
     veracity_score: float = Field(default=0.0, ge=0.0, le=1.0, description="真实性评分")
     timeliness_score: float = Field(default=0.0, ge=0.0, le=1.0, description="时效性评分")
+    dq_index: float = Field(default=0.0, ge=0.0, le=1.0, description="数据质量综合评分(0-1)")
     data_as_of: date | None = Field(default=None, description="数据截止日期")
 
 

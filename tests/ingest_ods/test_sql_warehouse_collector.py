@@ -11,7 +11,7 @@ async def test_run_invokes_orchestrator(monkeypatch) -> None:
     with patch.object(sw, "BatchOrchestrator", return_value=orch), \
          patch.object(sw, "Extractor", return_value=MagicMock()), \
          patch.object(sw, "EntityResolver", return_value=MagicMock()), \
-         patch.object(sw, "Scorer", return_value=MagicMock()), \
+         patch.object(sw, "RuleScorer", return_value=MagicMock()), \
          patch.object(sw, "Writer", return_value=MagicMock()):
         n = await sw.run_sql_warehouse_collection(
             task=MagicMock(id=1),

@@ -68,7 +68,3 @@ class RuleScorer:
             "dq_index": round(dq, 4),
         }
 
-
-# 向后兼容别名：sql_warehouse.py 仍 `from ...scorer import Scorer`（Task 4 将切换为 RuleScorer）。
-# 新代码请直接使用 RuleScorer。
-Scorer = RuleScorer

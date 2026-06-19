@@ -188,8 +188,9 @@ class BatchOrchestrator:
                     session, batch_id=task.id, stage="score",
                     error_msg=str(exc), source_table=rows[0].get("source_table"),
                 )
-                scores = {"veracity_score": 0.0, "timeliness_score": 0.0,
-                          "data_as_of": None}
+                scores = {"completeness": 0.0, "veracity_score": 0.0,
+                          "timeliness_score": 0.0, "data_as_of": None,
+                          "dq_index": 0.0}
             # M4/C1: 强键优先，name 归一 list（project name_cn=['M1']→'name:M1'），
             # 无名实体防静默碰撞 → record_error 跳过
             entity_id = compute_entity_id(ent["entity_key"], attrs)

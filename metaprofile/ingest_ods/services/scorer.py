@@ -38,6 +38,8 @@ def _latest_as_of(source_rows: list[dict]) -> date | None:
                 d = date.fromisoformat(str(v)[:10])
             except Exception:
                 continue
+            if d > date.today():  # I4: 跳过未来日期，避免污染 freshness
+                continue
             if best is None or d > best:
                 best = d
     return best
@@ -46,8 +48,8 @@ def _latest_as_of(source_rows: list[dict]) -> date | None:
 class RuleScorer:
     """确定性规则评分器（无 LLM 依赖）。"""
 
-    def __init__(self, llm=None) -> None:  # llm 保留仅为接口兼容，忽略
-        self._llm = llm
+    def __init__(self, llm=None) -> None:  # llm 保留仅为接口兼容(legacy 调用)，不使用
+        pass
 
     async def score(self, profile_type: str, attrs: dict,
                     source_rows: list[dict]) -> dict:

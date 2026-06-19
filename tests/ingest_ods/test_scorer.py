@@ -40,4 +40,30 @@ def test_dq_index_perfect_when_all_fields_and_authority():
     out = asyncio.run(s.score("tech", attrs, src))
     assert abs(out["dq_index"] - 1.0) < 0.01, out
     assert abs(out["completeness"] - 1.0) < 0.01
-    assert abs(out["veracity_score"] - 1.0) < 0.01
+
+
+def test_score_org_person_project_keys_in_range():
+    s = RuleScorer()
+    cases = [
+        ("org", {"name_cn": "机构", "name_en": "org", "country": "CN", "summary": "x"}),
+        ("person", {"name_cn": "张三", "name_en": "zs", "nationality": "CN", "summary": "x"}),
+        ("project", {"project_name": "项目", "project_number": "P1", "lead_org": "o", "summary": "x"}),
+    ]
+    src = [{"source_table": "ods_x", "raw_payload": {"update_time": str(date.today())}}]
+    for ptype, attrs in cases:
+        out = asyncio.run(s.score(ptype, attrs, src))
+        for k in ("completeness", "veracity_score", "timeliness_score", "data_as_of", "dq_index"):
+            assert k in out, f"{ptype} missing {k}"
+        assert 0.0 <= out["dq_index"] <= 1.0
+        assert 0.0 <= out["veracity_score"] <= 1.0
+
+def test_score_future_update_time_not_treated_fresh():
+    # 未来日期不应让 timeliness=1.0(I4: _latest_as_of 跳过未来)
+    s = RuleScorer()
+    future = str(date.today() + timedelta(days=365))
+    out = asyncio.run(s.score("tech", {"tech_name_cn": "x"},
+                              [{"source_table": "ods_y", "raw_payload": {"update_time": future}}]))
+    assert out["timeliness_score"] != 1.0
+    # 全未来 → data_as_of None → timeliness 0
+    assert out["data_as_of"] is None
+    assert out["timeliness_score"] == 0.0

@@ -1,6 +1,6 @@
 """source_type='sql_warehouse' 适配器：装配 5 阶段服务 + 跑 orchestrator。
 
-依赖：T3 resolve_dsn / T6 Extractor / T8 EntityResolver / T9 Scorer /
+依赖：T3 resolve_dsn / T6 Extractor / T8 EntityResolver / RuleScorer /
       T10 Writer / T11 ContentMiner / T12 BatchOrchestrator。
 
 Writer/TripleWriter wiring（修复计划 snippet 的 bug）：

@@ -68,3 +68,17 @@ def test_credibility_cap_and_factor():
         "application_date": date(2021, 1, 1),
     }
     assert abs(credibility_score(src, attrs) - 0.8925) < 0.001
+
+
+def test_consistency_project_ok():
+    from datetime import date
+    assert consistency_factor("project", {"start_date": date(2021,1,1), "end_date": date(2022,1,1)}) == 1.0
+
+def test_consistency_project_bad():
+    from datetime import date
+    assert consistency_factor("project", {"start_date": date(2022,1,1), "end_date": date(2021,1,1)}) == 0.85
+
+def test_consistency_org_person_noop():
+    # org/person 无日期一致性检查 → 恒 ok(v1 局限)
+    assert consistency_factor("org", {}) == 1.0
+    assert consistency_factor("person", {}) == 1.0

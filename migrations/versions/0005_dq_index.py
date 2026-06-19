@@ -30,5 +30,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    from sqlalchemy import inspect
+    bind = op.get_bind()
+    insp = inspect(bind)
     for tbl in _TABLES:
-        op.drop_column(tbl, "dq_index")
+        cols = {c["name"] for c in insp.get_columns(tbl)}
+        if "dq_index" in cols:
+            op.drop_column(tbl, "dq_index")

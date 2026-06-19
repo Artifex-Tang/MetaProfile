@@ -56,10 +56,10 @@ class ProjectProfile(ProfileBase):
 
     # ── 基本属性 ──
     project_id: str | None = None
-    name_cn: list[str] = Field(..., min_length=1, description="项目中文名称（必填）")
-    name_en: list[str] = Field(..., min_length=1, description="项目外文名称（必填）")
+    name_cn: list[str] = Field(default_factory=list, description="项目中文名称")
+    name_en: list[str] = Field(default_factory=list, description="项目外文名称")
     name_other: list[str] = Field(default_factory=list)
-    tech_domain: list[str] = Field(..., min_length=1)
+    tech_domain: list[str] = Field(default_factory=list)
     sub_tech_domain: list[str] = Field(default_factory=list)
     start_date: date = Field(..., description="启动时间（必填）")
     cancel_date: date | None = None

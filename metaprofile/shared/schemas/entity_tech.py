@@ -8,9 +8,26 @@ from __future__ import annotations
 
 from datetime import date
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from metaprofile.shared.schemas.base import EntityRef, ProfileBase, ReviewType
+
+
+def _coerce_json_list(v):
+    """容 ingest 稀疏数据：ODS keyword 等字段在 ORM JSON 列里可能存成
+    JSON-encoded 字符串(如 '["a","b"]')，读回时 pydantic list[str] 拒绝。
+    这里把"看起来是 JSON 数组的字符串"解析回 list。"""
+    if isinstance(v, str):
+        s = v.strip()
+        if s.startswith("[") and s.endswith("]"):
+            import json
+            try:
+                parsed = json.loads(s)
+            except (ValueError, TypeError):
+                return v
+            if isinstance(parsed, list):
+                return parsed
+    return v
 
 
 # ─────────────────────────── 扩展属性 ────────────────────────────
@@ -77,11 +94,11 @@ class TechProfile(ProfileBase):
     tech_id: str | None = Field(
         default=None, description="技术唯一标识（系统生成，新建时可省略）"
     )
-    tech_name_cn: str = Field(..., description="技术中文名称（必填）", min_length=1)
-    tech_name_en: str = Field(..., description="技术外文名称（必填）", min_length=1)
+    tech_name_cn: str = Field(default="", description="技术中文名称")
+    tech_name_en: str = Field(default="", description="技术外文名称")
     tech_name_other: str | None = Field(default=None, description="技术其他名称")
     tech_domain: list[str] = Field(
-        ..., description="所属技术领域（必填，允许多值）", min_length=1
+        default_factory=list, description="所属技术领域（允许多值）"
     )
     invention_date: date | None = Field(default=None, description="发明时间")
     application_date: date | None = Field(default=None, description="应用时间")
@@ -89,6 +106,11 @@ class TechProfile(ProfileBase):
     dev_goal: str | None = Field(default=None, description="发展目标")
     project_layout: list[str] = Field(default_factory=list, description="项目布局")
     key_points: list[str] = Field(default_factory=list, description="关键技术点")
+
+    @field_validator("key_points", mode="before")
+    @classmethod
+    def _coerce_key_points(cls, v):
+        return _coerce_json_list(v)
     transformation_status: str | None = Field(
         default=None, description="转化应用情况"
     )

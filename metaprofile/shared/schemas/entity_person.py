@@ -128,8 +128,8 @@ class PersonProfile(ProfileBase):
 
     # ── 基本属性 ──
     person_id: str | None = None
-    name_cn: str = Field(..., description="人员中文姓名（必填）", min_length=1)
-    name_en: str = Field(..., description="人员外文姓名（必填）", min_length=1)
+    name_cn: str = Field(default="", description="人员中文姓名")
+    name_en: str = Field(default="", description="人员外文姓名")
     gender: Gender = Field(..., description="性别（必填）")
     avatar: list[str] = Field(default_factory=list)
     nationality: str = Field(..., description="国籍（必填）")

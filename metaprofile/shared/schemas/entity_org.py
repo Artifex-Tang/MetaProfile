@@ -132,8 +132,8 @@ class OrgProfile(ProfileBase):
 
     # ── 基本属性 ──
     org_id: str | None = None
-    name_cn: str = Field(..., description="机构中文名称（必填）", min_length=1)
-    name_en: str = Field(..., description="机构外文名称（必填）", min_length=1)
+    name_cn: str = Field(default="", description="机构中文名称")
+    name_en: str = Field(default="", description="机构外文名称")
     name_other: list[str] = Field(default_factory=list)
     country: str = Field(..., description="国家或地区（必填）")
     founded_date: date = Field(..., description="创建时间（必填）")
@@ -145,7 +145,7 @@ class OrgProfile(ProfileBase):
     nature: OrgNature = Field(..., description="机构性质")
     function: str = Field(..., description="机构职能（必填）")
     scale: int | None = Field(default=None, description="机构规模（人）")
-    tech_domains: list[str] = Field(..., min_length=1)
+    tech_domains: list[str] = Field(default_factory=list)
     predecessor_names: list[str] = Field(default_factory=list)
     departments: str | None = None
     strategic_plans: list[str] = Field(default_factory=list)

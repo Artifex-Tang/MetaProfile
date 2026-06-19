@@ -31,12 +31,15 @@ def test_tech_profile_valid():
 
 
 def test_tech_profile_missing_required():
+    # name/domain 字段已放宽为可选(容 ingest 稀疏真数据)，
+    # 仍必填的是 tech_summary/current_status/trend
     with pytest.raises(ValidationError) as exc_info:
         TechProfile(tech_name_cn="X")
     errors = exc_info.value.errors()
     missing = {e["loc"][0] for e in errors}
-    assert "tech_name_en" in missing
-    assert "tech_domain" in missing
+    assert "tech_summary" in missing
+    assert "current_status" in missing
+    assert "trend" in missing
 
 
 def test_tech_profile_extra_field_forbidden():
@@ -44,9 +47,19 @@ def test_tech_profile_extra_field_forbidden():
         TechProfile(**TECH_REQUIRED, unknown_field="x")
 
 
-def test_tech_profile_empty_domain():
-    with pytest.raises(ValidationError):
-        TechProfile(**{**TECH_REQUIRED, "tech_domain": []})
+def test_tech_profile_sparse_allowed():
+    # 稀疏真数据：空 name / 空 domain 必须通过校验
+    p = TechProfile(**{**TECH_REQUIRED, "tech_domain": []})
+    assert p.tech_domain == []
+    p2 = TechProfile(
+        tech_summary="s",
+        current_status="c",
+        trend="t",
+        tech_name_cn="",
+        tech_name_en="",
+        tech_domain=[],
+    )
+    assert p2.tech_name_cn == ""
 
 
 def test_tech_extraction_result():

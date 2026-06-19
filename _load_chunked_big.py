@@ -17,8 +17,16 @@ REMOTE = dict(host='10.242.0.1', port=9030, user='gz_kt5', password='92f5IRTld93
 # 2026-06-18: 迁到本地 Doris(9030 root 无密码)。原 mp-mysql:3307 已废弃删除。
 LOCAL = dict(host='127.0.0.1', port=9030, user='root', password='',
              database='ods_zbzx', charset='utf8mb4', connect_timeout=10)
-# 首批只跑 science(6.85M,最小大表,作大表首测)。market/patent/company 后续再放开。
-BIG = ['ods_science_literature']
+# big3 放开(2026-06-18):science 已灌完(5.58M)。云端 company 414M 封 10M;market/patent 各 20% 抽样(设计 B)。
+# 顺序:已验证的 market/patent 先;company 用 company_id 是新路径放最后兜底
+BIG = ['ods_market_analysis_cn', 'ods_invention_patent_cn', 'ods_company_basic_info']
+SAMPLE_CAP = {
+    "ods_company_basic_info": 10_000_000,   # 414M → 10M(~2.4%)
+    "ods_market_analysis_cn":  7_280_000,   # 36.4M → 20%
+    "ods_invention_patent_cn": 5_900_000,   # 29.5M → 20%
+}
+# company 无 `id` 列(PK=company_id);其余大表均以 id 分窗。
+KEY_COL = {"ods_company_basic_info": "company_id"}
 
 LOG = io.open(r'E:\ccode\MetaProfile\_load_big.log', 'a', encoding='utf-8', buffering=1)
 lock = threading.Lock()
@@ -44,12 +52,12 @@ def conn_remote(stream=False, read_timeout=READ_TIMEOUT):
     except Exception as e: log(f"  SET exec_mem_limit fail {e}")
     return c, cur
 
-def bisect_end(rcur, tbl, lo, max_id, target):
+def bisect_end(rcur, tbl, key, lo, max_id, target):
     a, b = lo + 1, max_id + 1; best = lo + 1
     for _ in range(BISECT_MAX_ITERS):
         if b - a <= 1: break
         mid = (a + b) // 2
-        rcur.execute(f"SELECT COUNT(*) FROM `{tbl}` WHERE `id`>={lo} AND `id`<{mid}")
+        rcur.execute(f"SELECT COUNT(*) FROM `{tbl}` WHERE `{key}`>={lo} AND `{key}`<{mid}")
         c = rcur.fetchone()[0]
         if c <= target: best = mid; a = mid
         else: b = mid
@@ -58,8 +66,9 @@ def bisect_end(rcur, tbl, lo, max_id, target):
 def load_chunked(tbl):
     if state.get(tbl, {}).get('done'):
         log(f"SKIP {tbl}: done"); return
+    key = KEY_COL.get(tbl, 'id')
     rc, rcur = conn_remote()
-    rcur.execute(f"SELECT MIN(`id`), MAX(`id`) FROM `{tbl}`")
+    rcur.execute(f"SELECT MIN(`{key}`), MAX(`{key}`) FROM `{tbl}`")
     min_id, max_id = rcur.fetchone(); rc.close()
     if min_id is None:
         log(f"SKIP {tbl}: empty on remote"); return
@@ -69,35 +78,37 @@ def load_chunked(tbl):
     log(f"START {tbl}: id[{min_id},{max_id}] resume_from={lo} local已有{have:,}行")
     collist = ins = None; wno = 0; t0 = time.time(); gbytes = 0; ggot = 0
     while lo <= max_id:
-        # 每窗全新 rc 做 bisect(防复用 stalled 连接)
-        rc, rcur = conn_remote()
-        try:
-            end = bisect_end(rcur, tbl, lo, max_id, WINDOW_ROWS)
-            rcur.execute(f"SELECT COUNT(*) FROM `{tbl}` WHERE `id`>={lo} AND `id`<{end}")
-            c = rcur.fetchone()[0]
-            if end <= lo or c == 0:
-                rcur.execute(f"SELECT MIN(`id`) FROM `{tbl}` WHERE `id`>={lo}")
-                nid = rcur.fetchone()[0]
-                if nid is None:
-                    log(f"  {tbl}: no rows>= {lo}"); rc.close(); break
-                end = nid + 1
-        finally:
-            rc.close()
-        # 每窗全新 wf 流式取数 + 重试(stall自愈);DELETE+INSERT 幂等,重连重取不重复
-        got = 0; wb = 0; ok = False
-        for attempt in range(1, FETCH_RETRIES + 1):
-            wf = wcur = None
+        # 整窗(bisect+取数)无限重试+指数退避:隧道抖断时等待自愈,不放弃本表。
+        # 窗口 DELETE+INSERT 幂等,整窗重跑严格无重复。
+        attempt = 0; end = None; got = 0; wb = 0
+        while True:
+            attempt += 1
+            rc = wf = wcur = None
             try:
+                # ── bisect 定窗上界(每窗全新 rc,防复用 stalled socket) ──
+                rc, rcur = conn_remote()
+                try:
+                    end = bisect_end(rcur, tbl, key, lo, max_id, WINDOW_ROWS)
+                    rcur.execute(f"SELECT COUNT(*) FROM `{tbl}` WHERE `{key}`>={lo} AND `{key}`<{end}")
+                    c = rcur.fetchone()[0]
+                    if end <= lo or c == 0:
+                        rcur.execute(f"SELECT MIN(`{key}`) FROM `{tbl}` WHERE `{key}`>={lo}")
+                        nid = rcur.fetchone()[0]
+                        if nid is None:
+                            log(f"  {tbl}: no rows>= {lo}"); end = None
+                            break
+                        end = nid + 1
+                finally:
+                    rc.close()
+                # ── 流式取数 + DELETE+INSERT 幂等 ──
+                got = 0; wb = 0
                 wf, wcur = conn_remote(stream=True)
-                wcur.execute(f"SELECT * FROM `{tbl}` WHERE `id`>={lo} AND `id`<{end}")
+                wcur.execute(f"SELECT * FROM `{tbl}` WHERE `{key}`>={lo} AND `{key}`<{end}")
                 if collist is None:
                     collist = ",".join(f"`{d[0]}`" for d in wcur.description)
                     ins = f"INSERT INTO `{tbl}` ({collist}) VALUES ({','.join(['%s']*len(wcur.description))})"
-                # Doris 无 INSERT IGNORE → 窗口幂等:取数前 DELETE 整个 id 窗 [lo,end),
-                #   再整窗 INSERT。重跑同窗(崩溃/重试)重新 DELETE+INSERT,严格无重复。
-                #   注:本地 Doris 表为 UNIQUE KEY(id,event_time) MoW,upsert 本就幂等;
-                #       DELETE 仅作显式保险(覆盖任何 schema 边界)。
-                dc.execute(f"DELETE FROM `{tbl}` WHERE `id` >= %s AND `id` < %s", (lo, end))
+                # Doris 无 INSERT IGNORE → 取数前 DELETE 整窗 [lo,end) 再 INSERT;重跑同窗无重复
+                dc.execute(f"DELETE FROM `{tbl}` WHERE `{key}` >= %s AND `{key}` < %s", (lo, end))
                 while True:
                     rows = wcur.fetchmany(BATCH)
                     if not rows: break
@@ -105,18 +116,27 @@ def load_chunked(tbl):
                     for r in rows:
                         for v in r:
                             if isinstance(v, (bytes, str)): wb += len(v)
-                ok = True; break
+                try:
+                    wcur.close(); wf.close()
+                except Exception: pass
+                break  # 整窗成功,跳出重试
             except Exception as e:
-                log(f"  {tbl} [{lo},{end}) fetch attempt{attempt}/{FETCH_RETRIES} FAIL: {type(e).__name__}: {str(e)[:120]}")
-                if attempt < FETCH_RETRIES: time.sleep(5)
-            finally:
+                backoff = min(120, 5 * (2 ** (attempt - 1)))   # 5,10,20,40,80,120,120...
+                log(f"  {tbl} [{lo},{end}) retry#{attempt} FAIL {type(e).__name__}: {str(e)[:90]}; {backoff}s 后重试")
                 try:
                     if wcur: wcur.close()
                     if wf: wf.close()
                 except Exception: pass
-        if not ok:
-            log(f"  {tbl}: window [{lo},{end}) fetch gave up after {FETCH_RETRIES} attempts, STOP table"); break
+                time.sleep(backoff)
+        if end is None:
+            break  # no rows 分支
         wno += 1; gbytes += wb; ggot += got
+        cap = SAMPLE_CAP.get(tbl)
+        if cap and ggot >= cap:
+            log(f"  {tbl}: 达抽样封顶 {cap:,} 行(实灌 {ggot:,}),停止本表抽样")
+            state[tbl] = {'last': end, 'done': True, 'sampled': True}; save_state()
+            lo = max_id + 1
+            break
         state[tbl] = {'last': end, 'done': False}; save_state()
         log(f"  {tbl} w{wno}: [{lo},{end}) got={got:,} +{wb/1024/1024:.0f}MB tot={ggot:,}行 {gbytes/1024/1024/1024:.1f}GB {gbytes/(time.time()-t0)/1024/1024:.1f}MB/s")
         lo = end
@@ -127,8 +147,10 @@ def load_chunked(tbl):
     dst.close()
 
 if __name__ == '__main__':
-    log(f"==== BIG CHUNKED start: {len(BIG)} tables window={WINDOW_ROWS} retries={FETCH_RETRIES} read_to={READ_TIMEOUT} ====")
-    for t in BIG:
+    import sys
+    run = sys.argv[1:] if len(sys.argv) > 1 else BIG
+    log(f"==== BIG CHUNKED start: {len(run)} tables {run} window={WINDOW_ROWS} backoff=inf read_to={READ_TIMEOUT} ====")
+    for t in run:
         try: load_chunked(t)
         except Exception as e:
             log(f"FAIL {t}: {type(e).__name__}: {str(e)[:250]}")

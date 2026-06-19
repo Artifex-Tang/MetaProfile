@@ -12,7 +12,7 @@ from metaprofile.settings_api.schemas.models import (
     LLMProviderConfigUpdate,
     LLMTestResponse,
 )
-from metaprofile.settings_api.services.llm_sync_service import sync_to_litellm, test_llm_connection
+from metaprofile.settings_api.services.llm_sync_service import test_llm_connection
 
 router = APIRouter(prefix="/api/v1/settings/llm", tags=["LLM配置"])
 
@@ -33,10 +33,7 @@ async def create_llm_config(body: LLMProviderConfigCreate, db: AsyncSession = De
     db.add(cfg)
     await db.flush()
     await db.refresh(cfg)
-
-    synced = await sync_to_litellm(cfg)
-    cfg.litellm_synced = synced
-    await db.flush()
+    # 直连模式：新建配置默认待验证（litellm_synced=False），用户点"同步"时测试连接
 
     return cfg
 
@@ -54,9 +51,7 @@ async def update_llm_config(cfg_id: int, body: LLMProviderConfigUpdate, db: Asyn
     for k, v in updates.items():
         setattr(cfg, k, v)
 
-    cfg.litellm_synced = False  # 标记需重新同步
-    synced = await sync_to_litellm(cfg)
-    cfg.litellm_synced = synced
+    cfg.litellm_synced = False  # 配置已变更，需重新"同步"验证连接
     await db.flush()
     await db.refresh(cfg)  # 加载 updated_at 等，避免响应序列化触发懒加载(MissingGreenlet)
 
@@ -82,12 +77,14 @@ async def test_llm_config(cfg_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/{cfg_id}/sync", response_model=LLMProviderConfigOut)
 async def sync_llm_config(cfg_id: int, db: AsyncSession = Depends(get_db)):
+    """同步 = 验证连接（直连模式不再依赖 LiteLLM）。测试通过则标记已激活。"""
     cfg = await db.get(LLMProviderConfigORM, cfg_id)
     if not cfg:
         raise HTTPException(404, "配置不存在")
-    synced = await sync_to_litellm(cfg)
-    cfg.litellm_synced = synced
+    success, _msg, _lat = await test_llm_connection(cfg)
+    cfg.litellm_synced = success
     await db.flush()
+    await db.refresh(cfg)
     return cfg
 
 

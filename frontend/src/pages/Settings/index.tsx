@@ -108,7 +108,11 @@ function LLMTab() {
 
   const syncMut = useMutation({
     mutationFn: settingsService.syncLLM,
-    onSuccess: () => { message.success('同步成功'); qc.invalidateQueries({ queryKey: ['llm-configs'] }) },
+    onSuccess: (data) => {
+      if (data?.litellm_synced) message.success('连接验证通过，已激活');
+      else message.error('连接验证失败：请检查 URL / API Key / 模型名');
+      qc.invalidateQueries({ queryKey: ['llm-configs'] });
+    },
     onError: () => message.error('同步失败'),
   })
 
@@ -142,8 +146,8 @@ function LLMTab() {
       render: (v: boolean) => <Tag color={v ? 'green' : 'default'}>{v ? '启用' : '停用'}</Tag>,
     },
     {
-      title: 'LiteLLM', dataIndex: 'litellm_synced', width: 90,
-      render: (v: boolean) => <Tag color={v ? 'cyan' : 'orange'}>{v ? '已同步' : '未同步'}</Tag>,
+      title: '连接', dataIndex: 'litellm_synced', width: 90,
+      render: (v: boolean) => <Tag color={v ? 'cyan' : 'orange'}>{v ? '已激活' : '待验证'}</Tag>,
     },
     {
       title: '连接测试', width: 160,

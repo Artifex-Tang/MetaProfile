@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import asyncio
-import logging
+import structlog
 from typing import Any
 
 from metaprofile.foundation.enrichment.llm_filler import LLMFieldFiller
@@ -22,7 +22,7 @@ from metaprofile.shared.llm.gateway import LLMGateway
 from metaprofile.shared.schemas.base import EntityType
 from metaprofile.shared.worker.celery_app import celery_app
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 def _shape(outcome: EnrichOutcome, entity_id: str) -> dict[str, Any]:

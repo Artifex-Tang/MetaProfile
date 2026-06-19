@@ -122,6 +122,21 @@ class StorageThresholds(BaseSettings):
     completeness_enrich_trigger: float = 0.60
     enrichment_auto_accept: float = 0.80
     enrichment_review_min: float = 0.60
+    # ── 数据质量评分（规则型，ISO 25012 对齐；详见 quality_rules.py）──
+    # 来源可信度基线（按数据进入通道）
+    source_trust_ods: float = 0.90        # ODS Doris 官方库（sql_warehouse 抽取）
+    source_trust_llm: float = 0.70        # LLM 补全（enrich）
+    source_trust_import: float = 0.60     # 批量导入 JSON / 手工
+    source_trust_ugc: float = 0.40        # UGC / 网页抓取
+    source_trust_unknown: float = 0.50    # 缺来源信息兜底
+    authority_bonus_each: float = 0.05    # 每个权威信号加分（DOI/引用/官方编号）
+    authority_bonus_cap: float = 0.15     # 权威加分上限
+    consistency_factor_ok: float = 1.0    # 跨字段一致
+    consistency_factor_bad: float = 0.85  # 任一一致性检查失败
+    timeliness_halflife_days: int = 180   # 时效指数衰减半衰期
+    dq_weight_completeness: float = 0.4   # 复合 DQI 权重（Σ=1.0，可调）
+    dq_weight_veracity: float = 0.3
+    dq_weight_timeliness: float = 0.3
 
 
 class Settings(BaseSettings):

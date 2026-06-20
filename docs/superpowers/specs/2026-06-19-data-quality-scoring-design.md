@@ -39,10 +39,10 @@
 ### 3.2 Credibility / veracity（新写，规则）
 ```
 veracity = clamp[0,1](
-    source_trust_weight                       # 来源基线权重(下表)
-  + authority_bonus                           # 权威信号加分
-) * consistency_factor                        # 一致性乘子
-```
+    (source_trust_weight                      # 来源基线权重(下表)
+     + authority_bonus)                       # 权威信号加分
+    * consistency_factor                      # 一致性乘子；仅末尾 clamp(中间可>1)
+)
 - **source_trust_weight**（来源可信度表，**可调**）：
   | 来源 source_method / 通道 | 权重 |
   |---|---|
@@ -58,7 +58,7 @@ veracity = clamp[0,1](
 ### 3.3 Timeliness（新写，规则）
 ```
 age_days = (today - data_as_of).days          # data_as_of = source_rows 最新 update_time/event_time
-timeliness = clamp[0,1]( exp(-age_days / 180) )   # 180 天半衰期,可调
+timeliness = clamp[0,1]( exp(-age_days · ln2 / 180) )   # 真半衰期:180 天处=0.5,可调
 ```
 - 无 `data_as_of` → `timeliness = 0`（时效未知=最差），**不**用 LLM 兜底。
 - 衰减曲线选指数（比线性更贴合"新鲜度直觉"）；半衰期 180 天 **可调**（settings.thresholds.timeliness_halflife_days）。

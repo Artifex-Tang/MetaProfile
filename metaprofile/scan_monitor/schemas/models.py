@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -58,7 +57,8 @@ class ScanTaskResponse(_Base):
     status: str = "queued"
 
 
-class FrontierVerifyRequest(_Base):
-    """人工验证前沿技术：validated（确认）/ rejected（排除）。"""
+class VerifyTaskResponse(_Base):
+    """LLM 验证任务派发响应（前端轮询 task 状态）。"""
 
-    status: Literal["validated", "rejected"]
+    task_id: str
+    status: str = "queued"

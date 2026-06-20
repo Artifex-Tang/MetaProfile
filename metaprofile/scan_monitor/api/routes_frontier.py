@@ -5,16 +5,19 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, Query
+from celery.result import AsyncResult
 from sqlalchemy import desc, select
 
 from metaprofile.scan_monitor.domain.orm_models import FrontierTechORM
 from metaprofile.scan_monitor.schemas.models import (
     FrontierTechItem,
     FrontierTechList,
-    FrontierVerifyRequest,
     ScanTaskResponse,
+    VerifyTaskResponse,
 )
 from metaprofile.shared.db.session import get_db
+from metaprofile.shared.worker.celery_app import celery_app
+from metaprofile.shared.worker.scan_tasks import verify_frontier_tech
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -93,21 +96,31 @@ async def trigger_scan(
     return ScanTaskResponse(task_id=task_id, period_from=pf, period_to=pt)
 
 
-@router.post("/frontier-tech/{frontier_id}/verify", response_model=FrontierTechItem)
-async def verify_frontier_tech(
+@router.post("/frontier-tech/{frontier_id}/verify", response_model=VerifyTaskResponse)
+async def trigger_verify_frontier_tech(
     frontier_id: int,
-    payload: FrontierVerifyRequest,
     db: AsyncSession = Depends(get_db),
-) -> FrontierTechItem:
-    """人工验证前沿技术：将 pending 置为 validated（确认）或 rejected（排除）。"""
-    row = (
-        await db.execute(
-            select(FrontierTechORM).where(FrontierTechORM.id == frontier_id)
-        )
-    ).scalars().first()
+) -> VerifyTaskResponse:
+    """触发 LLM 验证（异步）：派发 celery 任务跑 FrontierAgentValidator，
+    按判定回写 status + llm_verdict/evidence。返回 task_id 供前端轮询。
+    """
+    row = await db.get(FrontierTechORM, frontier_id)
     if row is None:
         raise HTTPException(status_code=404, detail="frontier tech not found")
-    row.status = payload.status
-    await db.commit()
-    await db.refresh(row)
-    return FrontierTechItem.model_validate(row)
+    result = verify_frontier_tech.delay(frontier_id)
+    return VerifyTaskResponse(task_id=result.id, status="queued")
+
+
+@router.get("/frontier-tech/verify/task/{task_id}")
+async def get_verify_task_status(task_id: str) -> dict:
+    """查询 LLM 验证任务状态（celery AsyncResult，前端轮询）。"""
+    res = AsyncResult(task_id, app=celery_app)
+    payload: dict = {"task_id": task_id, "state": res.state}
+    if res.state == "SUCCESS":
+        payload.update(res.result or {})
+    elif res.state == "FAILURE":
+        payload["status"] = "failed"
+        payload["error"] = str(res.result)
+    else:
+        payload["status"] = "pending"
+    return payload

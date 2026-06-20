@@ -26,5 +26,6 @@ celery_app.conf.update(
     # 任务自动发现（worker 启动时 import 注册）
     include=[
         "metaprofile.shared.worker.enrich_tasks",
+        "metaprofile.shared.worker.scan_tasks",
     ],
 )

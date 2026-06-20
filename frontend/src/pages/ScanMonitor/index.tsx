@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Row, Col, Card, Table, Tag, Button, DatePicker, Select, Space,
   Alert, Spin, Drawer, Descriptions, Typography, message, Divider, Modal, Tooltip,
 } from 'antd'
-import { PlayCircleOutlined } from '@ant-design/icons'
+import { PlayCircleOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { scanService } from '../../api/scan'
 import type { FrontierTechItem, AlertItem } from '../../api/types'
@@ -29,15 +29,33 @@ function TechDetailDrawer({
   item, open, onClose,
 }: { item: FrontierTechItem | null; open: boolean; onClose: () => void }) {
   const qc = useQueryClient()
+  const [verifyTaskId, setVerifyTaskId] = useState<string | null>(null)
   const verifyMut = useMutation({
-    mutationFn: (status: 'validated' | 'rejected') => scanService.verify(item!.id, status),
-    onSuccess: (_d, status) => {
-      message.success(status === 'validated' ? '已标记为已验证' : '已排除该技术')
-      qc.invalidateQueries({ queryKey: ['frontier'] })
-      onClose()
+    mutationFn: () => scanService.verify(item!.id),
+    onSuccess: (res) => {
+      setVerifyTaskId(res.task_id)
+      message.loading({ content: 'LLM 验证任务已提交，执行中...', key: 'verify', duration: 2 })
     },
-    onError: () => message.error('操作失败'),
+    onError: () => message.error('提交验证失败'),
   })
+  const verifyStatus = useQuery({
+    queryKey: ['verify-task', verifyTaskId],
+    queryFn: () => scanService.getVerifyTaskStatus(verifyTaskId!),
+    enabled: !!verifyTaskId,
+    refetchInterval: (q) => (q.state.data?.state === 'SUCCESS' || q.state.data?.state === 'FAILURE') ? false : 2000,
+  })
+  useEffect(() => {
+    const st = verifyStatus.data
+    if (!st || (st.state !== 'SUCCESS' && st.state !== 'FAILURE')) return
+    if (st.state === 'SUCCESS' && st.status === 'done') {
+      message.success(`LLM 验证完成：判定=${st.llm_verdict ?? '-'}，状态=${st.frontier_status ?? '-'}`)
+    } else {
+      message.error('LLM 验证失败：' + (st.error ?? '未知错误'))
+    }
+    qc.invalidateQueries({ queryKey: ['frontier'] })
+    setVerifyTaskId(null)
+    onClose()
+  }, [verifyStatus.data?.state])
 
   if (!item) return null
   return (
@@ -47,15 +65,16 @@ function TechDetailDrawer({
       open={open}
       onClose={onClose}
       extra={item.status === 'pending' && (
-        <Tooltip title="人工标记，不触发 LLM。扫描阶段已由 LLM agent 验证，结果见下方「LLM验证/LLM判定」。">
-          <Space>
-            <Button size="small" type="primary" loading={verifyMut.isPending} onClick={() => verifyMut.mutate('validated')}>
-              人工确认
-            </Button>
-            <Button size="small" danger loading={verifyMut.isPending} onClick={() => verifyMut.mutate('rejected')}>
-              人工排除
-            </Button>
-          </Space>
+        <Tooltip title="异步调用 LLM agent 做真实性/时效性/突破性 4 步验证，按判定回写状态（是→已验证/否→已排除）。">
+          <Button
+            size="small"
+            type="primary"
+            icon={<ThunderboltOutlined />}
+            loading={verifyMut.isPending || !!verifyTaskId}
+            onClick={() => verifyMut.mutate()}
+          >
+            {verifyTaskId ? '验证中...' : 'LLM 验证'}
+          </Button>
         </Tooltip>
       )}
     >

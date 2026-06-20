@@ -60,15 +60,28 @@ class TechRelationService:
         if not paths_raw:
             return RelationPathResult(found=False, paths=[])
 
+        def _name(node: dict) -> str | None:
+            return (
+                node.get("name")
+                or node.get("tech_name_cn")
+                or node.get("entity_id")
+            )
+
         paths = []
-        for node_list in paths_raw:
+        for p in paths_raw:
+            nodes = p["nodes"]
+            rels = p["rel_types"]
             steps = [
                 RelationPathStep(
-                    from_id=node_list[i].get("entity_id", ""),
-                    relation="RELATED",
-                    to_id=node_list[i + 1].get("entity_id", ""),
+                    from_id=nodes[i].get("entity_id", ""),
+                    from_name=_name(nodes[i]),
+                    from_type=nodes[i].get("entity_type"),
+                    relation=rels[i] if i < len(rels) else "RELATED",
+                    to_id=nodes[i + 1].get("entity_id", ""),
+                    to_name=_name(nodes[i + 1]),
+                    to_type=nodes[i + 1].get("entity_type"),
                 )
-                for i in range(len(node_list) - 1)
+                for i in range(len(nodes) - 1)
             ]
             if steps:
                 paths.append(steps)

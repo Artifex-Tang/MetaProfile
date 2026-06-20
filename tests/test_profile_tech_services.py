@@ -384,10 +384,13 @@ class TestTechRelationService:
             svc._neo4j, "find_path", new_callable=AsyncMock
         ) as mock_fp:
             mock_fp.return_value = [
-                [
-                    {"entity_id": "TECH_001"},
-                    {"entity_id": "ORG_002"},
-                ]
+                {
+                    "nodes": [
+                        {"entity_id": "TECH_001", "entity_type": "TECH"},
+                        {"entity_id": "ORG_002", "entity_type": "ORG"},
+                    ],
+                    "rel_types": ["涉及"],
+                }
             ]
             result = await svc.find_path(
                 from_id="TECH_001", to_id="ORG_002", max_depth=4
@@ -396,6 +399,7 @@ class TestTechRelationService:
             assert len(result.paths) == 1
             assert result.paths[0][0].from_id == "TECH_001"
             assert result.paths[0][0].to_id == "ORG_002"
+            assert result.paths[0][0].relation == "涉及"
 
 
 # ─── TechStatsService ────────────────────────────────────────────────────────

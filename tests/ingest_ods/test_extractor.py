@@ -42,3 +42,36 @@ async def test_extract_batch_empty() -> None:
     with patch("metaprofile.ingest_ods.services.extractor._fetch_rows", return_value=[]):
         rows = await ext.extract_batch({"host": "h"}, "ods_company_basic_info", 0, 1000)
     assert rows == []
+
+
+# --- watermark 校验:垃圾值("0"/"null"/malformed)会让 update_time > '0' 命中全表,
+#     增量过滤失效变全表扫(大表卡死)。须在 SQL 边界前置归 None(走 id-keyset 全量分页)。
+
+
+@pytest.mark.asyncio
+async def test_extract_batch_drops_garbage_watermark() -> None:
+    """watermark='0' 不可解析为 datetime → 传给 _fetch_rows 时归 None。"""
+    ext = Extractor()
+    with patch("metaprofile.ingest_ods.services.extractor._fetch_rows", return_value=[]) as m:
+        await ext.extract_batch({"host": "h"}, "ods_company_basic_info", 0, 1000, watermark="0")
+    assert m.call_args.args[4] is None  # _fetch_rows 第5参 watermark
+
+
+@pytest.mark.asyncio
+async def test_extract_batch_keeps_valid_watermark() -> None:
+    """watermark 为合法 ISO datetime → 原样传给 _fetch_rows。"""
+    ext = Extractor()
+    wm = "2024-01-01T10:00:00+00:00"
+    with patch("metaprofile.ingest_ods.services.extractor._fetch_rows", return_value=[]) as m:
+        await ext.extract_batch({"host": "h"}, "ods_company_basic_info", 0, 1000, watermark=wm)
+    assert m.call_args.args[4] == wm
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("garbage", ["0", "null", "not-a-date", "", None, 0])
+async def test_extract_batch_drops_various_garbage(garbage) -> None:
+    """各类垃圾/falsy watermark 一律归 None。"""
+    ext = Extractor()
+    with patch("metaprofile.ingest_ods.services.extractor._fetch_rows", return_value=[]) as m:
+        await ext.extract_batch({"host": "h"}, "ods_company_basic_info", 0, 1000, watermark=garbage)
+    assert m.call_args.args[4] is None

@@ -13,6 +13,22 @@ from metaprofile.ingest_ods.domain.mappings import apply_mapping
 logger = structlog.get_logger(__name__)
 
 
+def _sanitize_watermark(watermark: Any) -> str | None:
+    """增量 watermark(update_time 过滤)须可解析为 datetime,否则归 None。
+
+    垃圾值("0"/"null"/malformed ISO)会让 SQL `update_time > '0'` 命中全表
+    ('0'=0000-00-00),增量过滤失效变全表扫(大表卡死)。空/falsy 同归 None,
+    退化为 id-keyset 全量分页(仍按 batch_size 批读,只是无增量裁剪)。
+    """
+    if not watermark:
+        return None
+    try:
+        datetime.fromisoformat(str(watermark))
+    except ValueError:
+        return None
+    return str(watermark)
+
+
 def _fetch_rows(dsn: dict, table: str, last_id: int, batch_size: int,
                 watermark: str | None = None) -> list[dict]:
     """同步流式取一批行。id-keyset，可选 update_time 增量过滤。"""
@@ -44,6 +60,7 @@ class Extractor:
         batch_size: int,
         watermark: str | None = None,
     ) -> list[dict]:
+        watermark = _sanitize_watermark(watermark)
         rows = await asyncio.to_thread(_fetch_rows, dsn, table, last_id, batch_size, watermark)
         now = datetime.now(timezone.utc)
         out: list[dict] = []

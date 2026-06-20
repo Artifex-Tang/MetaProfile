@@ -128,9 +128,17 @@ class LLMGateway:
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
         if functions:
-            payload["functions"] = functions
+            # 现代 tools API（legacy functions 已废弃，glm/openai/ollama/vllm 均支持 tools）
+            payload["tools"] = [{"type": "function", "function": f} for f in functions]
         if function_call:
-            payload["function_call"] = function_call
+            # legacy function_call → tool_choice。
+            # 注意：zhipu(glm) 等只接受字符串形式("auto"/"none"/"required")，
+            # 对象形式 {"type":"function",...} 会 400(code 1210)。单工具场景下
+            # "auto" 等价强制（模型无其它工具可调），跨 provider 最兼容。
+            if isinstance(function_call, dict) and function_call.get("name"):
+                payload["tool_choice"] = "auto"
+            else:
+                payload["tool_choice"] = function_call
         headers = {
             "Authorization": f"Bearer {cfg['api_key'] or ''}",
             "Content-Type": "application/json",
@@ -156,9 +164,19 @@ class LLMGateway:
         choice = data["choices"][0]["message"]
         usage = data.get("usage", {})
 
+        # 优先 tool_calls（现代 API），回退 function_call（legacy）——兼容新旧 provider
+        fn_call = None
+        tool_calls = choice.get("tool_calls") or []
+        if tool_calls:
+            tc = tool_calls[0]
+            tf = tc.get("function", {}) or {}
+            fn_call = {"name": tf.get("name"), "arguments": tf.get("arguments", "")}
+        elif choice.get("function_call"):
+            fn_call = choice.get("function_call")
+
         result = LLMResponse(
             content=choice.get("content", "") or "",
-            function_call=choice.get("function_call"),
+            function_call=fn_call,
             input_tokens=usage.get("prompt_tokens", 0),
             output_tokens=usage.get("completion_tokens", 0),
             model=cfg["model_name"],

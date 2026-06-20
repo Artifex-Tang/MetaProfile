@@ -4,7 +4,6 @@
 """
 from __future__ import annotations
 
-import math
 from datetime import date
 
 import structlog
@@ -12,18 +11,23 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaprofile.new_tech_discovery.domain.orm_models import WeakSignalORM
+from metaprofile.shared.config.settings import settings
 
 logger = structlog.get_logger(__name__)
 
 _DEFAULT_THRESHOLD = 0.40
-_K_SIGMA = 1.0   # 均值 + 1σ 为自适应阈值
 
 
 class AdaptiveThreshold:
     """自适应阈值计算器。"""
 
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, *, k_sigma: float | None = None) -> None:
         self._db = db
+        # k_sigma 默认取 settings.weak_signal.adaptive_k_sigma（§4.8），
+        # 支持显式覆盖以便测试。
+        self._k_sigma = (
+            settings.weak_signal.adaptive_k_sigma if k_sigma is None else k_sigma
+        )
 
     async def compute(
         self,
@@ -43,7 +47,7 @@ class AdaptiveThreshold:
             row = (await self._db.execute(q)).one()
             mean = float(row.mean or 0.0)
             std = float(row.std or 0.0)
-            threshold = mean + _K_SIGMA * std
+            threshold = mean + self._k_sigma * std
             return max(min(threshold, 1.0), _DEFAULT_THRESHOLD)
         except Exception as exc:
             logger.warning("adaptive_threshold_compute_failed", error=str(exc))

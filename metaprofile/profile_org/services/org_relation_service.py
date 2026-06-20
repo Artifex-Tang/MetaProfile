@@ -61,14 +61,16 @@ class OrgRelationService:
             return RelationPathResult(found=False, paths=[])
 
         paths = []
-        for node_list in paths_raw:
+        for p in paths_raw:
+            nodes = p["nodes"]
+            rels = p.get("rel_types", [])
             steps = [
                 RelationPathStep(
-                    from_id=node_list[i].get("entity_id", ""),
-                    relation="RELATED",
-                    to_id=node_list[i + 1].get("entity_id", ""),
+                    from_id=nodes[i].get("entity_id", ""),
+                    relation=rels[i] if i < len(rels) else "RELATED",
+                    to_id=nodes[i + 1].get("entity_id", ""),
                 )
-                for i in range(len(node_list) - 1)
+                for i in range(len(nodes) - 1)
             ]
             if steps:
                 paths.append(steps)

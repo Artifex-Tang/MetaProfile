@@ -6,6 +6,7 @@ Neo4j 5+ 异步驱动封装。
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -145,9 +146,15 @@ class Neo4jRepo:
     ) -> dict[str, Any]:
         """按关系类型 + 方向遍历 N 跳，返回 {nodes, edges}。
 
-        direction ∈ {out, in, both}。rel_type/depth/label 已校验，直接拼 Cypher
-        （Cypher 不支持参数化变长边界与关系类型占位）。去重 node/edge。
+        direction ∈ {out, in, both}。rel_type 在本函数内校验必须为
+        RelationType enum NAME 形式（仅 A-Z_，防 Cypher 注入，因其 backtick 拼入
+        Cypher）；label/depth 直接拼 Cypher（Cypher 不支持参数化变长边界与关系
+        类型占位）。去重 node/edge。
         """
+        if not re.fullmatch(r"[A-Z_]+", rel_type):
+            raise ValueError(
+                f"invalid rel_type (must be enum name A-Z_): {rel_type!r}"
+            )
         d = max(1, min(int(depth), 4))
         backtick = "`" + rel_type + "`"
         if direction == "out":

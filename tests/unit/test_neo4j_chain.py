@@ -43,7 +43,7 @@ async def test_find_related_chain_both_direction():
     repo = Neo4jRepo()
     with patch("metaprofile.shared.db.neo4j.get_neo4j_session", return_value=_sess_mock(rows)):
         res = await repo.find_related_chain(
-            entity_id="A", label="Tech", rel_type="演进", depth=3, direction="both")
+            entity_id="A", label="Tech", rel_type="TECH_EVOLVE", depth=3, direction="both")
     assert len(res["nodes"]) == 2
     assert res["edges"][0]["rel_type"] == "演进"
     assert res["edges"][0]["source"] == "A"
@@ -55,5 +55,5 @@ async def test_find_related_chain_empty():
     repo = Neo4jRepo()
     with patch("metaprofile.shared.db.neo4j.get_neo4j_session", return_value=_sess_mock([])):
         res = await repo.find_related_chain(
-            entity_id="X", label="Tech", rel_type="演进", depth=2, direction="both")
+            entity_id="X", label="Tech", rel_type="TECH_EVOLVE", depth=2, direction="both")
     assert res == {"nodes": [], "edges": []}

@@ -393,10 +393,13 @@ class TestPersonRelationService:
             svc._neo4j, "find_path", new_callable=AsyncMock
         ) as mock_fp:
             mock_fp.return_value = [
-                [
-                    {"entity_id": "PERS_001"},
-                    {"entity_id": "ORG_002"},
-                ]
+                {
+                    "nodes": [
+                        {"entity_id": "PERS_001"},
+                        {"entity_id": "ORG_002"},
+                    ],
+                    "rel_types": ["WORKS_AT"],
+                }
             ]
             result = await svc.find_path(
                 from_id="PERS_001", to_id="ORG_002", max_depth=4

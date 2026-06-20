@@ -437,3 +437,40 @@ export interface FeedbackResponse {
   topic_id: string
   status: string
 }
+
+// ── 关系探索（Spec1）─────────────────────────────────────────────────────────
+
+export type Viewpoint = 'evolve' | 'prereq'
+
+export interface RelationPathStep {
+  from_id: string
+  from_name?: string | null
+  from_type?: string | null
+  relation: string
+  to_id: string
+  to_name?: string | null
+  to_type?: string | null
+}
+
+export interface RelationPathResult {
+  found: boolean
+  paths: RelationPathStep[][]
+}
+
+export interface TechRelationNode {
+  entity_id: string
+  entity_type?: string | null
+  name?: string | null
+}
+
+export interface TechRelationEdge {
+  source: string
+  target: string
+  rel_type: string
+}
+
+export interface TechRelationResult {
+  nodes: TechRelationNode[]
+  edges: TechRelationEdge[]
+  viewpoint: Viewpoint
+}

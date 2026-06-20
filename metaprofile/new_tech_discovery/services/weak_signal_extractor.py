@@ -55,6 +55,13 @@ class WeakSignalExtractor:
 class SignalStrengthQuantifier:
     """弱信号强度量化器（衡量"虽弱但值得关注"程度）。"""
 
+    def __init__(self, weights: tuple[float, float, float, float] | None = None) -> None:
+        from metaprofile.shared.config.settings import settings
+        ws = settings.weak_signal
+        self._w = weights if weights is not None else (
+            ws.w_novelty, ws.w_coherence, ws.w_diversity, ws.w_velocity,
+        )
+
     def quantify(
         self,
         *,
@@ -64,9 +71,5 @@ class SignalStrengthQuantifier:
         velocity: float,    # 增速
     ) -> float:
         """加权融合 4 个维度，输出 [0, 1] 强度分。"""
-        return (
-            0.30 * novelty
-            + 0.25 * coherence
-            + 0.20 * diversity
-            + 0.25 * velocity
-        )
+        wn, wc, wd, wv = self._w
+        return wn * novelty + wc * coherence + wd * diversity + wv * velocity

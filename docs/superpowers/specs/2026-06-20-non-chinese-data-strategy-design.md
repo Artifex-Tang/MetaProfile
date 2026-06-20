@@ -137,7 +137,7 @@ async def translate_name_one(db: AsyncSession, entity_type: str, entity_id: str)
 ## 5. celery 任务 + 端点
 
 ### 5.1 translate_tasks
-`shared/worker/translate_tasks.py`（仿 `scan_tasks.py` 模板：`@celery_app.task(bind=True)` + `asyncio.run(_async_xxx)` + `get_session()`）：
+`shared/worker/translate_tasks.py`（仿 `scan_tasks.py` 模板：`@celery_app.task(bind=True)` + `run_async(_async_xxx)`（**用 `shared/worker/async_runner.run_async`，非 `asyncio.run`**，避免 asyncpg 跨任务 'Event loop is closed'）+ `get_session()`）：
 ```python
 @celery_app.task(name="metaprofile.translate.name", bind=True)
 def translate_name(self, entity_type, entity_id): ...      # 单条

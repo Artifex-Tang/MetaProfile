@@ -1351,7 +1351,10 @@ def extract_weak_signals(self, period_from: str, period_to: str,
     pf = date.fromisoformat(period_from)
     pt = date.fromisoformat(period_to)
     db_id = db_connection_id  # None 时 extractor 内部回退 settings 默认
-    return asyncio.run(_async_extract(pf, pt, domain, db_id, self.request.id))
+    # run_async 复用 worker 持久 loop(非 asyncio.run)→ 避免 asyncpg 跨任务
+    # 'Event loop is closed'(见 shared/worker/async_runner.py)。
+    from metaprofile.shared.worker.async_runner import run_async
+    return run_async(_async_extract(pf, pt, domain, db_id, self.request.id))
 ```
 
 - [ ] **Step 4: 注册到 celery_app**

@@ -61,3 +61,50 @@ def coherence_score(df_by_source_current: dict[str, int],
         if df_by_source_current.get(s, 0) > df_by_source_prev.get(s, 0)
     )
     return rising / len(sources)
+
+
+def mann_kendall_tau(series: list[float]) -> float:
+    """Mann-Kendall 趋势 τ（§4.5，归一化到 [−1,1]）。
+
+    S=Σ sign(x_j−x_i)，归一化 S/(n(n−1)/2)。n<2→0。
+    """
+    n = len(series)
+    if n < 2:
+        return 0.0
+    s = 0
+    for i in range(n - 1):
+        for j in range(i + 1, n):
+            diff = series[j] - series[i]
+            if diff > 0:
+                s += 1
+            elif diff < 0:
+                s -= 1
+    return s / (n * (n - 1) / 2)
+
+
+def velocity_score(df_recent: list[int],
+                   tau: float | None = None,
+                   tau_threshold: float = 0.6) -> float:
+    """增速（§4.5）：归一化线性回归斜率，clamp[0,1]。
+
+    tau 未传→用 mann_kendall_tau(df_recent) 算；τ<tau_threshold（趋势不显著）→ 折半。
+    斜率 = Σ(t−t̄)(y−ȳ)/Σ(t−t̄)²；归一化除以 df 最大值。
+    """
+    m = len(df_recent)
+    if m < 2:
+        return 0.0
+    ymax = max(df_recent)
+    if ymax <= 0:
+        return 0.0
+    ts = list(range(m))
+    t_mean = sum(ts) / m
+    y_mean = sum(df_recent) / m
+    num = sum((t - t_mean) * (y - y_mean) for t, y in zip(ts, df_recent, strict=True))
+    den = sum((t - t_mean) ** 2 for t in ts)
+    slope = num / den if den != 0 else 0.0
+    score = max(0.0, min(1.0, slope / ymax))
+    if tau is None:
+        tau = mann_kendall_tau([float(y) for y in df_recent])
+    if tau < tau_threshold:
+        score /= 2.0
+    return score

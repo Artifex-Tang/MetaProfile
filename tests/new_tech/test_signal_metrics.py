@@ -2,7 +2,9 @@ from metaprofile.new_tech_discovery.services.signal_metrics import (
     burst_score,
     coherence_score,
     diversity_score,
+    mann_kendall_tau,
     novelty_score,
+    velocity_score,
 )
 
 
@@ -86,3 +88,41 @@ def test_coherence_partial():
     prev = {"science": 1, "patent": 5, "market": 1}
     # science/market 升、patent 降 → 2/3
     assert abs(coherence_score(cur, prev) - (2 / 3)) < 1e-6
+
+
+def test_mk_tau_rising():
+    assert mann_kendall_tau([1, 2, 3, 4, 5]) == 1.0
+
+
+def test_mk_tau_falling():
+    assert mann_kendall_tau([5, 4, 3, 2, 1]) == -1.0
+
+
+def test_mk_tau_flat():
+    assert abs(mann_kendall_tau([3, 3, 3, 3]) - 0.0) < 1e-6
+
+
+def test_mk_tau_too_short():
+    assert mann_kendall_tau([1]) == 0.0
+    assert mann_kendall_tau([]) == 0.0
+
+
+def test_velocity_score_rising_significant():
+    # 显著上升序列 → 归一化斜率明显高于平坦(0);[2,4,8] slope=3/ymax8=0.375
+    v = velocity_score([2, 4, 8])
+    assert v > 0.3
+
+
+def test_velocity_score_flat_is_zero():
+    assert velocity_score([3, 3, 3]) == 0.0
+
+
+def test_velocity_score_halved_when_trend_insignificant():
+    # 同样上升曲线，但显式传 tau < threshold → 折半
+    full = velocity_score([2, 4, 8])
+    halved = velocity_score([2, 4, 8], tau=0.0, tau_threshold=0.6)
+    assert abs(halved - full / 2) < 1e-6
+
+
+def test_velocity_score_clamped_to_one():
+    assert velocity_score([0, 0, 100]) <= 1.0

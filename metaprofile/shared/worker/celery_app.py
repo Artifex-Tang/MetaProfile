@@ -28,5 +28,13 @@ celery_app.conf.update(
         "metaprofile.shared.worker.enrich_tasks",
         "metaprofile.shared.worker.scan_tasks",
         "metaprofile.shared.worker.translate_tasks",
+        "metaprofile.shared.scheduler.poller",
     ],
+    beat_schedule={
+        # 每 60s 扫 scheduled_task，到期按 task_type dispatch（DB 驱动 cron）
+        "scheduler-tick": {
+            "task": "metaprofile.scheduler.tick",
+            "schedule": 60.0,
+        },
+    },
 )

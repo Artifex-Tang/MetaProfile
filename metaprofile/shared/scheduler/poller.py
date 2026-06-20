@@ -26,3 +26,83 @@ def is_due(cron: str, last_run_at: datetime | None, now: datetime) -> bool:
         now = now.replace(tzinfo=timezone.utc)
     next_fire = croniter(cron, base).get_next(datetime)
     return next_fire <= now
+
+
+import structlog  # noqa: E402
+from sqlalchemy import select  # noqa: E402
+
+from metaprofile.settings_api.domain.orm_models import ScheduledTaskORM  # noqa: E402
+
+logger = structlog.get_logger(__name__)
+
+# task_type → 同步调用（返 celery AsyncResult）；懒构造防 import 循环
+TASK_DISPATCH: dict[str, object] = {}
+
+
+def _build_registry() -> dict[str, object]:
+    from metaprofile.shared.worker.translate_tasks import batch_translate_names
+    return {
+        "translate_batch": lambda **p: batch_translate_names.delay(p.get("entity_type")),
+        # collection 触发留 follow-up（trigger_collection 走 asyncio.create_task，
+        # celery worker 内 wiring 复杂；scheduled_task 行由 sync_collection_crons 建，
+        # 实际采集触发待单独 celery 任务接入）
+    }
+
+
+def _ensure_registry() -> dict[str, object]:
+    global TASK_DISPATCH
+    if not TASK_DISPATCH:
+        TASK_DISPATCH = _build_registry()
+    return TASK_DISPATCH
+
+
+async def dispatch(*, task_type: str, params: dict) -> str:
+    """按 task_type dispatch 对应 celery 任务，返 task id（未知类型返 ''）。"""
+    registry = _ensure_registry()
+    fn = registry.get(task_type)
+    if fn is None:
+        logger.warning("scheduler_unknown_task_type", task_type=task_type)
+        return ""
+    result = fn(**(params or {}))
+    return getattr(result, "id", "") or ""
+
+
+async def tick(session, *, now: datetime | None = None) -> dict:
+    """扫 enabled scheduled_task，到期即 dispatch + 更新 last_run_at/last_status。"""
+    now = now or datetime.now(timezone.utc)
+    rows = (await session.execute(
+        select(ScheduledTaskORM).where(ScheduledTaskORM.enabled.is_(True))
+    )).scalars().all()
+    dispatched = 0
+    for t in rows:
+        try:
+            if not is_due(t.cron, t.last_run_at, now):
+                continue
+            t.last_status = "running"
+            await session.flush()
+            await dispatch(task_type=t.task_type, params=t.params or {})
+            t.last_run_at = now
+            t.last_status = "ok"
+            dispatched += 1
+        except Exception as exc:  # noqa: BLE001  单任务失败不杀整轮
+            t.last_status = "failed"
+            logger.warning("scheduler_dispatch_failed", task=t.name, error=str(exc))
+    await session.commit()
+    return {"dispatched": dispatched, "total": len(rows)}
+
+
+# celery beat 每 60s 触发 scheduler_tick（在 celery_app.beat_schedule 注册）
+def _register_celery_task() -> None:
+    from metaprofile.shared.db.postgres import get_session
+    from metaprofile.shared.worker.async_runner import run_async
+    from metaprofile.shared.worker.celery_app import celery_app
+
+    @celery_app.task(name="metaprofile.scheduler.tick")
+    def scheduler_tick():  # type: ignore[no-redef]
+        async def _run():
+            async with get_session() as session:
+                return await tick(session)
+        return run_async(_run())
+
+
+_register_celery_task()

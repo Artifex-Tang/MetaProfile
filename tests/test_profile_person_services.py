@@ -395,8 +395,8 @@ class TestPersonRelationService:
             mock_fp.return_value = [
                 {
                     "nodes": [
-                        {"entity_id": "PERS_001"},
-                        {"entity_id": "ORG_002"},
+                        {"entity_id": "PERS_001", "entity_type": "PERSON", "name": "张三"},
+                        {"entity_id": "ORG_002", "entity_type": "ORG", "name": "机构乙"},
                     ],
                     "rel_types": ["WORKS_AT"],
                 }
@@ -407,7 +407,12 @@ class TestPersonRelationService:
             assert result.found
             assert len(result.paths) == 1
             assert result.paths[0][0].from_id == "PERS_001"
+            assert result.paths[0][0].from_name == "张三"
+            assert result.paths[0][0].from_type == "PERSON"
             assert result.paths[0][0].to_id == "ORG_002"
+            assert result.paths[0][0].to_name == "机构乙"
+            assert result.paths[0][0].to_type == "ORG"
+            assert result.paths[0][0].relation == "WORKS_AT"
 
 
 # ─── PersonStatsService ───────────────────────────────────────────────────────

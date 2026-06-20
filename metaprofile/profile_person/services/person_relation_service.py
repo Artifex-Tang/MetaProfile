@@ -60,6 +60,13 @@ class PersonRelationService:
         if not paths_raw:
             return RelationPathResult(found=False, paths=[])
 
+        def _name(node: dict) -> str | None:
+            return (
+                node.get("name")
+                or node.get("name_cn")
+                or node.get("entity_id")
+            )
+
         paths = []
         for p in paths_raw:
             nodes = p["nodes"]
@@ -67,8 +74,12 @@ class PersonRelationService:
             steps = [
                 RelationPathStep(
                     from_id=nodes[i].get("entity_id", ""),
+                    from_name=_name(nodes[i]),
+                    from_type=nodes[i].get("entity_type"),
                     relation=rels[i] if i < len(rels) else "RELATED",
                     to_id=nodes[i + 1].get("entity_id", ""),
+                    to_name=_name(nodes[i + 1]),
+                    to_type=nodes[i + 1].get("entity_type"),
                 )
                 for i in range(len(nodes) - 1)
             ]

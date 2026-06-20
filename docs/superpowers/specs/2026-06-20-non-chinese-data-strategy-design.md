@@ -2,7 +2,7 @@
 
 - 日期：2026-06-20
 - 范围：① UI 显示兜底（name_cn 空→name_en→id）；② en→cn 翻译（单条/批量/cron 三触发）；③ **通用 cron 调度器**（DB 驱动 cron 表达式，激活翻译定时 + 顺带激活采集定时现死字段）
-- 关联：弱信号 spec（附件 clean_content 第 4 语料源无关本 spec）；enrich worker（翻译复用其 LLMGateway + changeLog 模式）
+- 状态：**已实现**（见 plan `2026-06-20-non-chinese-data-strategy.md`，commit cec041e→bd6e4b9）。scheduler 基座(ScheduledTaskORM+migration0007+is_due+scheduler_tick beat)+translator(translate_name_one)+translate_tasks(单/批,run_async)+4 画像 translate 端点+批量端点+displayName/EntityName+ProfileTech 5 审计点+Settings 定时任务 Tab。491 pytest/51 vitest 绿。**留 follow-up**：org/person/project 页面 EntityName 接线(api 已就绪)、collection cron 触发 dispatch(trigger_collection asyncio.create_task 在 celery worker 内 wiring 复杂)。
 - 后续：writing-plans 出实现计划
 
 ---

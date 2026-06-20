@@ -122,7 +122,7 @@ function SignalDrawer({
 export default function NewTechDiscovery() {
   const qc = useQueryClient()
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(10)
   const [selected, setSelected] = useState<WeakSignalItem | null>(null)
 
   const signalsQ = useQuery({

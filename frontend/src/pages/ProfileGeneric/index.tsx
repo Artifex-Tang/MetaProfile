@@ -143,7 +143,7 @@ export function GenericProfilePage({
         size="small"
         pagination={{
           current: page,
-          pageSize: 20,
+          pageSize: 10,
           total: data?.total,
           onChange: p => setPage(p),
           showTotal: t => `共 ${t} 条`,

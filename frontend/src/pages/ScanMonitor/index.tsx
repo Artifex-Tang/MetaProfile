@@ -109,8 +109,8 @@ export default function ScanMonitor() {
   const [domains, setDomains] = useState<string[]>([])
   const [techPage, setTechPage] = useState(1)
   const [alertPage, setAlertPage] = useState(1)
-  const [techPageSize, setTechPageSize] = useState(20)
-  const [alertPageSize, setAlertPageSize] = useState(20)
+  const [techPageSize, setTechPageSize] = useState(10)
+  const [alertPageSize, setAlertPageSize] = useState(10)
   const [selectedItem, setSelectedItem] = useState<FrontierTechItem | null>(null)
   const [alertSel, setAlertSel] = useState<AlertItem | null>(null)
 

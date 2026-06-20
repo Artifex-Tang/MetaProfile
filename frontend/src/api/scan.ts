@@ -7,12 +7,12 @@ export const scanService = {
       period_from: periodFrom, period_to: periodTo, tech_domains: domains ?? [],
     }).then(r => r.data),
 
-  listFrontierTech: (page = 1, pageSize = 20) =>
+  listFrontierTech: (page = 1, pageSize = 10) =>
     scanApi.get<SearchResultList<FrontierTechItem>>('/api/v1/frontier-tech/list', {
       params: { page, page_size: pageSize },
     }).then(r => r.data),
 
-  listAlerts: (page = 1, pageSize = 20) =>
+  listAlerts: (page = 1, pageSize = 10) =>
     scanApi.get<SearchResultList<AlertItem>>('/api/v1/frontier-tech/alerts', {
       params: { page, page_size: pageSize },
     }).then(r => r.data),

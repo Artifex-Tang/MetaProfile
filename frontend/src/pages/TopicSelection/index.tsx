@@ -185,7 +185,7 @@ function TopicDrawer({
 export default function TopicSelection() {
   const qc = useQueryClient()
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(10)
   const [status, setStatus] = useState<string | undefined>()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [genOpen, setGenOpen] = useState(false)

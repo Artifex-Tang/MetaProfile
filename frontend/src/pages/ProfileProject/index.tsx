@@ -249,7 +249,7 @@ export default function ProfileProject() {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(10)
   const { id: routeId } = useParams()
   const [selectedId, setSelectedId] = useState<string | null>(routeId ?? null)
   useEffect(() => { if (routeId) setSelectedId(routeId) }, [routeId])

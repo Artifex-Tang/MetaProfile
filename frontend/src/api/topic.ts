@@ -2,7 +2,7 @@ import { topicApi } from './client'
 import type { TopicItem, TopicDetail, FeedbackResponse, SearchResultList } from './types'
 
 export const topicService = {
-  list: (page = 1, pageSize = 20, status?: string) =>
+  list: (page = 1, pageSize = 10, status?: string) =>
     topicApi.get<SearchResultList<TopicItem>>('/api/v1/topics/list', {
       params: { page, page_size: pageSize, status },
     }).then(r => r.data),

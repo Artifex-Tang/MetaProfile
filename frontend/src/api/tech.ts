@@ -22,7 +22,7 @@ export interface EnrichTaskStatus {
 }
 
 export const techService = {
-  search: (keyword: string, page = 1, pageSize = 20) =>
+  search: (keyword: string, page = 1, pageSize = 10) =>
     techApi.post<SearchResultList<TechSearchResultItem>>('/api/v1/profile/tech/search', {
       keyword, page, page_size: pageSize,
     }).then(r => r.data),

@@ -24,7 +24,7 @@ export interface EnrichTaskStatus {
 }
 
 export const personService = {
-  search: (keyword: string, page = 1, pageSize = 20) =>
+  search: (keyword: string, page = 1, pageSize = 10) =>
     personApi.post<SearchResultList<PersonSearchItem>>('/api/v1/profile/person/search', {
       keyword, page, page_size: pageSize,
     }).then(r => r.data),
@@ -55,7 +55,7 @@ export const personService = {
 }
 
 export const orgService = {
-  search: (keyword: string, page = 1, pageSize = 20) =>
+  search: (keyword: string, page = 1, pageSize = 10) =>
     orgApi.post<SearchResultList<OrgSearchItem>>('/api/v1/profile/org/search', {
       keyword, page, page_size: pageSize,
     }).then(r => r.data),
@@ -86,7 +86,7 @@ export const orgService = {
 }
 
 export const projectService = {
-  search: (keyword: string, page = 1, pageSize = 20) =>
+  search: (keyword: string, page = 1, pageSize = 10) =>
     projectApi.post<SearchResultList<ProjectSearchItem>>('/api/v1/profile/project/search', {
       keyword, page, page_size: pageSize,
     }).then(r => r.data),

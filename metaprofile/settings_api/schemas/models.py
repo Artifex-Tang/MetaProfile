@@ -212,3 +212,23 @@ class LLMTestResponse(BaseModel):
     success: bool
     message: str
     latency_ms: int | None = None
+
+
+# ── LLM 补全（enrich）任务记录 ────────────────────────────────────────────────
+
+class EnrichmentTaskOut(BaseModel):
+    """enrich 任务列表项（与 CollectionTaskOut 并列于任务列表）。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    profile_type: str
+    entity_id: str
+    entity_name: str | None = None
+    task_id: str
+    status: str
+    filled_fields: list[Any] = Field(default_factory=list)
+    error_msg: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    created_at: datetime | None = None

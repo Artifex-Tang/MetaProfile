@@ -76,6 +76,20 @@ export interface TriggerResponse {
   message: string
 }
 
+export interface EnrichmentTask {
+  id: number
+  profile_type: string
+  entity_id: string
+  entity_name: string | null
+  task_id: string
+  status: string
+  filled_fields: string[]
+  error_msg: string | null
+  started_at: string | null
+  completed_at: string | null
+  created_at: string | null
+}
+
 export interface LLMTestResponse {
   success: boolean
   message: string
@@ -170,6 +184,12 @@ export const settingsService = {
 
   getTaskStats: (taskId: number) =>
     settingsApi.get<CollectionTaskStats>(`/api/v1/settings/collection/tasks/${taskId}/stats`).then(r => r.data),
+
+  // LLM 补全（enrich）任务
+  listEnrichmentTasks: (params?: { profile_type?: string; status?: string }) =>
+    settingsApi.get<EnrichmentTask[]>('/api/v1/settings/enrichment-tasks', {
+      params: params ?? {},
+    }).then(r => r.data),
 
   // 数据连接（ODS Doris 等外部 DB）
   listDbConnections: () =>

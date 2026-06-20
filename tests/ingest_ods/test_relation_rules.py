@@ -85,6 +85,21 @@ def test_science_authors_comma_string_splits() -> None:
     assert names == ["张三", "李四", "王五"]
 
 
+def test_science_authors_json_array_string_parsed_clean() -> None:
+    """ODS authors 常为 JSON 数组串 '["A","B"]' → 必须干净拆分,不泄漏括号/引号(修 B1)。"""
+    row = {"title": "Paper Y", "authors": '["Ofer Manor", "Gideon Onuh"]'}
+    triples = extract_structured_relations(
+        "ods_science_literature", row, "TECH1", EntityType.TECH,
+    )
+    assert len(triples) == 2
+    names = sorted(t.subject_name for t in triples)
+    assert names == ["Gideon Onuh", "Ofer Manor"]
+    # 不含 JSON 残留: 无括号/引号泄漏
+    for t in triples:
+        assert '"' not in t.subject_name
+        assert "[" not in t.subject_name and "]" not in t.subject_name
+
+
 def test_unknown_table_returns_empty() -> None:
     """未注册表 → []。"""
     triples = extract_structured_relations(

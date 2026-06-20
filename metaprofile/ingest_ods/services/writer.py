@@ -165,7 +165,11 @@ class Writer:
         if not entity_id or not entity_id.startswith(NAME_SATELLITE_PREFIX):
             return
         display = name or entity_id[len(NAME_SATELLITE_PREFIX):]
-        await self._neo4j.upsert_entity_node(etype, entity_id, {"name_cn": display})
+        # 必须带 entity_type —— relation service 的 get_neighbors 用 node.entity_type
+        # 填 target_entity_type；缺失则前端 RelationGraph navTypes 守卫失败、节点不可点。
+        await self._neo4j.upsert_entity_node(
+            etype, entity_id, {"name_cn": display, "entity_type": etype.value}
+        )
 
     async def record_error(self, session: AsyncSession, *, batch_id: int,
                            stage: str, error_msg: str,

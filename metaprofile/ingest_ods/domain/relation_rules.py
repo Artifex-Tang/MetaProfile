@@ -7,6 +7,7 @@ NameIndex 解析端点为 PK(对齐 profile 节点)或保留 name: 卫星。
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -83,13 +84,24 @@ def _normalize(v: Any) -> str | None:
 
 
 def _to_name_list(raw: Any, *, is_list: bool) -> list[str]:
-    """规整字段值为 list[str]。is_list=True 时按 list/逗号串拆分;否则单值包成单元素 list。"""
+    """规整字段值为 list[str]。is_list=True 时按 list/逗号串拆分;否则单值包成单元素 list。
+
+    authors 等字段在 ODS 里常是 JSON 数组串（'["A","B"]'）或 'A,B;C' 逗号/分号串。
+    先尝试 json.loads（避免括号/引号泄漏到名字里，如 'name:"A"]'），失败再退回分隔符拆分。
+    """
     if is_list:
         if isinstance(raw, list):
             items = raw
         elif isinstance(raw, str):
-            # authors 既可能 "A,B;C" 也可能纯单值
-            items = raw.replace(";", ",").split(",")
+            s = raw.strip()
+            if s[:1] in ("[", "{"):
+                try:
+                    parsed = json.loads(s)
+                    items = parsed if isinstance(parsed, list) else [parsed]
+                except Exception:
+                    items = raw.replace(";", ",").split(",")
+            else:
+                items = raw.replace(";", ",").split(",")
         else:
             items = [raw]
         return [n for n in (_normalize(x) for x in items) if n]

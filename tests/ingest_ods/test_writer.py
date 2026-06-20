@@ -70,11 +70,13 @@ async def test_write_relations_ensures_satellite_nodes_before_write() -> None:
     )
     await w.write_relations([tri])
 
-    # (a) 卫星节点(张三) MUST 在写边前被 ensure
+    # (a) 卫星节点(张三) MUST 在写边前被 ensure（带 entity_type，否则
+    #     relation service 的 get_neighbors 取不到 target_entity_type、
+    #     前端节点不可点 —— B2 修复）
     neo4j.upsert_entity_node.assert_any_call(
         EntityType.PERSON,
         f"{NAME_SATELLITE_PREFIX}张三",
-        {"name_cn": "张三"},
+        {"name_cn": "张三", "entity_type": "PERSON"},
     )
     # (c) upsert_relation 收到双端点(PK ORG_1 + 卫星 name:张三)
     neo4j._repo.upsert_relation.assert_awaited_once()

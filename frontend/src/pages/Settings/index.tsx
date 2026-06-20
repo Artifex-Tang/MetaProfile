@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Tabs, Table, Button, Tag, Space, Modal, Form, Input, Select,
-  InputNumber, Switch, message, Tooltip, Alert, Drawer,
+  InputNumber, Switch, message, Tooltip, Alert, Drawer, Card,
   Typography, Badge, Descriptions, Popconfirm,
 } from 'antd'
 import {
@@ -15,9 +15,11 @@ import {
   type LLMProviderConfig,
   type DataSourceConfig,
   type CollectionTask,
+  type EnrichmentTask,
   type DbConnection,
   type DbConnectionCreate,
 } from '../../api/settings'
+import { enrichStatusLabel } from '../../utils/enrichStatus'
 
 const { Option } = Select
 const { Text, Paragraph } = Typography
@@ -432,6 +434,27 @@ function TasksTab() {
     refetchInterval: 5000, // 5秒轮询
   })
 
+  const enrichQ = useQuery({
+    queryKey: ['enrichment-tasks'],
+    queryFn: () => settingsService.listEnrichmentTasks(),
+    refetchInterval: 5000,
+  })
+
+  const enrichStatusColor = (s: string) =>
+    s === 'done' ? 'green' : (s === 'failed' || s === 'error') ? 'red'
+      : (s === 'skipped' || s === 'no_fill') ? 'default' : 'processing'
+
+  const enrichCols = [
+    { title: 'ID', dataIndex: 'id', width: 60 },
+    { title: '画像', dataIndex: 'profile_type', width: 80, render: (v: string) => <Tag color="purple">{v}</Tag> },
+    { title: '实体', ellipsis: true, render: (_: unknown, r: EnrichmentTask) => r.entity_name ?? r.entity_id.slice(0, 18) },
+    { title: '状态', dataIndex: 'status', width: 100, render: (v: string) => <Tag color={enrichStatusColor(v)}>{enrichStatusLabel(v)}</Tag> },
+    { title: '补全字段', dataIndex: 'filled_fields',
+      render: (v: string[]) => v?.length ? v.map((f, i) => <Tag key={i}>{f}</Tag>) : <Text type="secondary">-</Text> },
+    { title: '提交时间', dataIndex: 'created_at', width: 150,
+      render: (v: string | null) => v ? v.slice(0, 19).replace('T', ' ') : '-' },
+  ]
+
   const stats = useQuery({
     queryKey: ['task-stats', logDrawer?.id],
     queryFn: () => settingsService.getTaskStats(logDrawer!.id),
@@ -468,10 +491,28 @@ function TasksTab() {
   return (
     <>
       <Space style={{ marginBottom: 16 }}>
-        <Button icon={<ReloadOutlined />} onClick={() => qc.invalidateQueries({ queryKey: ['collection-tasks'] })}>刷新</Button>
+        <Button icon={<ReloadOutlined />} onClick={() => {
+          qc.invalidateQueries({ queryKey: ['collection-tasks'] })
+          qc.invalidateQueries({ queryKey: ['enrichment-tasks'] })
+        }}>刷新</Button>
         <Text type="secondary" style={{ fontSize: 12 }}>每5秒自动刷新</Text>
       </Space>
-      <Table loading={isLoading} dataSource={data} columns={cols} rowKey="id" size="small" />
+      <Card title="采集任务" size="small" style={{ marginBottom: 16 }}>
+        <Table loading={isLoading} dataSource={data} columns={cols} rowKey="id" size="small" />
+      </Card>
+      <Card title="LLM 补全任务（enrich）" size="small">
+        {enrichQ.isError ? <Alert type="error" message="加载失败" /> : (
+          <Table
+            loading={enrichQ.isLoading}
+            dataSource={enrichQ.data}
+            columns={enrichCols}
+            rowKey="id"
+            size="small"
+            pagination={{ pageSize: 10, showTotal: t => `共 ${t} 条` }}
+            locale={{ emptyText: '暂无补全任务（在画像详情点 ⚡LLM补全 触发）' }}
+          />
+        )}
+      </Card>
 
       <Drawer
         title={`采集日志 #${logDrawer?.id} — ${logDrawer?.source_name}`}

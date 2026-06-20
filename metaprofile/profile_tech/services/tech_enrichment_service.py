@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaprofile.profile_tech.domain.orm_models import TechProfileORM
 from metaprofile.profile_tech.schemas.response import EnrichmentTaskResponse
+from metaprofile.shared.enrich.task_log import create_task
 from metaprofile.shared.worker.celery_app import celery_app
 from metaprofile.shared.worker.enrich_tasks import enrich_tech
 
@@ -34,7 +35,7 @@ class TechEnrichmentService:
     ) -> EnrichmentTaskResponse | None:
         row = (
             await session.execute(
-                select(TechProfileORM.completeness).where(
+                select(TechProfileORM.completeness, TechProfileORM.tech_name_cn).where(
                     TechProfileORM.tech_id == tech_id
                 )
             )
@@ -43,10 +44,15 @@ class TechEnrichmentService:
             return None
 
         completeness = float(row[0])
+        entity_name = row[1] if len(row) > 1 else None
         now = datetime.now(timezone.utc)
 
         if completeness < _ENRICH_THRESHOLD:
             result = enrich_tech.delay(tech_id)
+            await create_task(
+                session, profile_type="tech", entity_id=tech_id,
+                task_id=result.id, entity_name=entity_name,
+            )
             logger.info(
                 "enrichment_task_dispatched",
                 tech_id=tech_id,

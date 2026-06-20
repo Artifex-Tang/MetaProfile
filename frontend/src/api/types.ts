@@ -368,9 +368,14 @@ export interface WeakSignalItem {
   signal_id: string
   keywords: string[]
   related_tech_ids: string[]
+  related_org_ids: string[]
+  related_person_ids: string[]
+  evidence_doc_ids: string[]
   strength: number
   novelty: number
   coherence: number
+  diversity: number
+  velocity: number
   period_from: string
   period_to: string
   domain: string | null

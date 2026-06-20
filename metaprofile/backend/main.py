@@ -57,6 +57,7 @@ from metaprofile.new_tech_discovery.api import routes_new_tech, routes_signals
 from metaprofile.topic_selection.api import routes_feedback, routes_topics
 from metaprofile.settings_api.api.routes_collection import router as col_router
 from metaprofile.settings_api.api.routes_datasource import router as ds_router
+from metaprofile.settings_api.api.routes_enrichment_tasks import router as enrich_tasks_router
 from metaprofile.settings_api.api.routes_db_connections import router as dbc_router
 from metaprofile.settings_api.api.routes_llm import router as llm_router
 from metaprofile.shared.config.settings import settings
@@ -132,6 +133,7 @@ app.include_router(llm_router)
 app.include_router(ds_router)
 app.include_router(col_router)
 app.include_router(dbc_router)
+app.include_router(enrich_tasks_router)
 
 
 @app.get("/health")

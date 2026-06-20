@@ -17,9 +17,12 @@ class WeakSignalItem(_Base):
     related_tech_ids: list[str]
     related_org_ids: list[str]
     related_person_ids: list[str]
+    evidence_doc_ids: list[str] = Field(default_factory=list)
     strength: float
     novelty: float
     coherence: float
+    diversity: float = 0.0
+    velocity: float = 0.0
     period_from: date
     period_to: date
     domain: str | None

@@ -100,6 +100,8 @@ function SignalDrawer({
         <Descriptions.Item label="强度">{signal.strength.toFixed(3)}</Descriptions.Item>
         <Descriptions.Item label="新颖度">{signal.novelty.toFixed(3)}</Descriptions.Item>
         <Descriptions.Item label="一致性">{signal.coherence.toFixed(3)}</Descriptions.Item>
+        <Descriptions.Item label="多样性">{signal.diversity.toFixed(3)}</Descriptions.Item>
+        <Descriptions.Item label="增速">{signal.velocity.toFixed(3)}</Descriptions.Item>
         <Descriptions.Item label="领域">{signal.domain ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="状态"><Tag>{signal.status}</Tag></Descriptions.Item>
         <Descriptions.Item label="周期">
@@ -139,11 +141,27 @@ export default function NewTechDiscovery() {
   const cols = [
     { title: '关键词', dataIndex: 'keywords',
       render: (ks: string[]) => ks.slice(0, 3).map(k => <Tag key={k}>{k}</Tag>) },
-    { title: '强度', dataIndex: 'strength', width: 80, render: (v: number) => v.toFixed(3) },
-    { title: '新颖度', dataIndex: 'novelty', width: 80, render: (v: number) => v.toFixed(3) },
-    { title: '一致性', dataIndex: 'coherence', width: 80, render: (v: number) => v.toFixed(3) },
+    { title: '强度', dataIndex: 'strength', width: 70, render: (v: number) => v.toFixed(3) },
+    { title: '新颖度', dataIndex: 'novelty', width: 70, render: (v: number) => v.toFixed(3) },
+    { title: '一致性', dataIndex: 'coherence', width: 70, render: (v: number) => v.toFixed(3) },
+    { title: '多样性', dataIndex: 'diversity', width: 70, render: (v: number) => v.toFixed(3) },
+    { title: '增速', dataIndex: 'velocity', width: 70, render: (v: number) => v.toFixed(3) },
+    {
+      title: '关联', width: 110,
+      render: (_: unknown, r: WeakSignalItem) => (
+        <Space size={2}>
+          <Tag color="blue">技{r.related_tech_ids.length}</Tag>
+          <Tag color="green">机{r.related_org_ids.length}</Tag>
+          <Tag color="orange">人{r.related_person_ids.length}</Tag>
+        </Space>
+      ),
+    },
     { title: '领域', dataIndex: 'domain', width: 100, render: (v: string | null) => v ?? '-' },
-    { title: '状态', dataIndex: 'status', width: 90,
+    {
+      title: '周期', width: 150,
+      render: (_: unknown, r: WeakSignalItem) => `${r.period_from?.slice(5) ?? '-'}~${r.period_to?.slice(5) ?? '-'}`,
+    },
+    { title: '状态', dataIndex: 'status', width: 80,
       render: (v: string) => <Tag color={v === 'active' ? 'green' : 'default'}>{v === 'active' ? '活跃' : v}</Tag> },
     {
       title: '操作', width: 90,

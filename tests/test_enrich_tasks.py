@@ -59,7 +59,8 @@ def test_enrich_tech_task_calls_core_and_shapes():
     cm.__aexit__.return_value = None
 
     with patch.object(enrich_tasks, "get_session", return_value=cm), \
-         patch.object(enrich_tasks, "enrich_one", new=AsyncMock(return_value=fake_outcome)) as mock_core:
+         patch.object(enrich_tasks, "enrich_one", new=AsyncMock(return_value=fake_outcome)) as mock_core, \
+         patch.object(enrich_tasks, "finish_task", new=AsyncMock()):
         result = enrich_tasks.enrich_tech("TECH_1")
 
     assert result["status"] == "done"

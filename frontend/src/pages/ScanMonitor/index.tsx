@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Row, Col, Card, Table, Tag, Button, DatePicker, Select, Space,
-  Alert, Spin, Drawer, Descriptions, Typography, message, Divider, Modal,
+  Alert, Spin, Drawer, Descriptions, Typography, message, Divider, Modal, Tooltip,
 } from 'antd'
 import { PlayCircleOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -47,14 +47,16 @@ function TechDetailDrawer({
       open={open}
       onClose={onClose}
       extra={item.status === 'pending' && (
-        <Space>
-          <Button size="small" type="primary" loading={verifyMut.isPending} onClick={() => verifyMut.mutate('validated')}>
-            验证
-          </Button>
-          <Button size="small" danger loading={verifyMut.isPending} onClick={() => verifyMut.mutate('rejected')}>
-            排除
-          </Button>
-        </Space>
+        <Tooltip title="人工标记，不触发 LLM。扫描阶段已由 LLM agent 验证，结果见下方「LLM验证/LLM判定」。">
+          <Space>
+            <Button size="small" type="primary" loading={verifyMut.isPending} onClick={() => verifyMut.mutate('validated')}>
+              人工确认
+            </Button>
+            <Button size="small" danger loading={verifyMut.isPending} onClick={() => verifyMut.mutate('rejected')}>
+              人工排除
+            </Button>
+          </Space>
+        </Tooltip>
       )}
     >
       <Descriptions column={1} size="small" bordered>

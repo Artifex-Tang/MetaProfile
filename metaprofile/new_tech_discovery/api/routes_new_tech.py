@@ -9,8 +9,13 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaprofile.new_tech_discovery.domain.orm_models import WeakSignalORM
-from metaprofile.new_tech_discovery.schemas.models import ScanTaskResponse, WeakSignalItem, WeakSignalList
+from metaprofile.new_tech_discovery.schemas.models import (
+    ScanTaskResponse,
+    WeakSignalItem,
+    WeakSignalList,
+)
 from metaprofile.shared.db.session import get_db
+from metaprofile.shared.worker.newtech_tasks import extract_weak_signals
 
 router = APIRouter()
 
@@ -49,17 +54,32 @@ async def list_new_tech(
 @router.post("/new-tech/scan", response_model=ScanTaskResponse)
 async def trigger_scan(
     domain: str | None = None,
+    db_connection_id: int | None = Query(default=None),
+    days: int = Query(default=90, ge=7, le=365),
     db: AsyncSession = Depends(get_db),
 ) -> ScanTaskResponse:
-    """手动触发新技术扫描任务。
+    """手动触发新技术扫描（弱信号提取）—— 异步 Celery 任务。
 
-    评审/演示模式：基于已有画像数据同步生成一批弱信号，确保触发后立即可见。
+    db_connection_id 缺省 → 用 settings.weak_signal.corpus_db_connection_id；
+    若仍无（开发环境无 Doris）→ 降级 demo_analysis.generate_signals 保证 UI 可见。
     """
-    from datetime import date, timedelta
+    from datetime import timedelta
+
+    from metaprofile.shared.config.settings import settings
     from metaprofile.shared.demo_analysis import generate_signals
 
     task_id = f"ntd-scan-{uuid.uuid4().hex[:12]}"
     today = date.today()
-    await generate_signals(db, period_from=today - timedelta(days=30), period_to=today,
-                           count=8, seed=abs(hash(task_id)) % 1000)
-    return ScanTaskResponse(task_id=task_id, domain=domain)
+    period_from = today - timedelta(days=days)
+
+    conn_id = db_connection_id or settings.weak_signal.corpus_db_connection_id
+    if conn_id is None:
+        # 无 Doris 配置 → demo 兜底（同步生成，UI 立即可见）
+        await generate_signals(db, period_from=period_from, period_to=today,
+                               count=8, seed=abs(hash(task_id)) % 1000)
+        return ScanTaskResponse(task_id=task_id, domain=domain, status="demo")
+
+    result = extract_weak_signals.delay(
+        period_from.isoformat(), today.isoformat(), domain, conn_id,
+    )
+    return ScanTaskResponse(task_id=result.id or task_id, domain=domain, status="queued")

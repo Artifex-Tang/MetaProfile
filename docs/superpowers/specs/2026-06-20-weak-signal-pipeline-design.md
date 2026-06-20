@@ -221,6 +221,8 @@ class AttachmentExtractor:
 7. ingest hook 自动触发 + 路由手动触发（替 demo）。
 8. 单测（各维度公式）+ 集成（真语料端到端）。
 
+> **实施状态（2026-06-21）：** 子项目 1 已实现（见 plan `2026-06-20-weak-signal-extraction.md`，commit T1-T11 on branch `feat/weak-signal-extraction`）。步骤 1 附件抽取仍为独立 spec 前置依赖；步骤 2-8 完成（metric 纯函数 burst/novelty/diversity/coherence/velocity+MK + CorpusLoader 读 ODS Doris 4 源 + WeakSignalExtractor.extract 端到端编排 + Celery 任务 extract_weak_signals + trigger_scan 路由 + ingest hook 双触发）。复用 AdaptiveThreshold / NetworkCorrelator。NER 异常实体入 related_*_ids 为可选增强（留口）。已知局限：df_by_source_window 存 presence(常量1)非计数 → coherence 仅测 0→1 涌现（T7 quality review Obs1，后续可改计数增强）。
+
 ---
 
 ## 8. 有益效果（专利"有益效果"）

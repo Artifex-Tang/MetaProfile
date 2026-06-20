@@ -11,12 +11,13 @@ from metaprofile.settings_api.api.routes_collection import router as col_router
 from metaprofile.settings_api.api.routes_enrichment_tasks import router as enrich_tasks_router
 from metaprofile.settings_api.api.routes_scheduler import router as scheduler_router
 
-configure_logging()
 logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 启动时配置日志（非 import 时，避免测试导入 main 触发全局 structlog 污染）
+    configure_logging()
     logger.info("settings_api_startup")
     yield
     logger.info("settings_api_shutdown")

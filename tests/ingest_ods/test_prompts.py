@@ -9,7 +9,7 @@ from metaprofile.shared.schemas.relations import RelationType
 
 @pytest.mark.parametrize("rt", list(RelationType))
 def test_predicate_map_covers_every_relation_type(rt: RelationType):
-    """全 48 RelationType 至少有 1 条 _PREDICATE_MAP 入口映射到它(全覆盖钉死)。"""
+    """全 RelationType 至少有 1 条 _PREDICATE_MAP 入口映射到它(全覆盖钉死)。"""
     covered = {v for v in _PREDICATE_MAP.values()}
     assert rt in covered, f"RelationType {rt.name}={rt.value!r} 未被 _PREDICATE_MAP 覆盖"
 

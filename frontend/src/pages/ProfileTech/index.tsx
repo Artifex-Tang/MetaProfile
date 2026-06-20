@@ -1,14 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import RelationGraph from '../../components/RelationGraph'
+import PathGraph from '../../components/PathGraph'
 import JumpBreadcrumb from '../../components/JumpBreadcrumb'
 import DataQualityCard from '../../components/DataQualityCard'
 import { useCrossProfileJump, NAV_TYPES } from '../../utils/crossProfile'
 import { enrichStatusLabel, isEnrichTerminal } from '../../utils/enrichStatus'
+import { relationApi } from '../../api/relation'
+import type { Viewpoint } from '../../api/types'
 import {
   Input, Button, Table, Tag, Drawer, Tabs, Spin, Alert,
   Descriptions, Space, Typography, Row, Col, Card, Statistic,
-  Modal, Form, Select, Upload, message, Progress, Timeline,
+  Modal, Form, Select, Upload, message, Progress, Timeline, Radio,
 } from 'antd'
 import {
   SearchOutlined, PlusOutlined, UploadOutlined, ReloadOutlined,
@@ -71,6 +74,12 @@ function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boole
   const relations = useQuery({
     queryKey: ['tech-relations', id],
     queryFn: () => techService.getRelations(id),
+    enabled: open && !!id,
+  })
+  const [viewpoint, setViewpoint] = useState<Viewpoint>('evolve')
+  const techRelQ = useQuery({
+    queryKey: ['tech-rel', id, viewpoint],
+    queryFn: () => relationApi.getTechRelation(id, viewpoint, 4),
     enabled: open && !!id,
   })
   const stats = useQuery({
@@ -317,6 +326,25 @@ function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boole
             ),
           },
           {
+            key: 'techrel', label: '技术关系',
+            children: techRelQ.isLoading ? <Spin /> : techRelQ.isError ? <Alert type="error" message="加载失败" /> : (
+              <>
+                <Radio.Group value={viewpoint} onChange={e => setViewpoint(e.target.value)} style={{ marginBottom: 12 }}>
+                  <Radio.Button value="evolve">演进链</Radio.Button>
+                  <Radio.Button value="prereq">前置树</Radio.Button>
+                </Radio.Group>
+                {techRelQ.data && (
+                  <PathGraph
+                    nodes={techRelQ.data.nodes.map(n => ({ id: n.entity_id, type: n.entity_type ?? undefined, name: n.name ?? undefined }))}
+                    edges={techRelQ.data.edges.map(e => ({ source: e.source, target: e.target, label: e.rel_type }))}
+                    onNodeClick={handleNodeClick} navTypes={NAV_TYPES}
+                    layout={viewpoint === 'evolve' ? 'chain' : 'tree'}
+                  />
+                )}
+              </>
+            ),
+          },
+          {
             key: 'stats', label: '统计图表',
             children: stats.isLoading ? <Spin /> : stats.data ? (
               <Space direction="vertical" style={{ width: '100%' }} size={16}>
@@ -351,6 +379,7 @@ function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boole
 
 export default function ProfileTech() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -472,7 +501,10 @@ export default function ProfileTech() {
           selfType="tech"
           id={selectedId}
           open={!!selectedId}
-          onClose={() => setSelectedId(null)}
+          onClose={() => {
+            if (routeId) navigate('/tech', { replace: true })
+            setSelectedId(null)
+          }}
         />
       )}
 

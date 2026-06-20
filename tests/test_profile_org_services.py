@@ -394,10 +394,13 @@ class TestOrgRelationService:
             svc._neo4j, "find_path", new_callable=AsyncMock
         ) as mock_fp:
             mock_fp.return_value = [
-                [
-                    {"entity_id": "ORG_001"},
-                    {"entity_id": "PROJ_002"},
-                ]
+                {
+                    "nodes": [
+                        {"entity_id": "ORG_001", "entity_type": "ORG", "name": "机构A"},
+                        {"entity_id": "PROJ_002", "entity_type": "PROJECT", "name": "项目B"},
+                    ],
+                    "rel_types": ["MANAGES"],
+                }
             ]
             result = await svc.find_path(
                 from_id="ORG_001", to_id="PROJ_002", max_depth=4
@@ -405,7 +408,12 @@ class TestOrgRelationService:
             assert result.found
             assert len(result.paths) == 1
             assert result.paths[0][0].from_id == "ORG_001"
+            assert result.paths[0][0].from_name == "机构A"
+            assert result.paths[0][0].from_type == "ORG"
             assert result.paths[0][0].to_id == "PROJ_002"
+            assert result.paths[0][0].to_name == "项目B"
+            assert result.paths[0][0].to_type == "PROJECT"
+            assert result.paths[0][0].relation == "MANAGES"
 
 
 # ─── OrgStatsService ──────────────────────────────────────────────────────────

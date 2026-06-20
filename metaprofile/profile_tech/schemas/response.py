@@ -66,13 +66,35 @@ class RelationList(_Resp):
 
 class RelationPathStep(_Resp):
     from_id: str
+    from_name: str | None = None
+    from_type: str | None = None
     relation: str
     to_id: str
+    to_name: str | None = None
+    to_type: str | None = None
 
 
 class RelationPathResult(_Resp):
     found: bool
     paths: list[list[RelationPathStep]]
+
+
+class TechRelationNode(_Resp):
+    entity_id: str
+    entity_type: str | None = None
+    name: str | None = None
+
+
+class TechRelationEdge(_Resp):
+    source: str
+    target: str
+    rel_type: str
+
+
+class TechRelationResult(_Resp):
+    nodes: list[TechRelationNode]
+    edges: list[TechRelationEdge]
+    viewpoint: str
 
 
 class TechStatsResponse(_Resp):

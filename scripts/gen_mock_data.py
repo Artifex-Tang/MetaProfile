@@ -72,14 +72,14 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-ARGS = parse_args()
-# 在 import metaprofile.* 之前注入连接参数
-os.environ.setdefault("POSTGRES_DSN", ARGS.postgres_dsn)
-os.environ.setdefault("ES_HOSTS", '["http://localhost:9200"]')
-os.environ.setdefault("NEO4J_URI", ARGS.neo4j_uri)
-os.environ.setdefault("NEO4J_USER", ARGS.neo4j_user)
-os.environ.setdefault("NEO4J_PASSWORD", ARGS.neo4j_password)
-os.environ.setdefault("REDIS_DSN", DEFAULTS["REDIS_DSN"])
+def _apply_args_env(args: argparse.Namespace) -> None:
+    """在 import metaprofile.* 之前注入连接参数（推迟到 main，避免 import 时触发 argparse）。"""
+    os.environ.setdefault("POSTGRES_DSN", args.postgres_dsn)
+    os.environ.setdefault("ES_HOSTS", '["http://localhost:9200"]')
+    os.environ.setdefault("NEO4J_URI", args.neo4j_uri)
+    os.environ.setdefault("NEO4J_USER", args.neo4j_user)
+    os.environ.setdefault("NEO4J_PASSWORD", args.neo4j_password)
+    os.environ.setdefault("REDIS_DSN", DEFAULTS["REDIS_DSN"])
 
 NOW = datetime(2026, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
 NOW_STR = NOW.isoformat()
@@ -437,6 +437,33 @@ def build_dataset(n: int, seed: int) -> Dataset:
                                 "TECH_CONTRIBUTOR", 0.85))
 
     tech_ids = [t["tech_id"] for t in ds.techs]
+
+    # ── 技术-技术：演进链（同 domain 时序）+ 前置树（依赖） ──
+    # EVOLVE：按 domain 分组，组内 i→i+1 连演进链（≥3），≥4 时回连造分叉。
+    by_domain: dict[str, list[dict]] = {}
+    for t in ds.techs:
+        for d in t["tech_domain"]:
+            by_domain.setdefault(d, []).append(t)
+    for group in by_domain.values():
+        if len(group) < 3:
+            continue
+        for i in range(len(group) - 1):
+            a, b = group[i], group[i + 1]
+            ds.relations.append(rel(a["tech_id"], "TECH", a["tech_name_cn"],
+                                    b["tech_id"], "TECH", "TECH_EVOLVE",
+                                    round(rng.uniform(0.8, 0.95), 3)))
+        if len(group) >= 4:  # 分叉
+            a, b = group[-2], group[0]
+            ds.relations.append(rel(a["tech_id"], "TECH", a["tech_name_cn"],
+                                    b["tech_id"], "TECH", "TECH_EVOLVE",
+                                    round(rng.uniform(0.75, 0.9), 3)))
+    # PREREQ：每个技术 1-2 个前置（pre -[:TECH_PREREQ]-> t），形成分叉树
+    for t in ds.techs:
+        for pre in psample(rng, [x for x in ds.techs if x["tech_id"] != t["tech_id"]],
+                           rng.randint(1, 2)):
+            ds.relations.append(rel(pre["tech_id"], "TECH", pre["tech_name_cn"],
+                                    t["tech_id"], "TECH", "TECH_PREREQ",
+                                    round(rng.uniform(0.75, 0.9), 3)))
 
     # ── 项目 ──
     base_no = 10000
@@ -1199,8 +1226,10 @@ async def write_es(ds: Dataset) -> None:
 # ───────────────────────── 入口 ───────────────────────────────────────────
 
 async def main() -> None:
-    print(f"== 生成 {ARGS.count}×4 实体，seed={ARGS.seed} ==")
-    ds = build_dataset(ARGS.count, ARGS.seed)
+    args = parse_args()
+    _apply_args_env(args)
+    print(f"== 生成 {args.count}×4 实体，seed={args.seed} ==")
+    ds = build_dataset(args.count, args.seed)
     print(f"实体: 技术 {len(ds.techs)} / 组织 {len(ds.orgs)} / 人员 {len(ds.persons)} / "
           f"项目 {len(ds.projects)} | 关系 {len(ds.relations)}")
 
@@ -1209,21 +1238,21 @@ async def main() -> None:
     emit_sql(ds, deploy / "mock_data.sql")
     emit_cypher(ds, deploy / "mock_data.cypher")
 
-    if ARGS.sql_only:
+    if args.sql_only:
         print("== --sql-only：跳过实时写入 ==")
         return
 
-    if not ARGS.no_pg:
+    if not args.no_pg:
         try:
             await write_pg(ds)
         except Exception as exc:
             print(f"[PG] 写入异常: {exc}")
-    if not ARGS.no_neo4j:
+    if not args.no_neo4j:
         try:
             await write_neo4j(ds)
         except Exception as exc:
             print(f"[Neo4j] 写入异常: {exc}")
-    if not ARGS.no_es:
+    if not args.no_es:
         try:
             await write_es(ds)
         except Exception as exc:

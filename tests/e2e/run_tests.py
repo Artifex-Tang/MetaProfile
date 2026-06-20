@@ -413,6 +413,35 @@ def _switch_tab(c: Case, kw: str):
     c.page.wait_for_timeout(800)
 
 
+def test_explore(c: Case):
+    goto(c.page, "/explore")
+    c.run("TC-EXP-01", "探索页渲染：关系探索卡片+路径/技术关系模式", "关系探索",
+          "访问 /explore，断言卡片标题与双模式 Radio.Button",
+          lambda: _assert_explore_default(c))
+    c.run("TC-EXP-02", "切换技术关系模式渲染演进链/前置树双视角", "关系探索",
+          "点技术关系，断言双视角 Radio.Button",
+          lambda: _assert_explore_tech_relation(c))
+
+
+def _assert_explore_default(c: Case):
+    body = c.page.locator("body").inner_text()
+    c.expect("关系探索" in body, "缺少卡片标题'关系探索'")
+    c.expect("关系路径" in body, "缺少模式'关系路径'")
+    c.expect("技术关系" in body, "缺少模式'技术关系'")
+
+
+def _assert_explore_tech_relation(c: Case):
+    # Radio.Button 用 get_by_role("radio") 兜底，优先 get_by_text
+    try:
+        c.page.get_by_text("技术关系", exact=False).first.click(timeout=4000)
+    except Exception:
+        c.page.get_by_role("radio", name="技术关系").first.click(timeout=3000)
+    c.page.wait_for_timeout(700)
+    body = c.page.locator("body").inner_text()
+    c.expect("演进链" in body, "切换技术关系后缺少视角'演进链'")
+    c.expect("前置树" in body, "切换技术关系后缺少视角'前置树'")
+
+
 def main():
     global BASE
     ap = argparse.ArgumentParser()
@@ -425,7 +454,7 @@ def main():
         page = browser.new_page(viewport={"width": 1440, "height": 900})
         c = Case(page, results)
         for fn in [test_dashboard, test_tech, test_project, test_org, test_person,
-                   test_scan, test_discovery, test_topics, test_settings]:
+                   test_scan, test_discovery, test_topics, test_settings, test_explore]:
             print(f"\n=== {fn.__name__.replace('test_','')} ===")
             try:
                 fn(c)

@@ -101,7 +101,7 @@ class FoundationNeo4jRepo:
         from_entity_id: str,
         to_entity_id: str,
         max_depth: int = 4,
-    ) -> list[list[dict[str, Any]]]:
+    ) -> list[dict[str, Any]]:
         return await self._repo.find_path(
             from_id=from_entity_id,
             to_id=to_entity_id,

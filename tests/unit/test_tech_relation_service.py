@@ -34,3 +34,28 @@ async def test_find_path_not_found():
         res = await svc.find_path(from_id="A", to_id="Z", max_depth=3)
     assert res.found is False
     assert res.paths == []
+
+
+@pytest.mark.asyncio
+async def test_find_tech_relation_evolve():
+    svc = TechRelationService()
+    fake = {
+        "nodes": [{"entity_id": "A", "entity_type": "TECH", "name": "甲"},
+                  {"entity_id": "B", "entity_type": "TECH", "name": "乙"}],
+        "edges": [{"source": "A", "target": "B", "rel_type": "演进"}],
+    }
+    with patch.object(svc._neo4j, "find_related_chain", AsyncMock(return_value=fake)):
+        res = await svc.find_tech_relation(tech_id="A", viewpoint="evolve", depth=3)
+    assert res.viewpoint == "evolve"
+    assert len(res.nodes) == 2
+    assert res.edges[0].rel_type == "演进"
+
+
+@pytest.mark.asyncio
+async def test_find_tech_relation_invalid_viewpoint_defaults_evolve():
+    svc = TechRelationService()
+    with patch.object(svc._neo4j, "find_related_chain",
+                      AsyncMock(return_value={"nodes": [], "edges": []})) as m:
+        await svc.find_tech_relation(tech_id="A", viewpoint="bogus", depth=2)
+    # 非法 viewpoint → 默认 evolve → 查询 rel_type 用枚举名 TECH_EVOLVE
+    assert m.call_args.kwargs["rel_type"] == "TECH_EVOLVE"

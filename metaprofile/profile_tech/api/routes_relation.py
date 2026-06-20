@@ -9,6 +9,7 @@ from metaprofile.profile_tech.schemas.request import RelationPathRequest
 from metaprofile.profile_tech.schemas.response import (
     RelationList,
     RelationPathResult,
+    TechRelationResult,
 )
 from metaprofile.profile_tech.services.tech_relation_service import (
     TechRelationService,
@@ -40,4 +41,19 @@ async def find_relation_path(
     """查询两个实体间的关系路径（基于 Neo4j 最短路径）。"""
     return await service.find_path(
         from_id=payload.from_id, to_id=payload.to_id, max_depth=payload.max_depth
+    )
+
+
+@router.get(
+    "/relation/tech/{tech_id}/tech-relation", response_model=TechRelationResult
+)
+async def get_tech_relation(
+    tech_id: str,
+    viewpoint: str = Query(default="evolve", pattern="^(evolve|prereq)$"),
+    depth: int = Query(default=4, ge=1, le=4),
+    service: TechRelationService = Depends(get_relation_service),
+) -> TechRelationResult:
+    """查询技术关系图（演进链 / 前置树，双向遍历 TECH_EVOLVE/TECH_PREREQ）。"""
+    return await service.find_tech_relation(
+        tech_id=tech_id, viewpoint=viewpoint, depth=depth,
     )

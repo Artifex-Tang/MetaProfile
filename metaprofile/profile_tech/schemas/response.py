@@ -79,6 +79,24 @@ class RelationPathResult(_Resp):
     paths: list[list[RelationPathStep]]
 
 
+class TechRelationNode(_Resp):
+    entity_id: str
+    entity_type: str | None = None
+    name: str | None = None
+
+
+class TechRelationEdge(_Resp):
+    source: str
+    target: str
+    rel_type: str
+
+
+class TechRelationResult(_Resp):
+    nodes: list[TechRelationNode]
+    edges: list[TechRelationEdge]
+    viewpoint: str
+
+
 class TechStatsResponse(_Resp):
     total: int
     new_this_period: int

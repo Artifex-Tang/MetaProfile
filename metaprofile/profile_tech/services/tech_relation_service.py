@@ -9,6 +9,9 @@ from metaprofile.profile_tech.schemas.response import (
     RelationList,
     RelationPathResult,
     RelationPathStep,
+    TechRelationEdge,
+    TechRelationNode,
+    TechRelationResult,
 )
 from metaprofile.shared.db.neo4j import Neo4jRepo
 
@@ -86,3 +89,36 @@ class TechRelationService:
             if steps:
                 paths.append(steps)
         return RelationPathResult(found=bool(paths), paths=paths)
+
+    async def find_tech_relation(
+        self, *, tech_id: str, viewpoint: str, depth: int
+    ) -> TechRelationResult:
+        # viewpoint → 关系类型（用枚举 NAME，与 mock 一致：Neo4j 存枚举名如 TECH_EVOLVE）；
+        # 非法 viewpoint 默认 evolve。见 RelationType / gen_mock_data.rel()。
+        from metaprofile.shared.schemas.relations import RelationType
+
+        if viewpoint == "prereq":
+            rel_type, vp = RelationType.TECH_PREREQ.name, "prereq"
+        else:
+            rel_type, vp = RelationType.TECH_EVOLVE.name, "evolve"
+        raw = await self._neo4j.find_related_chain(
+            entity_id=tech_id,
+            label="Tech",
+            rel_type=rel_type,
+            depth=depth,
+            direction="both",
+        )
+
+        def _name(n: dict) -> str | None:
+            return n.get("name") or n.get("tech_name_cn") or n.get("entity_id")
+
+        nodes = [
+            TechRelationNode(
+                entity_id=n.get("entity_id", ""),
+                entity_type=n.get("entity_type"),
+                name=_name(n),
+            )
+            for n in raw["nodes"]
+        ]
+        edges = [TechRelationEdge(**e) for e in raw["edges"]]
+        return TechRelationResult(nodes=nodes, edges=edges, viewpoint=vp)

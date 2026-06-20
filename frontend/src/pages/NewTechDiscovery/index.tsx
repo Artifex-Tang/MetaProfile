@@ -122,11 +122,12 @@ function SignalDrawer({
 export default function NewTechDiscovery() {
   const qc = useQueryClient()
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [selected, setSelected] = useState<WeakSignalItem | null>(null)
 
   const signalsQ = useQuery({
-    queryKey: ['signals', page],
-    queryFn: () => discoveryService.listSignals(page, 20),
+    queryKey: ['signals', page, pageSize],
+    queryFn: () => discoveryService.listSignals(page, pageSize),
   })
 
   const scanMut = useMutation({
@@ -197,9 +198,10 @@ export default function NewTechDiscovery() {
             size="small"
             pagination={{
               current: page,
-              pageSize: 20,
+              pageSize,
               total: signalsQ.data?.total,
-              onChange: p => setPage(p),
+              showSizeChanger: true, pageSizeOptions: [10, 20, 50, 100],
+              onChange: (p, ps) => { setPage(p); setPageSize(ps) },
               showTotal: t => `共 ${t} 条`,
             }}
           />

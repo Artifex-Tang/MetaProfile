@@ -353,6 +353,7 @@ export default function ProfileTech() {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const { id: routeId } = useParams()
   const [selectedId, setSelectedId] = useState<string | null>(routeId ?? null)
   useEffect(() => { if (routeId) setSelectedId(routeId) }, [routeId])
@@ -360,8 +361,8 @@ export default function ProfileTech() {
   const [form] = Form.useForm()
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['tech-search', keyword, page],
-    queryFn: () => techService.search(keyword, page, 20),
+    queryKey: ['tech-search', keyword, page, pageSize],
+    queryFn: () => techService.search(keyword, page, pageSize),
   })
 
   const importMut = useMutation({
@@ -455,9 +456,11 @@ export default function ProfileTech() {
         size="small"
         pagination={{
           current: page,
-          pageSize: 20,
+          pageSize,
           total: data?.total,
-          onChange: p => setPage(p),
+          showSizeChanger: true,
+          pageSizeOptions: [10, 20, 50, 100],
+          onChange: (p, ps) => { setPage(p); setPageSize(ps) },
           showTotal: t => `共 ${t} 条`,
         }}
         onRow={r => ({ onDoubleClick: () => setSelectedId(r.tech_id) })}

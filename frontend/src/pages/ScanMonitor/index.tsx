@@ -109,16 +109,18 @@ export default function ScanMonitor() {
   const [domains, setDomains] = useState<string[]>([])
   const [techPage, setTechPage] = useState(1)
   const [alertPage, setAlertPage] = useState(1)
+  const [techPageSize, setTechPageSize] = useState(20)
+  const [alertPageSize, setAlertPageSize] = useState(20)
   const [selectedItem, setSelectedItem] = useState<FrontierTechItem | null>(null)
   const [alertSel, setAlertSel] = useState<AlertItem | null>(null)
 
   const frontierQ = useQuery({
-    queryKey: ['frontier', techPage],
-    queryFn: () => scanService.listFrontierTech(techPage, 20),
+    queryKey: ['frontier', techPage, techPageSize],
+    queryFn: () => scanService.listFrontierTech(techPage, techPageSize),
   })
   const alertsQ = useQuery({
-    queryKey: ['alerts', alertPage],
-    queryFn: () => scanService.listAlerts(alertPage, 20),
+    queryKey: ['alerts', alertPage, alertPageSize],
+    queryFn: () => scanService.listAlerts(alertPage, alertPageSize),
   })
 
   const scanMut = useMutation({
@@ -213,9 +215,10 @@ export default function ScanMonitor() {
                 size="small"
                 pagination={{
                   current: techPage,
-                  pageSize: 20,
+                  pageSize: techPageSize,
                   total: frontierQ.data?.total,
-                  onChange: p => setTechPage(p),
+                  showSizeChanger: true, pageSizeOptions: [10, 20, 50, 100],
+                  onChange: (p, ps) => { setTechPage(p); setTechPageSize(ps) },
                   showTotal: t => `共 ${t} 条`,
                 }}
               />
@@ -233,9 +236,10 @@ export default function ScanMonitor() {
                 size="small"
                 pagination={{
                   current: alertPage,
-                  pageSize: 20,
+                  pageSize: alertPageSize,
                   total: alertsQ.data?.total,
-                  onChange: p => setAlertPage(p),
+                  showSizeChanger: true, pageSizeOptions: [10, 20, 50, 100],
+                  onChange: (p, ps) => { setAlertPage(p); setAlertPageSize(ps) },
                   showTotal: t => `共 ${t} 条`,
                 }}
               />

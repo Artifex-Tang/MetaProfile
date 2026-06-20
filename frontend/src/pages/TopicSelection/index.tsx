@@ -185,14 +185,15 @@ function TopicDrawer({
 export default function TopicSelection() {
   const qc = useQueryClient()
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [status, setStatus] = useState<string | undefined>()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [genOpen, setGenOpen] = useState(false)
   const [genForm] = Form.useForm()
 
   const topicsQ = useQuery({
-    queryKey: ['topics', page, status],
-    queryFn: () => topicService.list(page, 20, status),
+    queryKey: ['topics', page, pageSize, status],
+    queryFn: () => topicService.list(page, pageSize, status),
   })
 
   const genMut = useMutation({
@@ -279,9 +280,10 @@ export default function TopicSelection() {
             size="small"
             pagination={{
               current: page,
-              pageSize: 20,
+              pageSize,
               total: topicsQ.data?.total,
-              onChange: p => setPage(p),
+              showSizeChanger: true, pageSizeOptions: [10, 20, 50, 100],
+              onChange: (p, ps) => { setPage(p); setPageSize(ps) },
               showTotal: t => `共 ${t} 条`,
             }}
           />

@@ -224,13 +224,14 @@ export default function ProfilePerson() {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const { id: routeId } = useParams()
   const [selectedId, setSelectedId] = useState<string | null>(routeId ?? null)
   useEffect(() => { if (routeId) setSelectedId(routeId) }, [routeId])
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['person-search', keyword, page],
-    queryFn: () => personService.search(keyword, page, 20),
+    queryKey: ['person-search', keyword, page, pageSize],
+    queryFn: () => personService.search(keyword, page, pageSize),
   })
 
   const importMut = useMutation({
@@ -300,8 +301,9 @@ export default function ProfilePerson() {
         rowKey="person_id"
         size="small"
         pagination={{
-          current: page, pageSize: 20, total: data?.total,
-          onChange: p => setPage(p), showTotal: t => `共 ${t} 条`,
+          current: page, pageSize, total: data?.total,
+          showSizeChanger: true, pageSizeOptions: [10, 20, 50, 100],
+          onChange: (p, ps) => { setPage(p); setPageSize(ps) }, showTotal: t => `共 ${t} 条`,
         }}
         onRow={r => ({ onDoubleClick: () => setSelectedId(r.person_id) })}
       />

@@ -24,6 +24,7 @@ dependencies = [
     "jieba>=0.42",
     "scikit-learn>=1.4",
     "numpy>=1.26",
+    "croniter>=2.0",
 ]
 
 [project.optional-dependencies]

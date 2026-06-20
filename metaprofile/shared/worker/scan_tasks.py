@@ -5,7 +5,6 @@
 """
 from __future__ import annotations
 
-import asyncio
 import structlog
 from typing import Any
 
@@ -13,6 +12,7 @@ from metaprofile.scan_monitor.domain.orm_models import FrontierTechORM
 from metaprofile.scan_monitor.services.llm_agent_validator import FrontierAgentValidator
 from metaprofile.shared.db.postgres import get_session
 from metaprofile.shared.llm.gateway import LLMGateway
+from metaprofile.shared.worker.async_runner import run_async
 from metaprofile.shared.worker.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -57,4 +57,6 @@ async def _async_verify(frontier_id: int, task_id: str) -> dict[str, Any]:
 
 @celery_app.task(name="metaprofile.scan.verify_frontier_tech", bind=True)
 def verify_frontier_tech(self, frontier_id: int) -> dict[str, Any]:
-    return asyncio.run(_async_verify(frontier_id, self.request.id))
+    # run_async 复用 worker 持久 loop(非 asyncio.run 每次建+关)→ 避免 asyncpg
+    # 连接绑死已关 loop 的 'Event loop is closed' 跨任务错误。
+    return run_async(_async_verify(frontier_id, self.request.id))

@@ -7,7 +7,6 @@
 """
 from __future__ import annotations
 
-import asyncio
 import structlog
 from typing import Any
 
@@ -21,6 +20,7 @@ from metaprofile.shared.enrich.orm_enricher import EnrichOutcome, enrich_one
 from metaprofile.shared.enrich.task_log import finish_task
 from metaprofile.shared.llm.gateway import LLMGateway
 from metaprofile.shared.schemas.base import EntityType
+from metaprofile.shared.worker.async_runner import run_async
 from metaprofile.shared.worker.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -95,7 +95,7 @@ def _run(
     entity_id: str,
     task_id: str,
 ) -> dict[str, Any]:
-    outcome = asyncio.run(
+    outcome = run_async(
         _async_run(entity_type, orm_cls, change_log_entity_type, entity_id, task_id)
     )
     return _shape(outcome, entity_id)

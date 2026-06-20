@@ -3,6 +3,9 @@
 
 完整覆盖《实体画像数据规范》关系节，**禁止**新增关系类型。
 所有关系抽取（规则/LLM）必须从此枚举中选择。
+
+例外：TECH_EVOLVE / TECH_PREREQ 经 2026-06-18 评审新增（技术-技术演进/前置），
+为 Spec 2/3 真挖掘铺路；除此之外不得新增。
 """
 from __future__ import annotations
 
@@ -105,6 +108,10 @@ class RelationType(StrEnum):
     # 技术-机构 / 技术-人员 / 技术-企业
     TECH_CONTRIBUTOR = "贡献者"
     TECH_REVIEWED_BY = "被评议"
+
+    # 技术-技术（2026-06-18 评审新增；演进/前置，为 Spec2/3 真挖掘铺路）
+    TECH_EVOLVE = "演进"
+    TECH_PREREQ = "前置"
 
 
 class RelationTriple(ProfileBase):

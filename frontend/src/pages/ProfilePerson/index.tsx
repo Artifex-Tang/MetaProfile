@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import RelationGraph from '../../components/RelationGraph'
 import JumpBreadcrumb from '../../components/JumpBreadcrumb'
 import DataQualityCard from '../../components/DataQualityCard'
@@ -222,6 +222,7 @@ function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boole
 
 export default function ProfilePerson() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -309,7 +310,7 @@ export default function ProfilePerson() {
       />
 
       {selectedId && (
-        <DetailDrawer key={selectedId} selfType="person" id={selectedId} open={!!selectedId} onClose={() => setSelectedId(null)} />
+        <DetailDrawer key={selectedId} selfType="person" id={selectedId} open={!!selectedId} onClose={() => { if (routeId) navigate('/person', { replace: true }); setSelectedId(null) }} />
       )}
     </div>
   )

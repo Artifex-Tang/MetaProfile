@@ -9,6 +9,7 @@ import ScanMonitor from './pages/ScanMonitor'
 import NewTechDiscovery from './pages/NewTechDiscovery'
 import TopicSelection from './pages/TopicSelection'
 import Settings from './pages/Settings'
+import RelationExplore from './pages/RelationExplore'
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="org/:id" element={<ProfileOrg />} />
           <Route path="person" element={<ProfilePerson />} />
           <Route path="person/:id" element={<ProfilePerson />} />
+          <Route path="explore" element={<RelationExplore />} />
           <Route path="scan" element={<ScanMonitor />} />
           <Route path="discovery" element={<NewTechDiscovery />} />
           <Route path="topics" element={<TopicSelection />} />

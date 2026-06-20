@@ -83,3 +83,21 @@ class EnrichmentTaskORM(Base, TimestampMixin):
     error_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ScheduledTaskORM(Base, TimestampMixin):
+    """通用定时任务（cron 驱动，scheduler_tick poller 消费）。
+
+    task_type 受控：collection（采集）/ translate_batch（批量翻译），可扩。
+    解决 schedule_cron 死字段问题：统一在此表配 cron + params，poller 到期 dispatch。
+    """
+    __tablename__ = "scheduled_task"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    task_type: Mapped[str] = mapped_column(String(32), nullable=False, comment="collection/translate_batch")
+    cron: Mapped[str] = mapped_column(String(64), nullable=False, comment="5 段 cron，如 0 2 * * *")
+    params: Mapped[dict] = mapped_column(JSONB, default=dict, comment="任务参数，如 {entity_type}/{source_id}")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_status: Mapped[str] = mapped_column(String(32), default="pending", comment="pending/ok/failed/running")

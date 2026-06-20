@@ -37,6 +37,8 @@ Thumbs.db
 # Tool indexes / scratch
 .codegraph/
 CLAUDE_CODE_PLAN.md
+_load_big_state.json
+_ui_demo.py
 
 # Test outputs (generated per run)
 tests/e2e/*.json

@@ -253,6 +253,65 @@ def settings_crud_tests():
         record("API-SET-22-dbc-delete", "数据连接删除", code == 204, f"code={code}")
 
 
+def tech_relation_tests():
+    """技术关系路由（E-T4：演进链/前置树双向遍历 TECH_EVOLVE/TECH_PREREQ）+ 枚举 + mock cypher。
+
+    3 个用例：
+    - RelationType 枚举新增 TECH_EVOLVE/TECH_PREREQ（value=演进/前置）
+    - GET /relation/tech/{id}/tech-relation 双 viewpoint 返 nodes/edges
+    - deploy/mock_data.cypher 含 TECH_EVOLVE/TECH_PREREQ 边（防 T5 回归）
+    """
+    from pathlib import Path
+
+    # 1. 枚举（与 metaprofile.shared.schemas.relations.RelationType 一致）
+    try:
+        from metaprofile.shared.schemas.relations import RelationType
+        ok_e = RelationType.TECH_EVOLVE.value == "演进"
+        ok_p = RelationType.TECH_PREREQ.value == "前置"
+        record("API-TECHREL-01-enum", "RelationType 含 TECH_EVOLVE/TECH_PREREQ",
+               ok_e and ok_p, f"evolve={getattr(RelationType, 'TECH_EVOLVE', None)} "
+                              f"prereq={getattr(RelationType, 'TECH_PREREQ', None)}")
+    except Exception as e:
+        record("API-TECHREL-01-enum", "RelationType 含 TECH_EVOLVE/TECH_PREREQ", False, f"import err: {e!r}"[:120])
+
+    # 2. 路由：取一个 mock 技术做种子，跑 evolve/prereq 双视角
+    code, _, d = req("POST", f"{PRE['tech']}/api/v1/profile/tech/search",
+                     {"page": 1, "page_size": 5})
+    items = d.get("items", []) if isinstance(d, dict) else []
+    seed_ok = code == 200 and bool(items)
+    if not seed_ok:
+        record("API-TECHREL-02a-seed", "mock 技术种子就绪", False,
+               f"code={code} items={len(items)}")
+    else:
+        record("API-TECHREL-02a-seed", "mock 技术种子就绪", True,
+               f"n={len(items)}")
+        tid = items[0].get("tech_id") or items[0].get("id")
+        for vp in ("evolve", "prereq"):
+            # req() 把 path 拼到 URL；query string 直接附在 path 上即可
+            cc, _, dd = req("GET",
+                            f"{PRE['tech']}/api/v1/relation/tech/{tid}/tech-relation"
+                            f"?viewpoint={vp}&depth=4",
+                            None)
+            ok = cc == 200 and isinstance(dd, dict) and dd.get("viewpoint") == vp \
+                and "nodes" in dd and "edges" in dd
+            record(f"API-TECHREL-02b-route-{vp}",
+                   f"技术关系路由 viewpoint={vp}",
+                   ok, f"code={cc} vp={dd.get('viewpoint') if isinstance(dd,dict) else '?'} "
+                       f"nodes={len(dd.get('nodes', [])) if isinstance(dd,dict) else 0}")
+
+    # 3. mock cypher 含 TECH_EVOLVE/TECH_PREREQ 边（防 T5 生成器改了但产物未重生成）
+    try:
+        cy_path = Path(__file__).resolve().parents[2] / "deploy" / "mock_data.cypher"
+        cy = cy_path.read_text(encoding="utf-8")
+        has_evolve = ("TECH_EVOLVE" in cy) or ("演进" in cy)
+        has_prereq = ("TECH_PREREQ" in cy) or ("前置" in cy)
+        record("API-TECHREL-03-cypher", "mock cypher 含技术-技术边",
+               has_evolve and has_prereq,
+               f"evolve={has_evolve} prereq={has_prereq} (若 FAIL=需重跑 gen_mock_data.py)")
+    except Exception as e:
+        record("API-TECHREL-03-cypher", "mock cypher 含技术-技术边", False, f"read err: {e!r}"[:120])
+
+
 def analysis_detail_tests():
     """分析层详情路由：前沿详情/新技术列表/信号网络/选题详情。"""
     # 前沿详情（路由 {tech_id} 实际按 scan_task_id 过滤）
@@ -297,6 +356,8 @@ def main():
     analysis_tests()
     analysis_detail_tests()
     settings_crud_tests()
+    print("=== 技术关系（演进/前置）===")
+    tech_relation_tests()
     passed = sum(1 for r in RESULTS if r["status"] == "pass")
     total = len(RESULTS)
     print(f"\n=== API 功能覆盖：{passed}/{total} 通过 ===")

@@ -84,6 +84,7 @@ async def run_sql_warehouse_collection(
     async def _run(sess):
         imported = await orch.run(sess, task=task, source=source)
         await _maybe_content_mine(sess, source, llm, writer, task=task)
+        _maybe_trigger_weak_signal(source, imported)
         return imported
 
     if session is None:
@@ -142,3 +143,34 @@ async def _maybe_content_mine(
                 logger.warning("content_mine_staging_failed", error=str(exc))
     except Exception as exc:  # noqa: BLE001  I1: 富集失败不影响结构化灌库结果
         logger.exception("content_mine_failed", error=str(exc))
+
+
+def _maybe_trigger_weak_signal(source, imported: int) -> None:
+    """ingest 批次完成 → 按配置异步触发弱信号提取（§2.1 方案①自动 hook）。
+
+    条件：config_json.enable_weak_signal=True 且有 db_connection_id。
+    非阻塞：Celery 入队失败仅告警，不影响已完成的灌库结果。
+    """
+    cfg = source.config_json or {}
+    if not cfg.get("enable_weak_signal"):
+        return
+    db_id = cfg.get("db_connection_id")
+    if not db_id or not imported:
+        return
+    try:
+        from datetime import date, timedelta
+
+        from metaprofile.shared.worker.newtech_tasks import extract_weak_signals
+
+        today = date.today()
+        extract_weak_signals.delay(
+            (today - timedelta(days=90)).isoformat(),
+            today.isoformat(),
+            None,
+            db_id,
+        )
+        logger.info(
+            "weak_signal_hook_enqueued", db_connection_id=db_id, imported=imported
+        )
+    except Exception as exc:  # noqa: BLE001  hook 失败不杀灌库
+        logger.warning("weak_signal_hook_failed", error=str(exc))

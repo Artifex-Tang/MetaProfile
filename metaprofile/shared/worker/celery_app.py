@@ -28,6 +28,7 @@ celery_app.conf.update(
         "metaprofile.shared.worker.enrich_tasks",
         "metaprofile.shared.worker.scan_tasks",
         "metaprofile.shared.worker.translate_tasks",
+        "metaprofile.shared.worker.newtech_tasks",
         "metaprofile.shared.scheduler.poller",
     ],
     beat_schedule={

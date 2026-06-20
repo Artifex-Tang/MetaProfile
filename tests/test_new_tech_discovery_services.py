@@ -40,6 +40,17 @@ class TestSignalStrengthQuantifier:
         result = q.quantify(novelty=1.0, coherence=0.0, diversity=0.0, velocity=0.0)
         assert abs(result - 0.30) < 1e-6
 
+    def test_quantify_custom_weights(self):
+        q = SignalStrengthQuantifier(weights=(0.5, 0.3, 0.1, 0.1))
+        result = q.quantify(novelty=1.0, coherence=0.0, diversity=0.0, velocity=0.0)
+        assert abs(result - 0.5) < 1e-6
+
+    def test_quantify_default_weights_from_settings(self):
+        # 默认权重 = settings.weak_signal (0.30/0.25/0.20/0.25)，与原硬编码一致
+        q = SignalStrengthQuantifier()
+        result = q.quantify(novelty=1.0, coherence=1.0, diversity=1.0, velocity=1.0)
+        assert abs(result - 1.0) < 1e-6
+
 
 # ─── AnomalyDetector ─────────────────────────────────────────────────────────
 

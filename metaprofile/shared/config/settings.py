@@ -139,6 +139,29 @@ class StorageThresholds(BaseSettings):
     dq_weight_timeliness: float = 0.3
 
 
+class WeakSignalSettings(BaseSettings):
+    """弱信号提取参数（专利级，可调；详见 weak-signal-pipeline-design §4）。"""
+    model_config = SettingsConfigDict(env_prefix="WEAK_SIGNAL_")
+    # 语料 ODS Doris 连接 id（DataSourceConfig.db_connection_id 对应 DBConnectionORM.id）
+    corpus_db_connection_id: int | None = None
+    # 4 维强度权重（Σ=1.0；novelty/coherence/diversity/velocity）
+    w_novelty: float = 0.30
+    w_coherence: float = 0.25
+    w_diversity: float = 0.20
+    w_velocity: float = 0.25
+    # 阈值
+    burst_theta: float = 2.0          # 突现 z-score（§4.2）
+    mk_tau_threshold: float = 0.6     # Mann-Kendall 显著上升（§4.5）
+    # 子项目2 NER 增强待实现，当前未消费（§4.9）
+    ner_anomaly_theta: float = 2.5    # NER 实体异常 z-score
+    adaptive_k_sigma: float = 1.0     # 自适应阈值 μ+kσ 的 k（§4.8）
+    # 窗口/历史
+    window_months: int = 1            # 每窗口月数（§3.3 按月）
+    lookback_months: int = 12         # novelty/burst 基线历史月数
+    velocity_recent_windows: int = 3  # 增速回归用最近窗口数（§4.5）
+    max_docs_per_source: int = 20000  # 每源单次拉取上限（防 OOM）
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -160,6 +183,7 @@ class Settings(BaseSettings):
     thresholds: StorageThresholds = Field(default_factory=StorageThresholds)
     collectors: CollectorSettings = Field(default_factory=CollectorSettings)
     profile_api: ProfileApiSettings = Field(default_factory=ProfileApiSettings)
+    weak_signal: WeakSignalSettings = Field(default_factory=WeakSignalSettings)
 
 
 @lru_cache

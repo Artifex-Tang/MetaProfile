@@ -80,12 +80,14 @@ def compute_entity_id(entity_key: dict, attrs: dict) -> str | None:
         name = name[0] if name else None
     if name:
         nm = str(name)
-        # name: 卫星兜底时,真实标题/名称可能很长(论文标题 100+ 字符)溢出
-        # profile *_id VARCHAR(64)。超 58 字符(留 "name:" 前缀+余量)截断+md5
-        # 后缀保唯一与幂等(同标题→同 ID)。
+        # name: 卫星 id 须 URL 安全(详情走 /profile/{type}/{id} 路由)且 ≤ VARCHAR64:
+        # 超长(>58,留 "name:" 前缀)截断 + md5 后缀保唯一幂等;非 \w/- 字符
+        # (空格/标点等)替换为 _,避免 URL path 挂(中文属 \w 保留)。
+        import hashlib, re
         if len(nm) > 58:
-            import hashlib
-            nm = nm[:42] + "_" + hashlib.md5(nm.encode()).hexdigest()[:15]
+            nm = re.sub(r'[^\w-]', '_', nm[:42]) + "_" + hashlib.md5(nm.encode()).hexdigest()[:15]
+        else:
+            nm = re.sub(r'[^\w-]', '_', nm)
         return f"{NAME_SATELLITE_PREFIX}{nm}"
     return None
 

@@ -34,3 +34,21 @@ async def get_enrichment_task_status(
 ) -> dict:
     """查询补全任务状态（celery AsyncResult，前端轮询）。"""
     return await service.get_task_status(task_id)
+
+
+# ── 翻译（en→cn name_cn 补全，#9 非中文策略）──
+from metaprofile.shared.worker.translate_tasks import translate_name  # noqa: E402
+from celery.result import AsyncResult  # noqa: E402
+from metaprofile.shared.worker.celery_app import celery_app as _celery_app  # noqa: E402
+
+
+@router.post("/profile/tech/{tech_id}/translate")
+async def translate_tech_name(tech_id: str) -> dict:
+    res = translate_name.delay("tech", tech_id)
+    return {"task_id": res.id}
+
+
+@router.get("/profile/tech/translate/task/{task_id}")
+async def translate_tech_task_status(task_id: str) -> dict:
+    r = AsyncResult(task_id, app=_celery_app)
+    return {"task_id": task_id, "state": r.state, "result": r.result if r.ready() else None}

@@ -27,5 +27,6 @@ celery_app.conf.update(
     include=[
         "metaprofile.shared.worker.enrich_tasks",
         "metaprofile.shared.worker.scan_tasks",
+        "metaprofile.shared.worker.translate_tasks",
     ],
 )

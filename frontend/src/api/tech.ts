@@ -49,4 +49,12 @@ export const techService = {
 
   getEnrichTaskStatus: (taskId: string) =>
     techApi.get<EnrichTaskStatus>(`/api/v1/profile/tech/enrich/task/${taskId}`).then(r => r.data),
+
+  translate: (id: string) =>
+    techApi.post<{ task_id: string }>(`/api/v1/profile/tech/${id}/translate`).then(r => r.data),
+
+  getTranslateTaskStatus: (taskId: string) =>
+    techApi.get<{ task_id: string; state: string; result: unknown }>(
+      `/api/v1/profile/tech/translate/task/${taskId}`,
+    ).then(r => r.data),
 }

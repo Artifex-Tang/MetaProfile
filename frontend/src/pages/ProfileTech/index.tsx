@@ -17,6 +17,8 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { techService } from '../../api/tech'
 import type { TechProfile, TechSearchResultItem, RelationItem } from '../../api/types'
+import EntityName from '../../components/EntityName'
+import { displayName } from '../../utils/displayName'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, ResponsiveContainer, Legend,
 } from 'recharts'
@@ -110,14 +112,45 @@ function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boole
     setEnrichTaskId(null)
   }, [enrichStatus.data?.status])
 
+  // ── 翻译（en→cn name_cn 补全，#9 非中文策略）──
+  const [translateTaskId, setTranslateTaskId] = useState<string | null>(null)
+  const translateMut = useMutation({
+    mutationFn: (tid: string) => techService.translate(tid),
+    onSuccess: (res) => {
+      setTranslateTaskId(res.task_id)
+      message.loading({ content: '翻译任务已提交...', key: 'translate', duration: 2 })
+    },
+    onError: () => message.error('提交翻译任务失败'),
+  })
+  const translateStatus = useQuery({
+    queryKey: ['translate-task', translateTaskId],
+    queryFn: () => techService.getTranslateTaskStatus(translateTaskId!),
+    enabled: !!translateTaskId,
+    refetchInterval: (q) => (q.state.data?.state === 'SUCCESS' || q.state.data?.state === 'FAILURE') ? false : 2000,
+  })
+  useEffect(() => {
+    const st = translateStatus.data?.state
+    if (!st || translateTaskId === null) return
+    if (st === 'SUCCESS') {
+      message.success('翻译完成')
+      qc.invalidateQueries({ queryKey: ['tech', id] })
+      setTranslateTaskId(null)
+    } else if (st === 'FAILURE') {
+      message.error('翻译失败')
+      setTranslateTaskId(null)
+    }
+  }, [translateStatus.data?.state])
+  const translating = translateMut.isPending || (!!translateTaskId && !['SUCCESS', 'FAILURE'].includes(translateStatus.data?.state ?? ''))
+  const handleTranslate = () => { if (id) translateMut.mutate(id) }
+
   const p = profile.data
-  const { ctx, handleNodeClick } = useCrossProfileJump(selfType, id, p?.tech_name_cn ?? null)
+  const { ctx, handleNodeClick } = useCrossProfileJump(selfType, id, p?.tech_name_cn || p?.tech_name_en || null)
 
   const completenessPercent = p?.completeness != null ? Math.round(p.completeness * 100) : null
 
   const drawerTitle = (
     <Space>
-      <span>{p?.tech_name_cn ?? id}</span>
+      <span>{displayName({ name_cn: p?.tech_name_cn, name_en: p?.tech_name_en, id: id ?? '' })}</span>
       {completenessPercent != null && (
         <Progress
           percent={completenessPercent}
@@ -149,7 +182,12 @@ function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boole
               <>
               <Descriptions column={1} size="small" bordered>
                 <Descriptions.Item label="技术ID">{p.tech_id}</Descriptions.Item>
-                <Descriptions.Item label="中文名">{p.tech_name_cn}</Descriptions.Item>
+                <Descriptions.Item label="中文名">
+                  <EntityName
+                    entity={{ name_cn: p.tech_name_cn, name_en: p.tech_name_en, id: p.tech_id }}
+                    onTranslate={handleTranslate} translating={translating}
+                  />
+                </Descriptions.Item>
                 <Descriptions.Item label="英文名">{p.tech_name_en ?? '-'}</Descriptions.Item>
                 {p.tech_name_other && <Descriptions.Item label="其他名称">{p.tech_name_other}</Descriptions.Item>}
                 <Descriptions.Item label="领域">
@@ -356,7 +394,9 @@ export default function ProfileTech() {
   const cols = [
     { title: '名称', dataIndex: 'tech_name_cn', ellipsis: true,
       render: (v: string, r: TechSearchResultItem) => (
-        <Button type="link" style={{ padding: 0 }} onClick={() => setSelectedId(r.tech_id)}>{v}</Button>
+        <Button type="link" style={{ padding: 0 }} onClick={() => setSelectedId(r.tech_id)}>
+          {displayName({ name_cn: v, name_en: (r as { tech_name_en?: string }).tech_name_en, id: r.tech_id })}
+        </Button>
       ) },
     {
       title: '领域',
@@ -441,7 +481,7 @@ export default function ProfileTech() {
         confirmLoading={createMut.isPending}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="tech_name_cn" label="中文名" rules={[{ required: true }]}>
+          <Form.Item name="tech_name_cn" label="中文名（英文源可空，用「译」补）" rules={[]}>
             <Input />
           </Form.Item>
           <Form.Item name="tech_name_en" label="英文名">

@@ -46,6 +46,12 @@ export const personService = {
 
   getEnrichTaskStatus: (taskId: string) =>
     personApi.get<EnrichTaskStatus>(`/api/v1/profile/person/enrich/task/${taskId}`).then(r => r.data),
+
+  translate: (id: string) =>
+    personApi.post<{ task_id: string }>(`/api/v1/profile/person/${id}/translate`).then(r => r.data),
+  getTranslateTaskStatus: (taskId: string) =>
+    personApi.get<{ task_id: string; state: string; result: unknown }>(
+      `/api/v1/profile/person/translate/task/${taskId}`).then(r => r.data),
 }
 
 export const orgService = {
@@ -71,6 +77,12 @@ export const orgService = {
 
   getEnrichTaskStatus: (taskId: string) =>
     orgApi.get<EnrichTaskStatus>(`/api/v1/profile/org/enrich/task/${taskId}`).then(r => r.data),
+
+  translate: (id: string) =>
+    orgApi.post<{ task_id: string }>(`/api/v1/profile/org/${id}/translate`).then(r => r.data),
+  getTranslateTaskStatus: (taskId: string) =>
+    orgApi.get<{ task_id: string; state: string; result: unknown }>(
+      `/api/v1/profile/org/translate/task/${taskId}`).then(r => r.data),
 }
 
 export const projectService = {
@@ -96,4 +108,10 @@ export const projectService = {
 
   getEnrichTaskStatus: (taskId: string) =>
     projectApi.get<EnrichTaskStatus>(`/api/v1/profile/project/enrich/task/${taskId}`).then(r => r.data),
+
+  translate: (id: string) =>
+    projectApi.post<{ task_id: string }>(`/api/v1/profile/project/${id}/translate`).then(r => r.data),
+  getTranslateTaskStatus: (taskId: string) =>
+    projectApi.get<{ task_id: string; state: string; result: unknown }>(
+      `/api/v1/profile/project/translate/task/${taskId}`).then(r => r.data),
 }

@@ -2,7 +2,10 @@
 
 - 日期：2026-06-18
 - 分层：**Spec 1 = 基础层**（契约 + UI + mock + 查询，mock 全链路可 demo）。Spec 2（ingest_ods 真挖掘）、Spec 3（enrich worker LLM 推断）为本 spec 的后续独立 spec，见 §11。
-- 状态：brainstorm 方向已锁（memory `cross-profile-graph-explore-design`），本会话复核骨架 + 补决策（路径参数 / 双视角 / 拆分）→ 待 writing-plans。
+- 状态：**Spec 1 已实现**（见 plan `2026-06-20-cross-profile-explore.md`，branch `feat/cross-profile-explore`，E-T1..T14）。#1 跨画像跳转收尾（4 画像 onClose 清 stale URL）+ #2 /explore 探索页（关系路径模式 + 技术关系演进链/前置树双视角）+ 技术详情「技术关系」Tab + RelationType 加 TECH_EVOLVE/TECH_PREREQ + Neo4jRepo find_path 返 rel_types / find_related_chain(rel_type+方向) + mock 造 tech-tech 边。全栈 live e2e 验证通过（后端路由真 Neo4j 遍历 / 前端 Playwright 渲染）。
+  - 已知约定：Neo4j 关系类型 mock 落库 = service 查询 = 枚举 **NAME**（TECH_EVOLVE/TECH_PREREQ，与既有 mock ORG_EMPLOY 同模式）；前端 REL_LABEL 按 NAME 查。真挖掘（Spec2 triple-writer）存枚举 **VALUE**（演进/前置）→ Spec2 需归一 NAME vs VALUE。
+  - 已知局限：find_path 返 shape 变已迁移 4 画像服务+foundation wrapper；coherence/df_by_source_window presence-vs-count 见弱信号 spec（无关本计划）。
+  - Spec 2（ingest_ods 真挖 tech-tech：content_miner + _PREDICATE_MAP）/ Spec 3（enrich LLM 推断 tech-tech）待独立 spec。
 - 前置：commit 39be46e，全套绿 API 86 / UI 61 / vitest 38 / tsc clean。
 
 ---

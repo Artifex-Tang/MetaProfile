@@ -1,4 +1,9 @@
-from metaprofile.new_tech_discovery.services.signal_metrics import burst_score, novelty_score
+from metaprofile.new_tech_discovery.services.signal_metrics import (
+    burst_score,
+    coherence_score,
+    diversity_score,
+    novelty_score,
+)
 
 
 def test_burst_score_zero_when_at_baseline():
@@ -37,3 +42,47 @@ def test_novelty_half_seen():
 def test_novelty_no_history_is_fully_new():
     # 无历史窗 → 视为全新
     assert novelty_score(0, 0) == 1.0
+
+
+def test_diversity_single_source_is_zero():
+    assert diversity_score({"science": 10}) == 0.0
+
+
+def test_diversity_uniform_four_sources_is_one():
+    # 均匀 4 源 → 归一化熵 = 1.0
+    result = diversity_score({"science": 1, "patent": 1, "market": 1, "attachment": 1})
+    assert abs(result - 1.0) < 1e-6
+
+
+def test_diversity_two_sources_midpoint():
+    # 均匀 2 源 → 归一化熵 = log(2)/log(2) = 1.0
+    # （注：原 plan 注释 log(4) 为误，n=2 时除以 log(2)）
+    assert abs(diversity_score({"science": 1, "patent": 1}) - 1.0) < 1e-3
+
+
+def test_diversity_empty_is_zero():
+    assert diversity_score({}) == 0.0
+
+
+def test_coherence_all_sources_rising():
+    cur = {"science": 5, "patent": 6, "market": 4}
+    prev = {"science": 2, "patent": 1, "market": 1}
+    assert coherence_score(cur, prev) == 1.0
+
+
+def test_coherence_none_rising():
+    cur = {"science": 1, "patent": 1}
+    prev = {"science": 5, "patent": 5}
+    assert coherence_score(cur, prev) == 0.0
+
+
+def test_coherence_no_previous_is_zero():
+    # 无上一窗基线 → 无法判断一致性 → 0
+    assert coherence_score({"science": 5}, {}) == 0.0
+
+
+def test_coherence_partial():
+    cur = {"science": 5, "patent": 1, "market": 5}
+    prev = {"science": 1, "patent": 5, "market": 1}
+    # science/market 升、patent 降 → 2/3
+    assert abs(coherence_score(cur, prev) - (2 / 3)) < 1e-6

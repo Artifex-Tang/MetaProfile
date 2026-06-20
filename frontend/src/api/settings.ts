@@ -90,6 +90,25 @@ export interface EnrichmentTask {
   created_at: string | null
 }
 
+export interface ScheduledTask {
+  id: number
+  name: string
+  task_type: string  // collection / translate_batch
+  cron: string
+  params: Record<string, unknown>
+  enabled: boolean
+  last_run_at: string | null
+  last_status: string  // pending/ok/failed/running
+}
+
+export interface ScheduledTaskCreate {
+  name: string
+  task_type: string
+  cron: string
+  params?: Record<string, unknown>
+  enabled?: boolean
+}
+
 export interface LLMTestResponse {
   success: boolean
   message: string
@@ -203,4 +222,20 @@ export const settingsService = {
 
   deleteDbConnection: (id: number) =>
     settingsApi.delete(`/api/v1/settings/db-connections/${id}`),
+
+  // 定时任务（通用 cron 调度器，#9）
+  listScheduledTasks: () =>
+    settingsApi.get<ScheduledTask[]>('/api/v1/settings/scheduled-tasks').then(r => r.data),
+  createScheduledTask: (body: ScheduledTaskCreate) =>
+    settingsApi.post<ScheduledTask>('/api/v1/settings/scheduled-tasks', body).then(r => r.data),
+  updateScheduledTask: (id: number, body: Partial<ScheduledTaskCreate>) =>
+    settingsApi.patch<ScheduledTask>(`/api/v1/settings/scheduled-tasks/${id}`, body).then(r => r.data),
+  deleteScheduledTask: (id: number) =>
+    settingsApi.delete(`/api/v1/settings/scheduled-tasks/${id}`),
+  runScheduledTask: (id: number) =>
+    settingsApi.post<{ task_id: string; queued: boolean }>(`/api/v1/settings/scheduled-tasks/${id}/run`).then(r => r.data),
+  translateBatch: (entity_type?: string) =>
+    settingsApi.post<{ task_id: string }>('/api/v1/settings/translate/batch', null, {
+      params: entity_type ? { entity_type } : {},
+    }).then(r => r.data),
 }

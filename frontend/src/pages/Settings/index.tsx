@@ -7,9 +7,10 @@ import {
 import {
   PlusOutlined, DeleteOutlined, EditOutlined, SyncOutlined,
   PlayCircleOutlined, CheckCircleOutlined, CloseCircleOutlined,
-  ApiOutlined, ReloadOutlined,
+  ApiOutlined, ReloadOutlined, ClockCircleOutlined,
 } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import ScheduledTasksTab from './ScheduledTasksTab'
 import {
   settingsService,
   type LLMProviderConfig,
@@ -678,6 +679,7 @@ export default function Settings() {
         { key: 'datasource', label: <><PlayCircleOutlined />数据源配置</>, children: <DataSourceTab /> },
         { key: 'dbconn',     label: <><ApiOutlined />数据连接</>,     children: <DbConnectionsTab /> },
         { key: 'tasks',      label: <><SyncOutlined />采集任务</>,     children: <TasksTab /> },
+        { key: 'scheduled',  label: <><ClockCircleOutlined />定时任务</>, children: <ScheduledTasksTab /> },
       ]}
     />
   )

@@ -116,22 +116,73 @@ class Neo4jRepo:
         from_id: str,
         to_id: str,
         max_depth: int = 4,
-    ) -> list[list[dict[str, Any]]]:
-        """最短路径查询，返回最多 5 条路径，每条为节点列表。
+    ) -> list[dict[str, Any]]:
+        """最短路径查询，返回最多 5 条路径，每条 {nodes, rel_types}。
 
-        注意：Neo4j Cypher 不支持参数化变长关系边界（``[*1..$max_depth]`` 非法），
-        故 max_depth（已校验为 int）直接拼入语句。
+        nodes=节点 props 列表；rel_types=每跳关系类型（中文）。
+        Cypher 不支持参数化变长边界，max_depth（已校验 int）直接拼入。
         """
         depth = int(max_depth)
         cypher = (
             "MATCH p=shortestPath("
             f"(a {{entity_id: $from_id}})-[*1..{depth}]-(b {{entity_id: $to_id}})"
-            ") RETURN [n in nodes(p) | properties(n)] AS nodes LIMIT 5"
+            ") RETURN [n in nodes(p) | properties(n)] AS nodes, "
+            "[r in relationships(p) | type(r)] AS rels LIMIT 5"
         )
         async with get_neo4j_session() as s:
             result = await s.run(cypher, from_id=from_id, to_id=to_id)
             rows = await result.data()
-        return [row["nodes"] for row in rows]
+        return [{"nodes": row["nodes"], "rel_types": row["rels"]} for row in rows]
+
+    async def find_related_chain(
+        self,
+        *,
+        entity_id: str,
+        label: str,
+        rel_type: str,
+        depth: int = 4,
+        direction: str = "both",
+    ) -> dict[str, Any]:
+        """按关系类型 + 方向遍历 N 跳，返回 {nodes, edges}。
+
+        direction ∈ {out, in, both}。rel_type/depth/label 已校验，直接拼 Cypher
+        （Cypher 不支持参数化变长边界与关系类型占位）。去重 node/edge。
+        """
+        d = max(1, min(int(depth), 4))
+        backtick = "`" + rel_type + "`"
+        if direction == "out":
+            pat = f"-[{backtick}*1..{d}]->"
+        elif direction == "in":
+            pat = f"<-[{backtick}*1..{d}]-"
+        else:
+            pat = f"-[{backtick}*1..{d}]-"
+        cypher = (
+            f"MATCH p=(n:{label} {{entity_id: $entity_id}}){pat}(m) "
+            "RETURN [x in nodes(p) | properties(x)] AS nodes, "
+            "[r in relationships(p) | {type: type(r), "
+            "start: startNode(r).entity_id, end: endNode(r).entity_id}] AS rels "
+            "LIMIT 200"
+        )
+        async with get_neo4j_session() as s:
+            result = await s.run(cypher, entity_id=entity_id)
+            rows = await result.data()
+        nodes_map: dict[str, dict[str, Any]] = {}
+        edges_seen: set[tuple[str, str, str]] = set()
+        edges: list[dict[str, Any]] = []
+        for row in rows:
+            for nd in row["nodes"]:
+                eid = nd.get("entity_id")
+                if eid and eid not in nodes_map:
+                    nodes_map[eid] = nd
+            for r in row["rels"]:
+                key = (r["start"], r["end"], r["type"])
+                if key in edges_seen:
+                    continue
+                edges_seen.add(key)
+                edges.append(
+                    {"source": r["start"], "target": r["end"], "rel_type": r["type"]}
+                )
+        return {"nodes": list(nodes_map.values()), "edges": edges}
 
     async def delete_node(self, *, label: str, entity_id: str) -> None:
         """删除节点及其所有关系。"""

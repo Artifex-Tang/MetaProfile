@@ -126,3 +126,48 @@ def test_velocity_score_halved_when_trend_insignificant():
 
 def test_velocity_score_clamped_to_one():
     assert velocity_score([0, 0, 100]) <= 1.0
+
+
+from datetime import date  # noqa: E402
+
+from metaprofile.new_tech_discovery.services.signal_metrics import (  # noqa: E402
+    build_term_stats,
+    build_windows,
+    tokenize,
+)
+
+
+def test_tokenize_chinese_jieba():
+    toks = tokenize("量子计算与机器学习", lang="zh")
+    assert "量子" in toks or "量子计算" in toks
+    assert "的" not in toks  # 停用词过滤
+
+
+def test_tokenize_english_lowercased():
+    toks = tokenize("Quantum Computing is GREAT", lang="en")
+    assert "quantum" in toks and "computing" in toks
+    assert "is" not in toks  # 停用词
+
+
+def test_build_windows_monthly():
+    ws = build_windows(period_from=date(2026, 1, 1), period_to=date(2026, 3, 31),
+                       lookback_months=2, window_months=1)
+    # 2 历史(2025-11,2025-12) + 3 当前(2026-01,02,03) = 5 窗
+    assert len(ws) == 5
+    assert ws[0].is_history is True
+    assert ws[-1].is_history is False
+    assert all(w.end >= w.start for w in ws)
+
+
+def test_build_term_stats_collects_df_series():
+    from metaprofile.new_tech_discovery.services.corpus_loader import CorpusDoc
+    docs = [
+        CorpusDoc("science", "1", "quantum qubit", date(2026, 1, 10), []),
+        CorpusDoc("patent", "2", "quantum chip", date(2026, 2, 10), ["ACME"]),
+    ]
+    windows = build_windows(date(2026, 1, 1), date(2026, 2, 28), lookback_months=0, window_months=1)
+    stats = build_term_stats(docs, windows, min_df=1)
+    # "quantum" 出现于 2 窗（1 月、2 月）
+    q = next(s for s in stats if s.term == "quantum")
+    assert sum(q.df_by_window) == 2
+    assert "science" in q.df_by_source or "ods_science_literature" in q.df_by_source

@@ -26,6 +26,7 @@ from metaprofile.profile_project.schemas.response import (
 )
 from metaprofile.shared.db.elasticsearch import ESRepo
 from metaprofile.shared.llm.embedding import get_default_embedding_client
+from metaprofile.shared.utils.enum_util import safe_enum_list
 from metaprofile.shared.schemas.entity_project import (
     ProjectBudget,
     ProjectHistory,
@@ -56,8 +57,8 @@ def orm_to_response(orm: ProjectProfileORM) -> ProjectProfileResponse:
         start_date=orm.start_date,
         cancel_date=orm.cancel_date,
         finish_date=orm.finish_date,
-        status=[ProjectStatus(s) for s in orm.status],
-        budget_activities=[BudgetActivity(a) for a in orm.budget_activities],
+        status=safe_enum_list(ProjectStatus, orm.status),
+        budget_activities=safe_enum_list(BudgetActivity, orm.budget_activities),
         project_no=orm.project_no,
         main_orgs=orm.main_orgs,
         undertaking_orgs=orm.undertaking_orgs,

@@ -42,6 +42,7 @@ from metaprofile.shared.schemas.entity_org import (
     OrgType,
 )
 from metaprofile.shared.schemas.base import ReviewType
+from metaprofile.shared.utils.enum_util import safe_enum, safe_enum_list
 
 logger = structlog.get_logger(__name__)
 
@@ -83,8 +84,8 @@ def orm_to_response(orm: OrgProfileORM) -> OrgProfileResponse:
         operating_years=orm.operating_years,
         website=orm.website,
         summary=orm.summary,
-        org_types=[OrgType(t) for t in orm.org_types],
-        nature=OrgNature(orm.nature),
+        org_types=safe_enum_list(OrgType, orm.org_types),
+        nature=safe_enum(OrgNature, orm.nature),
         function=orm.function,
         scale=orm.scale,
         tech_domains=orm.tech_domains,
@@ -151,7 +152,7 @@ def orm_to_response(orm: OrgProfileORM) -> OrgProfileResponse:
                 content=r.content,
                 review_org=r.review_org,
                 review_person=r.review_person,
-                review_type=ReviewType(r.review_type) if r.review_type else None,
+                review_type=safe_enum(ReviewType, r.review_type),
                 review_date=r.review_date,
             )
             for r in orm.reviews

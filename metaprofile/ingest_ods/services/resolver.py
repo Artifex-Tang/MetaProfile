@@ -76,7 +76,11 @@ class EntityResolver:
         # 2. 弱键：name 归一簇，逐对 LLM 判同异
         clusters: dict[tuple, list[dict]] = defaultdict(list)
         for e in weak:
-            name = (e["attrs"].get("name_cn") or e["attrs"].get("tech_name_cn") or "").strip()
+            name = e["attrs"].get("name_cn") or e["attrs"].get("tech_name_cn") or ""
+            # name 可能是 list(market 等经 _one transform):取首元素,否则 .strip() 崩
+            if isinstance(name, list):
+                name = name[0] if name else ""
+            name = str(name).strip()
             clusters[(e["profile_type"], name)].append(e)
         for (ptype, name), group in clusters.items():
             if not name:

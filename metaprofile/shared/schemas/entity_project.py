@@ -67,7 +67,7 @@ class ProjectProfile(ProfileBase):
     status: list[ProjectStatus] = Field(default_factory=list)
     budget_activities: list[BudgetActivity] = Field(default_factory=list)
     project_no: int = Field(..., description="项目编号（唯一，必填）")
-    main_orgs: list[str] = Field(..., min_length=1, description="主管机构（必填）")
+    main_orgs: list[str] = Field(default_factory=list, description="主管机构（真数据可能缺）")
     undertaking_orgs: list[str] = Field(default_factory=list)
     undertaking_enterprises: list[str] = Field(default_factory=list)
     managers: list[str] = Field(default_factory=list)
@@ -75,10 +75,10 @@ class ProjectProfile(ProfileBase):
     background: list[str] = Field(default_factory=list)
     research_goal: str | None = None
     research_content: list[str] = Field(
-        ..., min_length=1, description="主要研究内容（必填）"
+        default_factory=list, description="主要研究内容（真数据可能缺）"
     )
     keywords: list[str] = Field(default_factory=list)
-    progress: list[str] = Field(..., min_length=1, description="主要进展（必填）")
+    progress: list[str] = Field(default_factory=list, description="主要进展（真数据可能缺）")
     application_prospect: str | None = None
     key_dates: list[date] = Field(default_factory=list)
     total_budget_million_usd: float | None = None

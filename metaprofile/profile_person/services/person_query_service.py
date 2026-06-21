@@ -28,6 +28,7 @@ from metaprofile.profile_person.schemas.response import (
 from metaprofile.shared.db.elasticsearch import ESRepo
 from metaprofile.shared.llm.embedding import get_default_embedding_client
 from metaprofile.shared.schemas.base import ReviewType
+from metaprofile.shared.utils.enum_util import safe_enum
 from metaprofile.shared.schemas.entity_person import (
     AcademicForm,
     AuthorRank,
@@ -72,7 +73,7 @@ def orm_to_response(orm: PersonProfileORM) -> PersonProfileResponse:
         person_id=orm.person_id,
         name_cn=orm.name_cn,
         name_en=orm.name_en,
-        gender=Gender(orm.gender),
+        gender=safe_enum(Gender, orm.gender),
         avatar=orm.avatar,
         nationality=orm.nationality,
         summary=orm.summary,
@@ -85,8 +86,8 @@ def orm_to_response(orm: PersonProfileORM) -> PersonProfileResponse:
         current_enterprise=orm.current_enterprise,
         current_military_unit=orm.current_military_unit,
         current_position=orm.current_position,
-        highest_degree=Degree(orm.highest_degree) if orm.highest_degree else None,
-        person_category=PersonCategory(orm.person_category) if orm.person_category else None,
+        highest_degree=safe_enum(Degree, orm.highest_degree),
+        person_category=safe_enum(PersonCategory, orm.person_category),
         professional_domains=orm.professional_domains,
         professional_skills=orm.professional_skills,
         social_media=orm.social_media,
@@ -102,7 +103,7 @@ def orm_to_response(orm: PersonProfileORM) -> PersonProfileResponse:
             PersonEducation(
                 start_date=e.start_date,
                 degree_date=e.degree_date,
-                degree=Degree(e.degree) if e.degree else None,
+                degree=safe_enum(Degree, e.degree),
                 school=e.school,
                 major=e.major,
             )
@@ -150,7 +151,7 @@ def orm_to_response(orm: PersonProfileORM) -> PersonProfileResponse:
                 review_org=r.review_org,
                 review_enterprise=r.review_enterprise,
                 review_person=r.review_person,
-                review_type=ReviewType(r.review_type) if r.review_type else None,
+                review_type=safe_enum(ReviewType, r.review_type),
                 review_date=r.review_date,
             )
             for r in orm.reviews

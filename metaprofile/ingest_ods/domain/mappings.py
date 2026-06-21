@@ -39,6 +39,21 @@ def _one(value: Any) -> list:
     return [value] if value not in (None, "") else []
 
 
+def _degree(value: Any) -> str | None:
+    """学历自由文本(工学博士/管理学硕士/本科...)→ 学位枚举(博士/硕士/本科)。
+    Degree 枚举只认 本科/硕士/博士;原值直接进会 enum 转换失败。"""
+    if not value:
+        return None
+    s = str(value)
+    if "博士" in s:
+        return "博士"
+    if "硕士" in s:
+        return "硕士"
+    if "本科" in s or "学士" in s:
+        return "本科"
+    return None
+
+
 def _split_kw(value: Any) -> list:
     """关键词串 → list：兼容 ; ；, ， | 分隔与已为 list 的输入，去空白项。
 
@@ -77,7 +92,7 @@ MAPPINGS: dict[str, MappingSet] = {
         key_fields=["full_name", "employer"],   # 复合键见下方 _build_key
         fields=[
             FieldMap("full_name", "name_cn"),
-            FieldMap("education", "highest_degree"),
+            FieldMap("education", "highest_degree", _degree),
             FieldMap("job_title", "current_position", _one),
             FieldMap("employer", "current_org"),
             FieldMap(_feat("sex"), "gender"),
@@ -119,7 +134,8 @@ MAPPINGS: dict[str, MappingSet] = {
             FieldMap("title", "name_cn", _one),
             FieldMap("purchaser", "main_orgs", _one),
             FieldMap("region", "region"),
-            FieldMap("announcement_type", "status", _one),
+            # announcement_type(招标/中标/评标/废标)= 采购公告类型,非项目状态(ProjectStatus
+            # 枚举仅 进行中/结束/成果已转化),硬塞会 enum 崩。故不映 status。
             FieldMap("amount", "total_budget_raw"),
             FieldMap("event_time", "start_date"),
             FieldMap(_feat("budget_amount"), "budget_raw"),

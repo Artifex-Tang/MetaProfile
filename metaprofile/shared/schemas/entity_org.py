@@ -141,8 +141,8 @@ class OrgProfile(ProfileBase):
     operating_years: int = Field(..., description="运行时间（年，必填）")
     website: str | None = None
     summary: str = Field(..., description="机构简介（必填）")
-    org_types: list[OrgType] = Field(..., min_length=1, description="机构类型")
-    nature: OrgNature = Field(..., description="机构性质")
+    org_types: list[OrgType] = Field(default_factory=list, description="机构类型（真数据可能缺,容忍空）")
+    nature: OrgNature | None = Field(default=None, description="机构性质（真数据可能缺）")
     function: str = Field(..., description="机构职能（必填）")
     scale: int | None = Field(default=None, description="机构规模（人）")
     tech_domains: list[str] = Field(default_factory=list)

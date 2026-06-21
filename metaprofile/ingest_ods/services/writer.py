@@ -106,6 +106,12 @@ class Writer:
             merged["completeness"] = scores.get("completeness")
         merged["dq_index"] = scores.get("dq_index", 0.0)
 
+        # 仅保留 ORM 实有列:映射可能含 ORM 无的字段(applicant/patent_number/inventors/
+        # doi 等,那些靠 relation_rules(→卫星实体/边)与 entity_key 处理,不作画像属性)。
+        # 不过滤则 orm_cls(**merged) 触发 TypeError → entity_write_failed → 整批 imported=0。
+        valid_cols = set(orm_cls.__table__.columns.keys())
+        merged = {k: v for k, v in merged.items() if k in valid_cols}
+
         now = datetime.now(timezone.utc)
         if orm is None:
             merged[id_col] = entity_id

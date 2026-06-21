@@ -29,18 +29,24 @@ def _sanitize_watermark(watermark: Any) -> str | None:
     return str(watermark)
 
 
+# 分页 keyset 列:多数表是 id;company_basic_info 无 id 列(PK=company_id)。
+# 硬编码 id 会让 company 表 Unknown column 'id' → 整采集崩。
+KEY_COL = {"ods_company_basic_info": "company_id"}
+
+
 def _fetch_rows(dsn: dict, table: str, last_id: int, batch_size: int,
                 watermark: str | None = None) -> list[dict]:
-    """同步流式取一批行。id-keyset，可选 update_time 增量过滤。"""
+    """同步流式取一批行。keyset(KEY_COL 决定列),可选 update_time 增量过滤。"""
+    key = KEY_COL.get(table, "id")
     conn = pymysql.connect(**dsn)
     try:
         cur = conn.cursor(pymysql.cursors.SSCursor)
-        sql = f"SELECT * FROM `{table}` WHERE id > %s"
+        sql = f"SELECT * FROM `{table}` WHERE `{key}` > %s"
         params: list[Any] = [last_id]
         if watermark:
             sql += " AND update_time > %s"
             params.append(watermark)
-        sql += " ORDER BY id LIMIT %s"
+        sql += f" ORDER BY `{key}` LIMIT %s"
         params.append(batch_size)
         cur.execute(sql, params)
         cols = [d[0] for d in cur.description]
@@ -65,11 +71,12 @@ class Extractor:
         now = datetime.now(timezone.utc)
         out: list[dict] = []
         max_id = last_id
+        key = KEY_COL.get(table, "id")
         for row in rows:
             mapped = apply_mapping(table, row)
             if mapped is None:
                 continue
-            rid = row.get("id")
+            rid = row.get(key)
             if rid is not None and rid > max_id:
                 max_id = rid
             out.append({

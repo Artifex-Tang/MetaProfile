@@ -6,11 +6,13 @@ from metaprofile.ingest_ods.services.extractor import Extractor
 
 
 def _fake_rows():
+    # company_basic_info 真实表无 id 列(PK=company_id);此处 id 仅模拟其他列,
+    # keyset/源 id 都走 company_id(见 extractor.KEY_COL)。
     return [
-        {"id": 100, "company_id": 1, "company_name": "甲公司", "usc_code": "U1",
+        {"id": 100, "company_id": 1000, "company_name": "甲公司", "usc_code": "U1",
          "company_enname": None, "category_name": "IT", "province": "HUN",
          "estiblish_time": "2010-01-01", "business_scope": "x", "features": {}},
-        {"id": 200, "company_id": 2, "company_name": "乙公司", "usc_code": "U2",
+        {"id": 200, "company_id": 2000, "company_name": "乙公司", "usc_code": "U2",
          "company_enname": None, "category_name": "IT", "province": "BJ",
          "estiblish_time": "2011-01-01", "business_scope": "y", "features": {}},
     ]
@@ -29,11 +31,12 @@ async def test_extract_batch_returns_staging_dicts() -> None:
         )
     assert len(rows) == 2
     assert rows[0]["profile_type"] == "org"
-    assert rows[0]["source_id"] == "100"
-    assert rows[0]["entity_key"]["company_id"] == 1
-    assert rows[0]["last_id"] == 200
-    assert rows[1]["source_id"] == "200"
-    assert rows[0]["last_id"] == 200  # batch 的推进游标 = 最大 id
+    # KEY_COL: company 表用 company_id 做 keyset/source_id(非 id)
+    assert rows[0]["source_id"] == "1000"
+    assert rows[0]["entity_key"]["company_id"] == 1000
+    assert rows[0]["last_id"] == 2000
+    assert rows[1]["source_id"] == "2000"
+    assert rows[0]["last_id"] == 2000  # batch 推进游标 = 最大 company_id
 
 
 @pytest.mark.asyncio

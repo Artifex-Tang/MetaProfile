@@ -8,7 +8,7 @@ from pymysql.cursors import SSCursor
 #   解:①每窗全新rc+wf连接(不带stalled socket);②read_timeout=600(stall 10min内报错);
 #       ③每窗fetch重试3次(INSERT IGNORE幂等,重连重取自愈);④WINDOW_ROWS=500K(每窗~15min<<30min阈值)。
 BATCH = 5000
-WINDOW_ROWS = 500_000          # 每窗行数上限;~15min/窗 @0.9MB/s,远低于~30min stall阈值
+WINDOW_ROWS = 50_000           # 2026-06-20:500K 大窗被远端中途掐(WinError10054/InterfaceError0);缩到50K,每窗扫描小到能在被杀前传完
 BISECT_MAX_ITERS = 35
 READ_TIMEOUT = 600             # 单次socket读最长秒数;stall(无数据)>此值即报错,触发重试
 FETCH_RETRIES = 3              # 每窗fetch重试次数

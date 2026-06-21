@@ -43,3 +43,9 @@ _ui_demo.py
 # Test outputs (generated per run)
 tests/e2e/*.json
 tests/screenshots/
+
+# dev: 根 node_modules / loader 运行态
+node_modules/
+_load_big.err
+_load_attachment_state.json
+_load_big_state.json

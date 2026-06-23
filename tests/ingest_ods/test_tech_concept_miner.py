@@ -47,3 +47,21 @@ async def test_mine_empty_title_returns_empty_without_call():
     out = await miner.mine(title="   ", abstract="y")
     assert out == []
     llm.complete.assert_not_awaited()
+
+
+async def test_mine_parses_fenced_json():
+    # glm-4.7 实测返回 ```json ... ``` 围栏 — 原 json.loads 会失败 → L2 全丢。
+    llm = _llm('```json\n{"terms":[{"term":"量子计算","type":"方法","confidence":0.9,"name_cn":"量子计算"}]}\n```')
+    miner = TechConceptMiner(llm=llm)
+    out = await miner.mine(title="量子计算综述", abstract="...")
+    assert len(out) == 1
+    assert out[0].term == "量子计算"
+
+
+async def test_mine_parses_prose_wrapped_json():
+    # prose 包装的 JSON — 走 {…} 兜底切片。
+    llm = _llm('好的,以下是结果:\n{"terms":[{"term":"CNN","name_cn":"卷积神经网络"}]}\n以上。')
+    miner = TechConceptMiner(llm=llm)
+    out = await miner.mine(title="CNN 综述", abstract="...")
+    assert len(out) == 1
+    assert out[0].name_cn == "卷积神经网络"

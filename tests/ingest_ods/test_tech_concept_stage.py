@@ -62,10 +62,19 @@ class _FakeLLM:
 def _make_session():
     """镜像 test_orchestrator.py：AsyncMock session + conn_orm。
     记录所有 session.add(...) 调用以便断言 TechEvidenceORM。
+    begin_nested 返回一个可作 async context manager 的 AsyncMock(对应真实
+    AsyncSession 的 SAVEPOINT 行为),使 T6 savepoint 守卫在生产/测试下都能 enter/exit。
     """
     conn_orm = _conn_orm()
     session = AsyncMock()
     session.get = AsyncMock(return_value=conn_orm)
+    # begin_nested() 在真实 AsyncSession 返回 AsyncSessionTransaction(支持
+    # async with);此处用 AsyncMock 模拟该返回值,避免 'coroutine' 不支持
+    # async context manager 协议的告警/报错。
+    sp = AsyncMock()
+    sp.__aenter__ = AsyncMock(return_value=None)
+    sp.__aexit__ = AsyncMock(return_value=False)
+    session.begin_nested = MagicMock(return_value=sp)
     added: list = []
     session.add = MagicMock(side_effect=lambda obj: added.append(obj))
     session.added_objects = added  # 暴露给测试断言
@@ -202,12 +211,16 @@ async def test_tech_concept_stage_writes_l1_l2_evidence_and_contains_edge() -> N
 
 @pytest.mark.asyncio
 async def test_english_term_clusters_via_name_cn() -> None:
-    """英文源术语经 name_cn 归一:EN "mass spectrometry"(name_cn=质谱法) 与
-    CN "质谱法" 聚到同一 L2 entity_id(cluster_entity_id(质谱法))。"""
+    """跨语种聚类:EN "mass spectrometry"(name_cn=质谱法) 与 CN "质谱法"(name_cn=质谱法)
+    两行都经 name_cn 归一 → cluster_entity_id(质谱法) → 合并为同一 L2 entity_id。
+
+    不依赖 _ALIAS 别名词典(name_cn 已存在则不查别名),故即使别名词典不覆盖该英文术语
+    也成立:这是 T6 orchestrator `canonical = t.name_cn or normalize_term(t.term)` 的真实效果。
+    """
     table = "ods_invention_patent_cn"
     src = _source([table])
 
-    # 2 行:一行 LLM 抽 EN 术语(name_cn=质谱法),一行抽 CN 术语(质谱法)
+    # 2 行:EN 行 + CN 行,均含 ipc G01N(化学分析)以触发 L1。
     rows_by_table = {
         table: [
             [{
@@ -244,7 +257,6 @@ async def test_english_term_clusters_via_name_cn() -> None:
     writer.upsert_profile_node = AsyncMock()
     session = _make_session()
 
-    # _FakeLLM 按 caller 总返同一 payload(每次 mine 调用)
     # 两次 mine 调用对应两行:第一行返 EN term(name_cn=质谱法),
     # 第二行返 CN term(name_cn=质谱法)。用计数器分发。
     payloads = [
@@ -276,26 +288,44 @@ async def test_english_term_clusters_via_name_cn() -> None:
 
     tech_profiles = _profile_calls_by(writer, profile_type="tech")
     l2_profiles = [p for p in tech_profiles
-                   if p["entity_id"].startswith("concept:")]
+                   if p["entity_id"].startswith("concept:")
+                   and p["attrs"].get("tech_layer") == "CONCEPT"]
 
-    # 期望 cluster_entity_id(质谱法):两行经 name_cn 归一后应聚到同一 entity_id
+    # 期望两行 name_cn="质谱法" 经 cluster_entity_id 归一后的 id
     expected_cid = cluster_entity_id("质谱法")
     assert expected_cid, "cluster_entity_id(质谱法) 为空"
 
-    # 两行的 L2 抽取都应映射到同一 entity_id(去重后只有 1 个 concept)
+    # 核心断言:两行的 L2 抽取必须合并到同一个 entity_id。
+    # 去重后 L2 cid 集合应恰好只含 expected_cid(不是两个不同 concept)。
     l2_cids = {p["entity_id"] for p in l2_profiles}
-    assert expected_cid in l2_cids, (
-        f"质谱法对应的 {expected_cid} 未出现在 L2 entity_ids={l2_cids}"
+    assert l2_cids == {expected_cid}, (
+        f"跨语种聚类失败:L2 cid 集合 {l2_cids} 应恰为 {{{expected_cid}}};"
+        f"说明 EN 行与 CN 行未合并到同一 entity_id"
     )
-    # 关键断言:经 name_cn 归一后,EN "mass spectrometry" 不应单独建一个 concept,
-    # 必须与 CN "质谱法" 合并到同一个 entity_id
-    en_concept_via_term = cluster_entity_id("mass spectrometry")
-    assert en_concept_via_term != expected_cid, (
-        "测试前提:cluster_entity_id 应能把 'mass spectrometry' 经别名词典归一到质谱法"
-    ) if False else None  # 注:别名词典若未覆盖则 EN 直归一为小写英文;此处仅验证归一确实生效
-    # 实际核心断言:L2 concepts 不含 mass spectrometry 直归一的 id(即未被英文污染)
-    assert en_concept_via_term not in l2_cids or en_concept_via_term == expected_cid, (
-        f"英文术语未被 name_cn 归一,污染了 L2 聚类:出现了 {en_concept_via_term}"
+
+    # EN 行的英文原文 term 应作为 alias 进 cluster_terms(保留跨语种证据)。
+    en_profile = next((p for p in l2_profiles
+                       if p["entity_id"] == expected_cid
+                       and "mass spectrometry" in p["attrs"].get("cluster_terms", [])),
+                      None)
+    cn_profile = next((p for p in l2_profiles
+                       if p["entity_id"] == expected_cid
+                       and "质谱法" in p["attrs"].get("cluster_terms", [])),
+                      None)
+    assert en_profile is not None, (
+        "EN 行的英文原文 term 未进入 cluster_terms(跨语种证据丢失)"
+    )
+    assert cn_profile is not None, "CN 行的 term 未进入 cluster_terms"
+
+    # 反向佐证:mass spectrometry 直归一的 id 与 name_cn 归一的 id 不同(证明合并确实由
+    # name_cn 触发,而非别名词典巧合)。两者必须不同,且前者不出现在 L2 集合中。
+    en_direct_cid = cluster_entity_id("mass spectrometry")
+    assert en_direct_cid != expected_cid, (
+        "前提不成立:cluster_entity_id('mass spectrometry') 与 cluster_entity_id('质谱法')"
+        " 相同,测试无法证明 name_cn 归一生效"
+    )
+    assert en_direct_cid not in l2_cids, (
+        f"英文术语未被 name_cn 归一,出现独立 concept: {en_direct_cid}"
     )
 
 

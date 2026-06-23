@@ -37,6 +37,9 @@ _PT2ET: dict[str, EntityType] = {
 # tech_concept 阶段处理的源表(专利 / 论文):title+abstract 是 LLM 抽术语的语料。
 _TECH_TABLES: tuple[str, ...] = ("ods_invention_patent_cn", "ods_science_literature")
 
+# 证据 snippet 截断长度 —— 对齐 TechEvidenceORM.snippet 列预算。
+_EVIDENCE_SNIPPET_MAX = 500
+
 
 def resolve_triple(triple: RelationTriple, idx: NameIndex) -> RelationTriple:
     """用批内 NameIndex 把 triple 端点的 name: 占位解析为 PK(命中)。
@@ -251,7 +254,12 @@ class BatchOrchestrator:
         # 放在 profile 主写之后、结构化关系之前:L2 concept 节点先物化,关系引用才有效。
         if self._tech_miner is not None:
             try:
-                await self._tech_concept_stage(session, task, table, rows)
+                # SAVEPOINT: tech_concept 失败只回滚本阶段已 flush 的 L1/L2/evidence 行,
+                # 主 profile 写入(flushed-but-not-committed,共享同一 session)存活,
+                # 由下方 session.commit() 统一提交。否则半应用的 tech_concept 状态会被
+                # 那次 commit 一起落库 → 状态损坏。
+                async with session.begin_nested():
+                    await self._tech_concept_stage(session, task, table, rows)
             except Exception as exc:  # noqa: BLE001  tech_concept 失败不阻塞主灌库
                 logger.warning("tech_concept_stage_failed",
                                source_table=table, error=str(exc))
@@ -344,6 +352,8 @@ class BatchOrchestrator:
                         "tech_layer": "CONCEPT", "parent_ipc_code": ipc_sub,
                         "cluster_terms": [t.term],   # 英文原文保留为 alias
                     },
+                    # L2 CONCEPT 由 LLM 抽取、未经人工/规则核验,可信度低于规则回卷的
+                    # L1 DOMAIN(veracity 0.9 / dq 0.7),故 veracity 0.7 / dq 0.6。
                     scores={
                         "completeness": 0.0, "veracity_score": 0.7,
                         "timeliness_score": 0.5, "data_as_of": None,
@@ -357,7 +367,8 @@ class BatchOrchestrator:
                 })
                 session.add(TechEvidenceORM(
                     tech_id=cid, source_doc_id=src_id, source_table=table,
-                    snippet=title[:500], confidence=float(t.confidence),
+                    snippet=title[:_EVIDENCE_SNIPPET_MAX],
+                    confidence=float(t.confidence),
                 ))
 
         # 3. TECH_CONTAINS 树边(L1 域 contains L2 概念)

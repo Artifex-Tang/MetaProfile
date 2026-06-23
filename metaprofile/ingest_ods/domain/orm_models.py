@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -69,3 +69,21 @@ class IngestErrorORM(Base, TimestampMixin):
     source_id: Mapped[str | None] = mapped_column(String(64))
     stage: Mapped[str] = mapped_column(String(32), nullable=False)
     error_msg: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class TechEvidenceORM(Base, TimestampMixin):
+    """技术概念证据：每条 tech 概念的逐源抽取证据（provenance + snippet）。"""
+    __tablename__ = "tech_evidence"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tech_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("tech_profile.tech_id", ondelete="CASCADE"), index=True
+    )
+    source_doc_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_table: Mapped[str] = mapped_column(String(128), nullable=False)
+    snippet: Mapped[str | None] = mapped_column(Text)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tech_id", "source_doc_id", "source_table", name="uq_tech_evidence"),
+    )

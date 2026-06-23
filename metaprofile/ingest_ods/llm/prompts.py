@@ -139,6 +139,7 @@ _PREDICATE_MAP: dict[tuple[str, str, str], RelationType] = {
     # —— 技术-技术(2026-06-18 评审新增;Spec2/3 真挖掘铺路) ——
     ("演进", "tech", "tech"): RelationType.TECH_EVOLVE,
     ("前置", "tech", "tech"): RelationType.TECH_PREREQ,
+    ("包含", "tech", "tech"): RelationType.TECH_CONTAINS,
 
     # —— 别名(LLM 同义词容错;不新增覆盖,只增强召回) ——
     ("研发", "org", "tech"): RelationType.ORG_INVOLVE_TECH,        # 同 涉及

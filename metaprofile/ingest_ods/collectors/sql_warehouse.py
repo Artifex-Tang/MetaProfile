@@ -25,6 +25,7 @@ from metaprofile.ingest_ods.services.extractor import Extractor
 from metaprofile.ingest_ods.services.orchestrator import BatchOrchestrator
 from metaprofile.ingest_ods.services.resolver import EntityResolver
 from metaprofile.ingest_ods.services.scorer import RuleScorer
+from metaprofile.ingest_ods.services.tech_concept_miner import TechConceptMiner
 from metaprofile.ingest_ods.services.writer import Writer
 from metaprofile.shared.llm.gateway import LLMGateway
 
@@ -79,6 +80,7 @@ async def run_sql_warehouse_collection(
         scorer=RuleScorer(),
         writer=writer,
         connections=resolve_dsn,
+        tech_miner=TechConceptMiner(llm=llm),
     )
 
     async def _run(sess):

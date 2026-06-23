@@ -42,7 +42,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
+    ports: ["6380:6379"]  # host 6380 避让同机 vocab-redis(占 6379);内部网络 redis:6379 不变
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

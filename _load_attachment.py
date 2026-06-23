@@ -8,7 +8,7 @@ from pymysql.cursors import SSCursor
 # 用法:python _load_attachment.py [target_rows]   默认 5000
 #       target 给大数 (如 10_000_000) 即"尽量多取" → 充分档/小表全量。
 
-BATCH = 1000   # 小批:大 raw 行(52-150KB)×1000=52-150MB/批,稳在 workgroup 11GB 下
+BATCH = 300   # 2026-06-23:1000 批触发 cloud BE FullGC(workgroup overcommit 取消查询);缩 300(~5MB/批)避之
 READ_TIMEOUT = 600
 REMOTE = dict(host='10.242.0.1', port=9030, user='gz_kt5', password='92f5IRTld93lDPKYZZ5p',
               database='ods_zbzx', charset='utf8mb4', connect_timeout=10, read_timeout=86400)
@@ -66,6 +66,7 @@ def load_att(tbl, target):
         return
     log(f"START {skey}: have={have:,} target={target:,} resume_id>{last_id}")
     dst = pymysql.connect(**LOCAL); dc = dst.cursor(); dc.execute("SET SESSION sql_mode='NO_ENGINE_SUBSTITUTION'")
+    dc.execute("SET SESSION enable_insert_strict = false")  # 2026-06-23:science 英文大内容行触发 strict 过滤致整批回滚;关 strict 过滤坏行留好行
     ins = None; collist = None; t0 = time.time(); gb = 0; got_total = have
     while got_total < target:
         need = target - got_total

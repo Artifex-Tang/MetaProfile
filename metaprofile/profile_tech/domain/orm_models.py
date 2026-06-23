@@ -49,6 +49,12 @@ class TechProfileORM(Base, TimestampMixin):
     trend: Mapped[str] = mapped_column(Text, nullable=False)
     remark: Mapped[str | None] = mapped_column(Text)
 
+    # 技术概念分层（P1 抽取：L1 技术域 / L2 具体技术）
+    tech_layer: Mapped[str] = mapped_column(String(16), nullable=False, default="CONCEPT", comment="DOMAIN|CONCEPT")
+    ipc_code: Mapped[str | None] = mapped_column(String(32), comment="L1: IPC subclass code")
+    parent_ipc_code: Mapped[str | None] = mapped_column(String(32), comment="L2: 归属 subclass")
+    cluster_terms: Mapped[list] = mapped_column(JSON, default=list, nullable=False, comment="L2 同义合并原始术语集")
+
     # 元数据
     confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     completeness: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)

@@ -139,6 +139,7 @@ _PREDICATE_MAP: dict[tuple[str, str, str], RelationType] = {
     # —— 技术-技术(2026-06-18 评审新增;Spec2/3 真挖掘铺路) ——
     ("演进", "tech", "tech"): RelationType.TECH_EVOLVE,
     ("前置", "tech", "tech"): RelationType.TECH_PREREQ,
+    ("包含", "tech", "tech"): RelationType.TECH_CONTAINS,
 
     # —— 别名(LLM 同义词容错;不新增覆盖,只增强召回) ——
     ("研发", "org", "tech"): RelationType.ORG_INVOLVE_TECH,        # 同 涉及
@@ -163,3 +164,23 @@ veracity(真实性 0-1：主张被源支撑/无矛盾/源可信度)、timeliness
 
 DISAMBIG_SYSTEM_PROMPT = """你是实体消歧专家。判断两个实体描述是否指同一对象。
 输出 JSON：{"same":bool,"reason":str}。不确定时 same=false。"""
+
+
+class MinedTechTerm(ProfileBase):
+    """L2: 从论文/专利标题+摘要抽出的具体技术术语。
+
+    name_cn = 中文规范名。中文源术语 name_cn 通常同 term;
+    英文源术语 name_cn 给其标准中文译名(在抽取层归一,使下游全中文)。
+    """
+    term: str
+    type: str = ""                       # 设备/材料/方法/算法名
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    name_cn: str = ""
+
+
+TECH_MINER_SYSTEM_PROMPT = """你是技术情报抽取器。从论文/专利标题与摘要中抽取【具体技术术语】
+(设备/材料/方法/算法名,如"质谱仪""量子计算""液相色谱""CNN")。
+不要抽机构名/人名/地名/通用词。
+对每个术语,同时给出【中文规范名 name_cn】:若术语本身是中文,name_cn 通常同 term;若是英文术语,
+给出其标准中文译名(如 "mass spectrometry"→"质谱法","CRISPR"→"基因编辑")。
+返回 JSON:{"terms":[{"term","type","confidence","name_cn"}]}。"""

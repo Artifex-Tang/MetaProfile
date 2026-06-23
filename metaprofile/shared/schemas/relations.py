@@ -5,7 +5,8 @@
 所有关系抽取（规则/LLM）必须从此枚举中选择。
 
 例外：TECH_EVOLVE / TECH_PREREQ 经 2026-06-18 评审新增（技术-技术演进/前置），
-为 Spec 2/3 真挖掘铺路；除此之外不得新增。
+TECH_CONTAINS 经 2026-06-23 评审新增（L1 域包含 L2 具体技术，技术概念分层抽取），
+均为 Spec 2/3 真挖掘铺路；除此之外不得新增。
 """
 from __future__ import annotations
 
@@ -112,6 +113,7 @@ class RelationType(StrEnum):
     # 技术-技术（2026-06-18 评审新增；演进/前置，为 Spec2/3 真挖掘铺路）
     TECH_EVOLVE = "演进"
     TECH_PREREQ = "前置"
+    TECH_CONTAINS = "包含"   # L1 技术域 contains L2 具体技术(section→subclass→concept)
 
 
 class RelationTriple(ProfileBase):

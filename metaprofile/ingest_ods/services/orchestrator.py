@@ -34,6 +34,12 @@ _PT2ET: dict[str, EntityType] = {
     "project": EntityType.PROJECT,
 }
 
+# tech_concept 阶段处理的源表(专利 / 论文):title+abstract 是 LLM 抽术语的语料。
+_TECH_TABLES: tuple[str, ...] = ("ods_invention_patent_cn", "ods_science_literature")
+
+# 证据 snippet 截断长度 —— 对齐 TechEvidenceORM.snippet 列预算。
+_EVIDENCE_SNIPPET_MAX = 500
+
 
 def resolve_triple(triple: RelationTriple, idx: NameIndex) -> RelationTriple:
     """用批内 NameIndex 把 triple 端点的 name: 占位解析为 PK(命中)。
@@ -97,12 +103,14 @@ _active_types: set[str] = set()
 
 class BatchOrchestrator:
     def __init__(self, *, extractor, resolver, scorer, writer,
-                 connections=resolve_dsn) -> None:
+                 connections=resolve_dsn, tech_miner=None) -> None:
         self._extractor = extractor
         self._resolver = resolver
         self._scorer = scorer
         self._writer = writer
         self._connections = connections
+        # tech_concept 阶段(可选):None → no-op,向后兼容(非 tech 表 / 旧 collector)。
+        self._tech_miner = tech_miner
 
     async def run(self, session: AsyncSession, *, task, source) -> int:
         cfg = source.config_json or {}
@@ -242,6 +250,19 @@ class BatchOrchestrator:
                     session, batch_id=task.id, stage="write",
                     error_msg=str(exc), source_table=rows[0].get("source_table"),
                 )
+        # tech_concept 阶段(可选):L1 IPC 域 + L2 LLM 抽术语聚类 + 证据 + TECH_CONTAINS 树。
+        # 放在 profile 主写之后、结构化关系之前:L2 concept 节点先物化,关系引用才有效。
+        if self._tech_miner is not None:
+            try:
+                # SAVEPOINT: tech_concept 失败只回滚本阶段已 flush 的 L1/L2/evidence 行,
+                # 主 profile 写入(flushed-but-not-committed,共享同一 session)存活,
+                # 由下方 session.commit() 统一提交。否则半应用的 tech_concept 状态会被
+                # 那次 commit 一起落库 → 状态损坏。
+                async with session.begin_nested():
+                    await self._tech_concept_stage(session, task, table, rows)
+            except Exception as exc:  # noqa: BLE001  tech_concept 失败不阻塞主灌库
+                logger.warning("tech_concept_stage_failed",
+                               source_table=table, error=str(exc))
         # GAP1+GAP2: 结构化关系端点解析(name:→PK) + 写图
         if structured_triples:
             resolved = [resolve_triple(t, name_index) for t in structured_triples]
@@ -255,3 +276,106 @@ class BatchOrchestrator:
         await session.commit()
         task.records_imported = (task.records_imported or 0) + imported
         return imported
+
+    async def _tech_concept_stage(self, session, task, table: str,
+                                  rows: list[dict]) -> None:
+        """L1 IPC 技术域(零 LLM) + L2 LLM 抽术语聚类 → tech profile + 证据 + TECH_CONTAINS。
+
+        仅对 _TECH_TABLES(专利/论文)生效。L2 用 name_cn 归一(英文术语→中文规范名),
+        使 EN "mass spectrometry"(name_cn=质谱法)与 CN "质谱法" 聚到同一 L2 entity_id;
+        英文原文 term 保留在 cluster_terms 作 alias/evidence。
+
+        前置条件(self._tech_miner is None 由调用方守卫)。
+        """
+        from metaprofile.ingest_ods.domain.ipc_taxonomy import (
+            name_of, subclass_of,
+        )
+        from metaprofile.ingest_ods.domain.orm_models import TechEvidenceORM
+        from metaprofile.ingest_ods.services.tech_clusterer import (
+            cluster_entity_id, normalize_term,
+        )
+        from metaprofile.ingest_ods.services.tech_relation_builder import (
+            build_containment_triples,
+        )
+
+        if table not in _TECH_TABLES:
+            return
+
+        l1_built: set[str] = set()           # 已建 L1 的 IPC subclass 集合
+        l2_concepts: list[dict] = []         # 供 TECH_CONTAINS 建边
+        for r in rows:
+            payload = r.get("raw_payload", {}) or {}
+            title = payload.get("title") or ""
+            abstract = payload.get("abstract") or ""
+            src_id = str(payload.get("original_id")
+                         or r.get("source_id") or "")
+            ipc_sub = subclass_of(payload.get("ipc_type"))
+
+            # 1. L1 IPC 技术域(零 LLM,规则回卷)
+            if ipc_sub:
+                l1_id = f"ipc:{ipc_sub}"
+                if ipc_sub not in l1_built:
+                    await self._writer.write_profile(
+                        session, profile_type="tech", entity_id=l1_id,
+                        attrs={
+                            "tech_name_cn": name_of(ipc_sub),
+                            "tech_name_en": ipc_sub, "tech_summary": "",
+                            "current_status": "", "trend": "",
+                            "tech_layer": "DOMAIN", "ipc_code": ipc_sub,
+                        },
+                        scores={
+                            "completeness": 0.0, "veracity_score": 0.9,
+                            "timeliness_score": 0.5, "data_as_of": None,
+                            "dq_index": 0.7,
+                        },
+                        method="rule_extract",
+                    )
+                    l1_built.add(ipc_sub)
+
+            # 2. L2 LLM 抽术语 + 聚类(用 name_cn 归一)
+            terms = await self._tech_miner.mine(title=title, abstract=abstract)
+            seen: set[str] = set()
+            for t in terms:
+                # ← 英文归一:用中文规范名作 canonical,L2 entity 以 CN 名键化
+                canonical = t.name_cn or normalize_term(t.term)
+                if not canonical:
+                    continue
+                cid = cluster_entity_id(canonical)
+                if not cid or cid in seen:
+                    continue
+                seen.add(cid)
+                await self._writer.write_profile(
+                    session, profile_type="tech", entity_id=cid,
+                    attrs={
+                        "tech_name_cn": canonical, "tech_name_en": "",
+                        "tech_summary": "", "current_status": "", "trend": "",
+                        "tech_layer": "CONCEPT", "parent_ipc_code": ipc_sub,
+                        "cluster_terms": [t.term],   # 英文原文保留为 alias
+                    },
+                    # L2 CONCEPT 由 LLM 抽取、未经人工/规则核验,可信度低于规则回卷的
+                    # L1 DOMAIN(veracity 0.9 / dq 0.7),故 veracity 0.7 / dq 0.6。
+                    scores={
+                        "completeness": 0.0, "veracity_score": 0.7,
+                        "timeliness_score": 0.5, "data_as_of": None,
+                        "dq_index": 0.6,
+                    },
+                    method="llm_extract",
+                )
+                l2_concepts.append({
+                    "entity_id": cid, "name": canonical,
+                    "parent_ipc": ipc_sub,
+                })
+                session.add(TechEvidenceORM(
+                    tech_id=cid, source_doc_id=src_id, source_table=table,
+                    snippet=title[:_EVIDENCE_SNIPPET_MAX],
+                    confidence=float(t.confidence),
+                ))
+
+        # 3. TECH_CONTAINS 树边(L1 域 contains L2 概念)
+        if l2_concepts and l1_built:
+            trips = build_containment_triples(
+                l2_concepts=l2_concepts, l1_subclasses=l1_built,
+            )
+            if trips:
+                await self._writer.write_relations(trips)
+        await session.flush()

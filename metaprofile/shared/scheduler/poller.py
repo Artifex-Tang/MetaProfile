@@ -41,11 +41,11 @@ TASK_DISPATCH: dict[str, object] = {}
 
 def _build_registry() -> dict[str, object]:
     from metaprofile.shared.worker.translate_tasks import batch_translate_names
+    from metaprofile.shared.worker.collection_tasks import run_collection
     return {
         "translate_batch": lambda **p: batch_translate_names.delay(p.get("entity_type")),
-        # collection 触发留 follow-up（trigger_collection 走 asyncio.create_task，
-        # celery worker 内 wiring 复杂；scheduled_task 行由 sync_collection_crons 建，
-        # 实际采集触发待单独 celery 任务接入）
+        # task_type=collection → celery worker 跑 run_sql_warehouse_collection（5 阶段灌库）
+        "collection": lambda **p: run_collection.delay(p.get("source_id")),
     }
 
 

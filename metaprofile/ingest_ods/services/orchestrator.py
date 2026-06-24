@@ -126,8 +126,11 @@ class BatchOrchestrator:
 
         total_imported = 0
         for table in tables:
-            # I1: 未映射表跳过（避免静默拉空 + 浪费 Doris 读）
-            if get_mapping(table) is None:
+            # I1: 未映射表跳过（避免静默拉空 + 浪费 Doris 读）。
+            # 例外: tech 表(_TECH_TABLES)虽不再经主抽取映射(spec-pure: patent/science
+            # 降为 evidence,无主 tech 实体),但仍须进入 _process_batch 才能触发
+            # _tech_concept_stage(产 ipc:/concept:/evidence)。故对 tech 表放行。
+            if get_mapping(table) is None and table not in _TECH_TABLES:
                 logger.warning("table_unmapped_skipped", table=table)
                 continue
             # C2: watermark last_id 按表命名空间，避免多表 source 互相跳过/覆盖

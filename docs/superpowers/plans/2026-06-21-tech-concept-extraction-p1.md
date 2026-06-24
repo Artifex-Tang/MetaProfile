@@ -1,5 +1,7 @@
 # 技术概念抽取 P1(IPC 骨架 + LLM 聚类 + 技术树 + 证据)实施计划
 
+> ✅ **状态：P1 已完成并合 main(`beff234`, 2026-06-24)**。subagent-driven TDD 执行,T1-T7 + 2 fix(savepoint 韧性 / glm 围栏解析)。后续 #3 禁 patent-as-tech(`7a7892a`)+ingest hygiene(`b69b86b`)+collection cron(`4b8733c`/`c8572ae`)已并入 main。冷启动 L1(636 IPC 域)落地;L2 卡 glm 429 配额。详见 memory `tech-concept-p1-done`。下方任务框为执行时记录,已全部落地。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 落地 Tech 两层实体模型——L1 IPC 技术域(subclass)+ L2 LLM 聚类具体技术,论文/专利降为证据,产出 TECH_CONTAINS 技术树。修掉"论文标题当技术名"+零 tech-tech 两缺陷。

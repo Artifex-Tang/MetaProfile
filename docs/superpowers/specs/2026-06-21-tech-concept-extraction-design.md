@@ -1,7 +1,7 @@
 # 技术概念抽取与 tech-tech 关系挖掘 设计
 
 **日期**: 2026-06-21
-**状态**: 设计稿(待 review → writing-plans)
+**状态**: P1 已完成合 main(`beff234`, 2026-06-24)——IPC L1 骨架 + LLM L2 聚类 + TECH_CONTAINS 树 + 证据 + name_cn 英文归一均落地。#3 禁 patent-as-tech(降为 evidence)亦并入。P2 共现网 / P3 演进链待独立计划。
 **背景**: 冷启动里程碑。metadata 1:1 模式跑通真 ODS 数据后暴露:Tech 画像把论文/专利**标题当技术名**(100 个假技术),且 **ingest_ods 零 tech-tech 挖掘**。本设计落地"技术概念抽取层",产出技术树/网/链 + 把论文/专利降为证据。
 
 ---

@@ -47,21 +47,27 @@ def test_unknown_table_returns_none() -> None:
     assert get_mapping("not_a_table") is None
 
 
-def test_science_keyword_splits_to_list() -> None:
-    """ODS keyword 分隔符串 → key_points list（修 #7：原直透串）。"""
-    row = {"title": "Quantum Computing", "keyword": "quantum computing; machine learning，AI | NLP"}
-    out = apply_mapping("ods_science_literature", row)
-    assert out["attrs"]["key_points"] == ["quantum computing", "machine learning", "AI", "NLP"]
-    assert out["attrs"]["tech_name_en"] == "Quantum Computing"
+def test_patent_not_mapped_as_tech_evidence_only() -> None:
+    """spec-pure(option A): patent 不再经主抽取路径生成 tech 实体,降为 evidence。
+
+    tech_concept 阶段(读 raw_payload,独立于 mapping)仍产 ipc:/concept:/evidence,
+    故主 mapping 端应返回 None,避免 title-as-tech 假节点污染 tech 树。
+    """
+    row = {
+        "title": "一种装置",
+        "ipc_type": "G06T",
+        "legal_status": "有效",
+        "filing_date": "2024-01-01",
+        "applicant": "甲公司",
+        "features": '{"Patent_number": "CN1", "Inventor": ["A"]}',
+    }
+    assert apply_mapping("ods_invention_patent_cn", row) is None
+    assert get_mapping("ods_invention_patent_cn") is None
 
 
-def test_science_keyword_already_list_passthrough() -> None:
-    row = {"title": "X", "keyword": ["a", "b"]}
-    out = apply_mapping("ods_science_literature", row)
-    assert out["attrs"]["key_points"] == ["a", "b"]
-
-
-def test_science_keyword_empty_omits_key_points() -> None:
-    row = {"title": "X", "keyword": ""}
-    out = apply_mapping("ods_science_literature", row)
-    assert "key_points" not in out["attrs"]
+def test_science_not_mapped_as_tech_evidence_only() -> None:
+    """spec-pure(option A): science 不再经主抽取路径生成 tech 实体,降为 evidence。"""
+    row = {"title": "Quantum Computing", "abstract": "...", "keyword": "a; b",
+           "features": '{"doi": "10.x", "pubdate": "2024"}'}
+    assert apply_mapping("ods_science_literature", row) is None
+    assert get_mapping("ods_science_literature") is None

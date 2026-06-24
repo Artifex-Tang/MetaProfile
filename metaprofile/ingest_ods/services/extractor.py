@@ -12,6 +12,13 @@ from metaprofile.ingest_ods.domain.mappings import apply_mapping
 
 logger = structlog.get_logger(__name__)
 
+# spec-pure: 专利/论文不再经主抽取映射(apply_mapping 返回 None,无主 tech 实体),
+# 但其 title/abstract/ipc_type 是 _tech_concept_stage 的语料(产 ipc:/concept:/evidence)。
+# 故 extractor 须对这两表放行 emit 原始行,否则 orchestrator `if not rows: break`
+# 直接结束,_tech_concept_stage 永不触发。与 orchestrator._TECH_TABLES 同义(此处
+# 局部定义,避免 extractor→orchestrator 循环 import 漂移;二者改动需同步)。
+_TECH_TABLES: tuple[str, ...] = ("ods_invention_patent_cn", "ods_science_literature")
+
 
 def _sanitize_watermark(watermark: Any) -> str | None:
     """增量 watermark(update_time 过滤)须可解析为 datetime,否则归 None。
@@ -75,6 +82,25 @@ class Extractor:
         for row in rows:
             mapped = apply_mapping(table, row)
             if mapped is None:
+                # _TECH_TABLES(专利/论文)虽 unmapped,仍 emit 原始行:orchestrator
+                # _tech_concept_stage 读 raw_payload(title/abstract/ipc_type)产
+                # ipc:/concept:/evidence。其余 unmapped 表照旧跳过。
+                if table in _TECH_TABLES:
+                    rid = row.get(key)
+                    if rid is not None and rid > max_id:
+                        max_id = rid
+                    out.append({
+                        # profile_type=tech:使 orchestrator 取 rows[0]["profile_type"]
+                        # 正常 + _active_types 互斥锁语义一致;该批不会产出主 tech 实体
+                        # (resolver 无映射 → 无实体),仅走 _tech_concept_stage。
+                        "profile_type": "tech",
+                        "source_table": table,
+                        "source_id": str(rid),
+                        # 无主实体键;tech_concept_stage 不读 entity_key,resolver 亦不产实体。
+                        "entity_key": {},
+                        "raw_payload": {**row},
+                        "extracted_at": now,
+                    })
                 continue
             rid = row.get(key)
             if rid is not None and rid > max_id:

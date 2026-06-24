@@ -78,3 +78,34 @@ async def test_extract_batch_drops_various_garbage(garbage) -> None:
     with patch("metaprofile.ingest_ods.services.extractor._fetch_rows", return_value=[]) as m:
         await ext.extract_batch({"host": "h"}, "ods_company_basic_info", 0, 1000, watermark=garbage)
     assert m.call_args.args[4] is None
+
+
+# --- _TECH_TABLES(专利/论文)spec-pure 降为 evidence,apply_mapping 返回 None。
+#     但 extractor 仍须 EMIT 原始行(profile_type=tech + raw_payload),
+#     否则 orchestrator `if not rows: break` → _tech_concept_stage 永不触发
+#     → ipc:/concept:/evidence 全丢(e2e 实测"导入 0 条")。
+
+
+@pytest.mark.asyncio
+async def test_extract_batch_emits_unmapped_tech_table_rows() -> None:
+    """_TECH_TABLES 表虽 unmapped,仍须 emit 原始行供 tech_concept_stage 消费。"""
+    ext = Extractor()
+    rows_in = [
+        {"id": 10, "title": "一种质谱法装置", "abstract": "ab",
+         "ipc_type": "G01N27/62", "Patent_number": "P10"},
+    ]
+    with patch("metaprofile.ingest_ods.services.extractor._fetch_rows", return_value=rows_in):
+        rows = await ext.extract_batch(
+            dsn={"host": "h"}, table="ods_invention_patent_cn",
+            last_id=0, batch_size=1000,
+        )
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["profile_type"] == "tech"
+    assert r["source_table"] == "ods_invention_patent_cn"
+    assert r["source_id"] == "10"
+    assert r["last_id"] == 10
+    # tech_concept_stage 读 raw_payload 的 title/abstract/ipc_type
+    payload = r["raw_payload"]
+    assert payload["title"] == "一种质谱法装置"
+    assert payload["ipc_type"] == "G01N27/62"

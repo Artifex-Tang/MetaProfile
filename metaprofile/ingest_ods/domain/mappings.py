@@ -101,32 +101,11 @@ MAPPINGS: dict[str, MappingSet] = {
             FieldMap(_feat("graduatedUniversity"), "graduated_university"),
         ],
     ),
-    "ods_science_literature": MappingSet(
-        profile_type="tech",
-        key_fields=["title"],
-        fields=[
-            # science_literature 是英文论文,title 为英文 → 进 tech_name_en
-            # (而非 tech_name_cn,避免英文塞中文字段);tech_name_cn 对英文源天然缺失
-            FieldMap("title", "tech_name_en"),
-            FieldMap("abstract", "tech_summary"),
-            FieldMap("keyword", "key_points", _split_kw),
-            FieldMap(_feat("doi"), "doi"),
-            FieldMap(_feat("pubdate"), "invention_date"),
-        ],
-    ),
-    "ods_invention_patent_cn": MappingSet(
-        profile_type="tech",
-        key_fields=["title"],
-        fields=[
-            FieldMap("title", "tech_name_cn"),
-            FieldMap("ipc_type", "tech_domain", _one),
-            FieldMap("legal_status", "current_status"),
-            FieldMap("filing_date", "application_date"),
-            FieldMap("applicant", "applicant"),
-            FieldMap(_feat("Patent_number"), "patent_number"),
-            FieldMap(_feat("Inventor"), "inventors"),
-        ],
-    ),
+    # NOTE: ods_science_literature / ods_invention_patent_cn 不在此注册。
+    # spec-pure(option A): patent/science 不再经主抽取路径生成 tech 实体,降为 evidence。
+    # tech_concept 阶段(orchestrator._tech_concept_stage,读 raw batch 行的
+    # raw_payload=title/abstract/ipc_type,独立于本注册表)仍产 ipc:/concept:/evidence。
+    # 此处若加 MappingSet 会重造 title-as-tech 假节点污染 tech 树。
     "ods_market_analysis_cn": MappingSet(
         profile_type="project",
         key_fields=["title", "purchaser", "region"],

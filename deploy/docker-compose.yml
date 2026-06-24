@@ -203,7 +203,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    command: celery -A metaprofile.shared.worker.celery_app worker --loglevel=info --concurrency=2
+    command: celery -A metaprofile.shared.worker.celery_app worker --loglevel=info --concurrency=2 --beat  # --beat 启 scheduler_tick(60s) 驱动 scheduled_task cron dispatch
     env_file: [.env]
     depends_on:
       migrate:

@@ -208,6 +208,10 @@ async def test_tech_concept_stage_writes_l1_l2_evidence_and_contains_edge() -> N
     assert contains, f"无 TECH_CONTAINS 边 ipc:G06T→; got {[(t.subject_id, t.object_id, t.relation) for t in trips]}"
     assert contains[0].object_id == l2_id_expected
 
+    # #1: tech 表跳过 resolver(patent/science 行 profile_type=tech + entity_key={}
+    #     会产 entity_no_identity 噪声;tech_concept_stage 已处理这些行)
+    resolver.resolve.assert_not_awaited()
+
 
 @pytest.mark.asyncio
 async def test_english_term_clusters_via_name_cn() -> None:
@@ -406,10 +410,9 @@ async def test_tech_concept_stage_noop_when_miner_is_none() -> None:
     )
     await orch.run(session, task=MagicMock(id=7), source=src)
 
-    # 主路径 profile 仍被写(resolver 产出的 tech profile)
-    assert writer.write_profile.await_count >= 1
-    # 但无 ipc:/concept: 这类 tech_concept 阶段产物
-    tech_profiles = _profile_calls_by(writer, profile_type="tech")
-    layer_profiles = [p for p in tech_profiles
-                      if p["attrs"].get("tech_layer") in ("DOMAIN", "CONCEPT")]
-    assert layer_profiles == [], "miner=None 不应产 tech_concept layer profile"
+    # #1: tech 表跳过 resolver → 主路径不写 profile(entity_key={} 无 identity,
+    #     且 tech_concept 阶段被 miner=None 关闭)。整批无任何 write_profile。
+    assert writer.write_profile.await_count == 0, (
+        "tech 表 + miner=None 应无任何 profile 写入(主路径跳 resolver,"
+        "tech_concept 阶段关闭)"
+    )

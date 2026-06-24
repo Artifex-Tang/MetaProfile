@@ -168,17 +168,25 @@ class BatchOrchestrator:
         # mode == "content_mine" / "both" 的附件内容挖掘由 ContentMiner 在 collector (T13) 层接入，
         # 这里仅负责结构化抽取路径。
         # resolve 整批（消歧需跨行）— I2: 包裹，失败记录+跳过本批
-        try:
-            entities = await self._resolver.resolve(rows)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("batch_resolve_failed", error=str(exc),
-                           source_table=rows[0].get("source_table"))
-            await self._writer.record_error(
-                session, batch_id=task.id, stage="resolve",
-                error_msg=str(exc), source_table=rows[0].get("source_table"),
-            )
-            await session.commit()
-            return 0
+        # #1: tech 表(专利/论文)跳过 resolver —— patent/science 行经 "#3 disable
+        # patent-as-tech" 后以 profile_type="tech" + entity_key={} 流入,resolve
+        # 必产 no-identity entity → orchestrator 逐行记 entity_no_identity 噪声
+        # (全量 ingest 6M patents = 百万级噪声行)。这些行由 _tech_concept_stage
+        # 处理(ipc/concept/evidence),主路径无需 entity resolution。
+        if table in _TECH_TABLES:
+            entities = []
+        else:
+            try:
+                entities = await self._resolver.resolve(rows)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("batch_resolve_failed", error=str(exc),
+                               source_table=rows[0].get("source_table"))
+                await self._writer.record_error(
+                    session, batch_id=task.id, stage="resolve",
+                    error_msg=str(exc), source_table=rows[0].get("source_table"),
+                )
+                await session.commit()
+                return 0
         imported = 0
         # GAP2: 批内 NameIndex —— 关系端点解析(PK 对齐 profile 节点)
         # NOTE: NameIndex 是批内作用域 —— 在其他批次(或同一次 run 的其他表)中物化

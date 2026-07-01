@@ -62,6 +62,8 @@ from metaprofile.settings_api.api.routes_db_connections import router as dbc_rou
 from metaprofile.settings_api.api.routes_llm import router as llm_router
 from metaprofile.settings_api.api.routes_scheduler import router as scheduler_router
 from metaprofile.shared.config.settings import settings
+from metaprofile.backend.readonly_guard import readonly_guard
+from metaprofile.backend.routes_runtime import router as runtime_router
 
 logger = structlog.get_logger(__name__)
 
@@ -108,6 +110,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+# 只读模式熔断(mode=readonly 时拦截 ODS/采集/LLM/画像写 → 503)
+app.state.mode = settings.mode
+app.middleware("http")(readonly_guard)
 
 # ── 画像层（router 无前缀，统一挂 /api/v1） ──
 for r in (tech_query, tech_mut, tech_relation, tech_stats, tech_enrich):
@@ -136,6 +141,7 @@ app.include_router(col_router)
 app.include_router(dbc_router)
 app.include_router(enrich_tasks_router)
 app.include_router(scheduler_router)
+app.include_router(runtime_router)
 
 
 @app.get("/health")

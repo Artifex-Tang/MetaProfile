@@ -169,6 +169,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
     env: Literal["dev", "staging", "prod"] = "dev"
+    # 运行模式:full=全功能(本地开发);readonly=云上只读(熔断 ODS/采集/LLM/画像写)
+    mode: Literal["full", "readonly"] = "full"
     log_level: str = "INFO"
     api_prefix: str = "/api/v1"
     service_name: str = "metaprofile"

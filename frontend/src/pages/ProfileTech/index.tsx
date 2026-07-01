@@ -168,14 +168,7 @@ function DetailDrawer({ id, open, onClose, selfType }: { id: string; open: boole
           status={completenessPercent >= 80 ? 'success' : completenessPercent >= 50 ? 'normal' : 'exception'}
         />
       )}
-      <Button
-        size="small"
-        icon={<ThunderboltOutlined />}
-        loading={enrichMut.isPending || (!!enrichTaskId && !isEnrichTerminal(enrichStatus.data?.status))}
-        onClick={() => enrichMut.mutate()}
-      >
-        {enrichTaskId ? enrichStatusLabel(enrichStatus.data?.status) : 'LLM补全'}
-      </Button>
+      {/* readonly 模式:LLM 补全按钮隐藏 */}
     </Space>
   )
 

@@ -148,12 +148,12 @@ export default function NewTechDiscovery() {
     { title: '多样性', dataIndex: 'diversity', width: 70, render: (v: number) => v.toFixed(3) },
     { title: '增速', dataIndex: 'velocity', width: 70, render: (v: number) => v.toFixed(3) },
     {
-      title: '关联', width: 110,
+      title: '关联', width: 140,
       render: (_: unknown, r: WeakSignalItem) => (
-        <Space size={2}>
-          <Tag color="blue">技{r.related_tech_ids.length}</Tag>
-          <Tag color="green">机{r.related_org_ids.length}</Tag>
-          <Tag color="orange">人{r.related_person_ids.length}</Tag>
+        <Space size={2} style={{ cursor: 'pointer' }} onClick={() => setSelected(r)}>
+          <Tag color="blue">技术 {r.related_tech_ids.length}</Tag>
+          <Tag color="green">机构 {r.related_org_ids.length}</Tag>
+          <Tag color="orange">人员 {r.related_person_ids.length}</Tag>
         </Space>
       ),
     },

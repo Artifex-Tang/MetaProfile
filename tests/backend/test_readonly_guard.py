@@ -27,6 +27,14 @@ def _app(mode: str) -> FastAPI:
     def list_llm():
         return []
 
+    @app.post("/api/v1/profile/org/search")
+    def search_org():
+        return {"items": []}
+
+    @app.post("/api/v1/profile/org/import")
+    def import_org():
+        return {"task_id": 1}
+
     return app
 
 
@@ -52,6 +60,18 @@ def test_readonly_blocks_profile_writes_but_keeps_get():
     assert client.get("/api/v1/profile/org/o1").status_code == 200
     # PUT 写画像 → 熔断
     assert client.put("/api/v1/profile/org/o1").status_code == 503
+
+
+def test_readonly_allows_profile_search_post():
+    """POST /profile/search 是读操作,应通(非 503)。"""
+    client = TestClient(_app("readonly"))
+    assert client.post("/api/v1/profile/org/search").status_code == 200
+
+
+def test_readonly_blocks_profile_import_post():
+    """POST /profile/import 是写操作,应 503。"""
+    client = TestClient(_app("readonly"))
+    assert client.post("/api/v1/profile/org/import").status_code == 503
 
 
 @pytest.mark.parametrize("prefix", list(BLOCKED_PREFIXES))

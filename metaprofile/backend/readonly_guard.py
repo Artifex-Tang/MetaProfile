@@ -2,8 +2,8 @@
 
 settings.mode == "readonly" 时:
 - 命中 BLOCKED_PREFIXES 的请求(ODS/采集/LLM/enrich/scheduler/db-connections)→ 503
-- 画像层写方法(POST/PUT/PATCH/DELETE)→ 503
-GET 画像查询 / 分析层(scan_monitor/new_tech/topic_selection)/ /health / /api/v1/runtime/flags 全保留。
+- 画像层写语义(PUT/PATCH/DELETE 更新;POST /import /enrich)→ 503
+POST /search /batch /semantic-search(读)与 GET 全保留。
 """
 from __future__ import annotations
 
@@ -21,7 +21,9 @@ BLOCKED_PREFIXES: tuple[str, ...] = (
     "/api/v1/settings/translate",  # scheduler translate/batch(走 LLM)
 )
 
-WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+# 画像层:PUT/PATCH/DELETE 全拦(更新/删除);POST 仅拦写语义(/import /enrich)
+PROFILE_WRITE_METHODS = frozenset({"PUT", "PATCH", "DELETE"})
+PROFILE_BLOCKED_POST_SEGMENTS = ("/import", "/enrich")
 
 _DISABLED_JSON = JSONResponse(
     status_code=503,
@@ -37,7 +39,12 @@ async def readonly_guard(request: Request, call_next):
     path = request.url.path
     if any(path.startswith(p) for p in BLOCKED_PREFIXES):
         return _DISABLED_JSON
-    if request.method in WRITE_METHODS and path.startswith("/api/v1/profile/"):
-        return _DISABLED_JSON
+    if path.startswith("/api/v1/profile/"):
+        if request.method in PROFILE_WRITE_METHODS:
+            return _DISABLED_JSON
+        if request.method == "POST" and any(
+            seg in path for seg in PROFILE_BLOCKED_POST_SEGMENTS
+        ):
+            return _DISABLED_JSON
 
     return await call_next(request)

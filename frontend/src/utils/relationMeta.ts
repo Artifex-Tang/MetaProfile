@@ -11,6 +11,10 @@ export const TYPE_META: Record<string, { color: string; label: string }> = {
   package: { color: '#2f54eb', label: '项目包' },
 }
 
+/** G6 canvas 用 CJK 字体栈。G6 v4 默认读 document.body 的 computed font-family(Latin-first),
+ *  而 canvas 不做 CSS 字体回退 → 中文 label 渲染成 ???。所有 G6 label 显式设此栈修复。 */
+export const G6_FONT_FAMILY = '"Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif'
+
 export function metaOf(type?: string | null) {
   const k = (type ?? '').toLowerCase()
   return TYPE_META[k] ?? { color: '#8c8c8c', label: type ?? '其它' }

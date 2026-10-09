@@ -8,6 +8,7 @@ import { PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { discoveryService } from '../../api/discovery'
 import { NAV_TYPES } from '../../utils/crossProfile'
+import { G6_FONT_FAMILY } from '../../utils/relationMeta'
 import type { WeakSignalItem, SignalNetwork } from '../../api/types'
 import G6 from '@antv/g6'
 
@@ -35,11 +36,11 @@ function SignalGraph({
       layout: { type: 'force', preventOverlap: true, linkDistance: 90, nodeStrength: -30 },
       defaultNode: {
         size: 32,
-        labelCfg: { position: 'bottom', style: { fontSize: 10 } },
+        labelCfg: { position: 'bottom', style: { fontSize: 10, fontFamily: G6_FONT_FAMILY } },
       },
       defaultEdge: {
         style: { lineWidth: 1, stroke: '#aaa' },
-        labelCfg: { style: { fontSize: 9, fill: '#999' } },
+        labelCfg: { style: { fontSize: 9, fill: '#999', fontFamily: G6_FONT_FAMILY } },
       },
       modes: { default: ['drag-canvas', 'zoom-canvas', 'drag-node'] },
     })

@@ -19,7 +19,7 @@ nginx 的 /api-* 反代前缀被剥离后，全部落到本应用的 /api/v1 路
 """
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
@@ -64,17 +64,35 @@ from metaprofile.settings_api.api.routes_scheduler import router as scheduler_ro
 from metaprofile.shared.config.settings import settings
 from metaprofile.backend.readonly_guard import readonly_guard
 from metaprofile.backend.routes_runtime import router as runtime_router
+from metaprofile.mcp_server.registry import SERVICES as MCP_SERVICES
+from metaprofile.mcp_server.server import (
+    allowed_hosts_from_env,
+    auth_token_from_env,
+    build_all,
+    default_backend_client,
+    mount_mcp,
+)
 
 logger = structlog.get_logger(__name__)
 
 PREFIX = settings.api_prefix  # /api/v1
+
+# MCP：7 个独立端点（/mcp/<slug>），经回环 HTTP 调本应用自己的 /api/v1 接口。
+_mcp_client = default_backend_client()
+_mcp_token = auth_token_from_env()
+mcp_servers = build_all(_mcp_client, allowed_hosts=allowed_hosts_from_env())
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     logger.info("metaprofile_backend_starting", env=settings.env, prefix=PREFIX)
     await _recover_orphan_collection_tasks()
-    yield
+    # 被 mount 的子应用 lifespan 不会自动执行，MCP session manager 必须在此拉起
+    async with AsyncExitStack() as stack:
+        for _srv in mcp_servers.values():
+            await stack.enter_async_context(_srv.session_manager.run())
+        yield
+    await _mcp_client.aclose()
     logger.info("metaprofile_backend_stopping")
 
 
@@ -150,5 +168,14 @@ async def health() -> dict[str, str]:
 
 
 @app.get("/")
-async def root() -> dict[str, str]:
-    return {"service": "metaprofile-backend", "docs": "/docs", "health": "/health"}
+async def root() -> dict[str, object]:
+    return {
+        "service": "metaprofile-backend",
+        "docs": "/docs",
+        "health": "/health",
+        "mcp": [s.path for s in MCP_SERVICES],
+    }
+
+
+# ── MCP（挂在最后：兜底 Mount 必须晚于全部 REST 路由） ──
+mount_mcp(app, mcp_servers, token=_mcp_token)

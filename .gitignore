@@ -49,3 +49,14 @@ node_modules/
 _load_big.err
 _load_attachment_state.json
 _load_big_state.json
+
+# 独立部署 kit 产物(1.3G+,不入库)
+metaprofile-deploy-kit.tar.gz
+dist.tar.gz
+mp-all-images.tar.gz
+
+# local
+.playwright-mcp/
+conversation-*.txt
+org-relgraph*.png
+*- 副本*

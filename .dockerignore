@@ -1,0 +1,42 @@
+# 后端镜像只需要 metaprofile/ + scripts/ + deploy 数据 + alembic 配置。
+# 没有这个文件时 `COPY . .` 会把整个仓库塞进镜像（实测 /app 达 1.8G，
+# 其中 1.27G 是上一次构建产出的 kit tarball——自我嵌套）。
+
+# ── 凭据（绝不能进镜像） ──
+deploy/cloud/.env
+.env
+*.pem
+*.key
+
+# ── 构建产物 / 大文件 ──
+*.tar.gz
+build/
+# 前端有独立镜像，后端用不到（含 node_modules）。
+# 注意：.dockerignore 不支持行尾注释，注释必须独占一行，
+# 否则整行会被当成 pattern（`frontend/  # 说明` 谁也匹配不上）。
+frontend/
+node_modules/
+dist/
+
+# ── 版本控制与工具缓存 ──
+.git/
+.github/
+.claude/
+.codegraph/
+.playwright-mcp/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ── 文档与截图（运行时不需要） ──
+*.docx
+*.pdf
+*.png
+*.jpg
+docs/
+*.log

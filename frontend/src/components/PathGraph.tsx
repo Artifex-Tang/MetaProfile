@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import G6, { Graph } from '@antv/g6'
 import { Space, Tag } from 'antd'
-import { TYPE_META, metaOf, relLabel } from '../utils/relationMeta'
+import { TYPE_META, metaOf, relLabel, G6_FONT_FAMILY } from '../utils/relationMeta'
 
 export interface PGNode {
   id: string
@@ -50,7 +50,7 @@ export default function PathGraph({
         type: 'circle',
         size: 34,
         style: { fill: m.color, stroke: '#fff', lineWidth: 2, cursor: nav ? 'pointer' : 'default' },
-        labelCfg: { position: 'bottom', style: { fontSize: 11, fill: '#333' } },
+        labelCfg: { position: 'bottom', style: { fontSize: 11, fill: '#333', fontFamily: G6_FONT_FAMILY } },
       }
     })
     const seen = new Set<string>()
@@ -71,6 +71,7 @@ export default function PathGraph({
           lineWidth: 1.6,
           endArrow: { path: G6.Arrow.triangle(7, 8, 0), fill: '#8c8c8c' },
         },
+        labelCfg: { style: { fontFamily: G6_FONT_FAMILY } },
       }))
 
     const tooltip = new G6.Tooltip({
@@ -102,8 +103,8 @@ export default function PathGraph({
           ? { type: 'dagre', rankdir: 'LR', nodesep: 30, ranksep: 60 }
           : { type: 'dagre', rankdir: 'TB', nodesep: 40, ranksep: 50 },
       modes: { default: ['drag-canvas', 'zoom-canvas', 'drag-node'] },
-      defaultNode: { type: 'circle', size: 34 },
-      defaultEdge: { type: 'line' },
+      defaultNode: { type: 'circle', size: 34, labelCfg: { style: { fontFamily: G6_FONT_FAMILY } } },
+      defaultEdge: { type: 'line', labelCfg: { style: { fontFamily: G6_FONT_FAMILY } } },
     })
     graph.data({ nodes: gNodes, edges: gEdges })
     graph.render()

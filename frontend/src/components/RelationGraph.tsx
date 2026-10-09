@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import G6, { Graph } from '@antv/g6'
 import { Space, Tag } from 'antd'
-import { TYPE_META, metaOf, relLabel } from '../utils/relationMeta'
+import { TYPE_META, metaOf, relLabel, G6_FONT_FAMILY } from '../utils/relationMeta'
 
 /** 关系项（与各画像 RelationList 的 item 结构一致） */
 export interface RelItem {
@@ -53,7 +53,7 @@ export default function RelationGraph({
       type: 'modelRect',
       size: [90, 36],
       style: { fill: selfColor, stroke: selfColor, lineWidth: 0 },
-      labelCfg: { style: { fill: '#fff', fontWeight: 700, fontSize: 13 } },
+      labelCfg: { style: { fill: '#fff', fontWeight: 700, fontSize: 13, fontFamily: G6_FONT_FAMILY } },
     }
 
     const nodes = relations.map(r => {
@@ -71,7 +71,7 @@ export default function RelationGraph({
         type: 'circle',
         size: 24 + conf * 26,
         style: { fill: m.color, stroke: '#fff', lineWidth: 2, cursor: nav ? 'pointer' : 'default' },
-        labelCfg: { position: 'bottom', style: { fontSize: 11, fill: '#333' } },
+        labelCfg: { position: 'bottom', style: { fontSize: 11, fill: '#333', fontFamily: G6_FONT_FAMILY } },
       }
     })
 
@@ -82,7 +82,7 @@ export default function RelationGraph({
       label: relLabel(r.relation_type),
       type: 'quadratic',
       style: { stroke: '#c5cad1', lineWidth: 1.6, endArrow: { path: G6.Arrow.triangle(7, 8, 0), fill: '#8c8c8c' } },
-      labelCfg: { refY: 4, style: { fontSize: 10, fill: '#595959', background: { fill: '#ffffff', padding: [1, 4, 1, 4], radius: 3 } } },
+      labelCfg: { refY: 4, style: { fontSize: 10, fill: '#595959', fontFamily: G6_FONT_FAMILY, background: { fill: '#ffffff', padding: [1, 4, 1, 4], radius: 3 } } },
     }))
 
     const tooltip = new G6.Tooltip({
@@ -130,8 +130,8 @@ export default function RelationGraph({
       modes: {
         default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'activate-relations'],
       },
-      defaultNode: { type: 'circle', size: 36 },
-      defaultEdge: { type: 'quadratic' },
+      defaultNode: { type: 'circle', size: 36, labelCfg: { style: { fontFamily: G6_FONT_FAMILY } } },
+      defaultEdge: { type: 'quadratic', labelCfg: { style: { fontFamily: G6_FONT_FAMILY } } },
       nodeStateStyles: {
         hover: { stroke: '#1677ff', lineWidth: 3, shadowBlur: 6, shadowColor: '#1677ff' },
       },

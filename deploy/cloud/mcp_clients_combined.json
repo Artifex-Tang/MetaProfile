@@ -1,0 +1,46 @@
+{
+  "mcpServers": {
+    "techProfile": {
+      "url": "http://YOUR_HOST/mcp/tech-profile",
+      "headers": {
+        "Authorization": "Bearer YOUR_MCP_TOKEN"
+      }
+    },
+    "projectProfile": {
+      "url": "http://YOUR_HOST/mcp/project-profile",
+      "headers": {
+        "Authorization": "Bearer YOUR_MCP_TOKEN"
+      }
+    },
+    "orgProfile": {
+      "url": "http://YOUR_HOST/mcp/org-profile",
+      "headers": {
+        "Authorization": "Bearer YOUR_MCP_TOKEN"
+      }
+    },
+    "personProfile": {
+      "url": "http://YOUR_HOST/mcp/person-profile",
+      "headers": {
+        "Authorization": "Bearer YOUR_MCP_TOKEN"
+      }
+    },
+    "scanMonitor": {
+      "url": "http://YOUR_HOST/mcp/scan-monitor",
+      "headers": {
+        "Authorization": "Bearer YOUR_MCP_TOKEN"
+      }
+    },
+    "newTechDiscovery": {
+      "url": "http://YOUR_HOST/mcp/new-tech-discovery",
+      "headers": {
+        "Authorization": "Bearer YOUR_MCP_TOKEN"
+      }
+    },
+    "topicSelection": {
+      "url": "http://YOUR_HOST/mcp/topic-selection",
+      "headers": {
+        "Authorization": "Bearer YOUR_MCP_TOKEN"
+      }
+    }
+  }
+}

@@ -20,7 +20,7 @@ services:
       POSTGRES_DB: metaprofile
       POSTGRES_USER: metaprofile
       POSTGRES_PASSWORD: ${PG_PASSWORD:-metaprofile}
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]   # 只绑回环:外部访问走 SSH 隧道,不靠安全组兜底
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -31,7 +31,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
+    ports: ["127.0.0.1:6379:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -45,7 +45,7 @@ services:
       NEO4J_PLUGINS: '["apoc"]'
       NEO4J_server_memory_heap_initial__size: 1G
       NEO4J_server_memory_heap_max__size: 4G   # 32G 机给 4G heap
-    ports: ["7474:7474", "7687:7687"]
+    ports: ["127.0.0.1:7474:7474", "127.0.0.1:7687:7687"]
     volumes: [neo4jdata:/data]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
@@ -66,7 +66,7 @@ services:
   backend:
     image: metaprofile-backend:latest
     command: uvicorn metaprofile.backend.main:app --host 0.0.0.0 --port 8000 --workers 2
-    ports: ["8000:8000"]
+    ports: ["127.0.0.1:8000:8000"]   # 对外只经 nginx :80/:443
     environment:
       MODE: readonly   # ← 触发 readonly_guard 熔断
       POSTGRES_DSN: "postgresql+asyncpg://metaprofile:${PG_PASSWORD:-metaprofile}@postgres:5432/metaprofile"
@@ -79,6 +79,11 @@ services:
       PROFILE_API_PROJECT_BASE_URL: "http://backend:8000"
       PROFILE_API_ORG_BASE_URL: "http://backend:8000"
       PROFILE_API_PERSON_BASE_URL: "http://backend:8000"
+      # MCP 服务(/mcp)。留空=关 DNS rebinding 防护(经 nginx 反代,Host 是部署域名);
+      # 配了域名则只放行该 Host。多个用逗号分隔。
+      MCP_ALLOWED_HOSTS: "${MCP_ALLOWED_HOSTS:-}"
+      # MCP Bearer token。deploy.sh 首次部署会生成一个写进 .env;留空则不鉴权。
+      MCP_AUTH_TOKEN: "${MCP_AUTH_TOKEN:-}"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -94,10 +99,12 @@ services:
 
   frontend:
     image: metaprofile-frontend:latest
-    ports: ["80:80"]
+    ports: ["80:80", "443:443"]
     volumes:
       - /data/dist:/usr/share/nginx/html:ro   # bind mount dist(免 rebuild 镜像)
-      - /data/nginx.conf:/etc/nginx/conf.d/default.conf:ro   # bind mount nginx.conf(免 rebuild 改 swagger/proxy)
+      - /data/nginx:/etc/nginx/conf.d:ro         # bind mount 整个 conf.d(default.conf + locations.inc;免 rebuild 改 proxy/HTTPS)
+      - /data/certs:/etc/nginx/certs:ro         # TLS 证书(enable_https.sh 签发后放这;无证书时 nginx.conf 不引用,空目录无害)
+      - /data/certbot:/var/www/certbot          # certbot HTTP-01 challenge webroot
     depends_on:
       backend:
         condition: service_healthy

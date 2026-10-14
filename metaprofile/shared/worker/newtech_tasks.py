@@ -99,3 +99,27 @@ def compute_emergence(
 ) -> dict[str, Any]:
     """新兴指标计算(Phase B):Doris 专利 → Porter/TLC/TEM/Salton → 指标表。"""
     return run_async(_async_emergence(years_back, db_connection_id))
+
+
+async def _async_disruption(years_back: int | None, db_connection_id: int | None,
+                            llm: bool | None) -> dict[str, Any]:
+    from metaprofile.new_tech_discovery.services.disruption_service import (
+        DisruptionService,
+    )
+
+    try:
+        svc = DisruptionService(db_connection_id=db_connection_id)
+        return await svc.compute(years_back=years_back, llm=llm)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("disruption_task_failed", error=str(exc))
+        return {"status": "failed", "error": str(exc)}
+
+
+@celery_app.task(name="metaprofile.newtech.compute_disruption")
+def compute_disruption(
+    years_back: int | None = None,
+    db_connection_id: int | None = None,
+    llm: bool | None = None,
+) -> dict[str, Any]:
+    """颠覆性评估(Phase C):组件 z 合分 + 漏斗 LLM Rotolo rubric。"""
+    return run_async(_async_disruption(years_back, db_connection_id, llm))

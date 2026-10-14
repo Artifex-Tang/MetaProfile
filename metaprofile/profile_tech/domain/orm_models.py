@@ -6,12 +6,11 @@
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 
 from sqlalchemy import (
     JSON,
     Date,
-    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -66,19 +65,19 @@ class TechProfileORM(Base, TimestampMixin):
     data_as_of: Mapped[date | None] = mapped_column(Date)
 
     # 扩展属性关联
-    dev_milestones: Mapped[list["TechDevMilestoneORM"]] = relationship(
+    dev_milestones: Mapped[list[TechDevMilestoneORM]] = relationship(
         back_populates="tech", cascade="all, delete-orphan"
     )
-    review_impacts: Mapped[list["TechReviewImpactORM"]] = relationship(
+    review_impacts: Mapped[list[TechReviewImpactORM]] = relationship(
         back_populates="tech", cascade="all, delete-orphan"
     )
-    fundings: Mapped[list["TechFundingORM"]] = relationship(
+    fundings: Mapped[list[TechFundingORM]] = relationship(
         back_populates="tech", cascade="all, delete-orphan"
     )
-    academic_outputs: Mapped[list["TechAcademicOutputORM"]] = relationship(
+    academic_outputs: Mapped[list[TechAcademicOutputORM]] = relationship(
         back_populates="tech", cascade="all, delete-orphan"
     )
-    experiments: Mapped[list["TechExperimentORM"]] = relationship(
+    experiments: Mapped[list[TechExperimentORM]] = relationship(
         back_populates="tech", cascade="all, delete-orphan"
     )
 

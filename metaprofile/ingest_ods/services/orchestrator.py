@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -89,7 +88,8 @@ def compute_entity_id(entity_key: dict, attrs: dict) -> str | None:
         # name: 卫星 id 须 URL 安全(详情走 /profile/{type}/{id} 路由)且 ≤ VARCHAR64:
         # 超长(>58,留 "name:" 前缀)截断 + md5 后缀保唯一幂等;非 \w/- 字符
         # (空格/标点等)替换为 _,避免 URL path 挂(中文属 \w 保留)。
-        import hashlib, re
+        import hashlib
+        import re
         if len(nm) > 58:
             nm = re.sub(r'[^\w-]', '_', nm[:42]) + "_" + hashlib.md5(nm.encode()).hexdigest()[:15]
         else:
@@ -299,11 +299,13 @@ class BatchOrchestrator:
         前置条件(self._tech_miner is None 由调用方守卫)。
         """
         from metaprofile.ingest_ods.domain.ipc_taxonomy import (
-            name_of, subclass_of,
+            name_of,
+            subclass_of,
         )
         from metaprofile.ingest_ods.domain.orm_models import TechEvidenceORM
         from metaprofile.ingest_ods.services.tech_clusterer import (
-            cluster_entity_id, normalize_term,
+            cluster_entity_id,
+            normalize_term,
         )
         from metaprofile.ingest_ods.services.tech_relation_builder import (
             build_containment_triples,

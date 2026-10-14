@@ -6,12 +6,12 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-from metaprofile.foundation.enrichment.completeness import CompletenessResult, score_completeness
-from metaprofile.foundation.enrichment.llm_filler import FillResult, LLMFieldFiller
-from metaprofile.foundation.enrichment.rag_retriever import RAGRetriever, RetrievedDoc
+from metaprofile.foundation.enrichment.completeness import score_completeness
+from metaprofile.foundation.enrichment.llm_filler import LLMFieldFiller
+from metaprofile.foundation.enrichment.rag_retriever import RAGRetriever
 from metaprofile.shared.schemas.base import EntityType
 
 logger = logging.getLogger(__name__)

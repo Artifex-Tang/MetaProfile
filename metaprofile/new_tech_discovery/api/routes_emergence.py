@@ -98,3 +98,84 @@ async def trigger_emergence_compute(
         return EmergenceComputeResponse(status="queued", detail="compute_emergence 已入队")
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=503, detail=f"任务入队失败: {exc}") from exc
+
+
+class DisruptionItem(BaseModel):
+    object_type: str
+    object_id: str
+    window_month: date
+    novelty_comb: float
+    growth: float
+    new_entrant: float
+    small_team: float
+    term_novelty: float
+    disrupt_score: float
+    llm_verdict: str
+    llm_scores: dict = {}
+    llm_evidence: str | None = None
+
+
+class DisruptionList(BaseModel):
+    total: int
+    items: list[DisruptionItem]
+
+
+@router.get("/disruption", response_model=DisruptionList)
+async def list_disruption(
+    window: date | None = Query(default=None),
+    verdict: str | None = Query(default=None, description="是|否|待定|pending"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+) -> DisruptionList:
+    """颠覆性评估列表(按 DisruptScore 降序)。"""
+    from sqlalchemy import func
+
+    from metaprofile.new_tech_discovery.domain.orm_models import (
+        DisruptionAssessmentORM,
+    )
+
+    q = select(DisruptionAssessmentORM)
+    if window:
+        q = q.where(DisruptionAssessmentORM.window_month == window)
+    if verdict:
+        q = q.where(DisruptionAssessmentORM.llm_verdict == verdict)
+    rows = (await db.execute(
+        q.order_by(DisruptionAssessmentORM.disrupt_score.desc())
+        .offset((page - 1) * page_size).limit(page_size)
+    )).scalars().all()
+    total = (await db.execute(
+        select(func.count()).select_from(DisruptionAssessmentORM)
+    )).scalar() or 0
+    return DisruptionList(
+        total=int(total),
+        items=[
+            DisruptionItem(
+                object_type=r.object_type, object_id=r.object_id,
+                window_month=r.window_month,
+                novelty_comb=r.novelty_comb, growth=r.growth,
+                new_entrant=r.new_entrant, small_team=r.small_team,
+                term_novelty=r.term_novelty, disrupt_score=r.disrupt_score,
+                llm_verdict=r.llm_verdict or "pending",
+                llm_scores=r.llm_scores or {}, llm_evidence=r.llm_evidence,
+            )
+            for r in rows
+        ],
+    )
+
+
+@router.post("/disruption/compute", response_model=EmergenceComputeResponse)
+async def trigger_disruption_compute(
+    years_back: int | None = Query(default=None, ge=1, le=30),
+    db_connection_id: int | None = Query(default=None),
+    llm: bool | None = Query(default=None, description="false=纯统计"),
+) -> EmergenceComputeResponse:
+    """触发颠覆评估重算(Celery;漏斗 LLM 走配额纪律)。"""
+    try:
+        from metaprofile.shared.worker.newtech_tasks import compute_disruption
+
+        compute_disruption.delay(years_back=years_back,
+                                 db_connection_id=db_connection_id, llm=llm)
+        return EmergenceComputeResponse(status="queued", detail="compute_disruption 已入队")
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail=f"任务入队失败: {exc}") from exc

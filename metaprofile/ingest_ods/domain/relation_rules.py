@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from metaprofile.ingest_ods.domain.mappings import _feat, _resolve
 from metaprofile.shared.schemas.base import EntityType, SourceMethod
@@ -125,7 +125,7 @@ def extract_structured_relations(
     if not rules:
         return []
     out: list[RelationTriple] = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for rule in rules:
         raw = _resolve(row, rule.obj_name_src)
         names = _to_name_list(raw, is_list=rule.is_list)

@@ -179,6 +179,21 @@ class EmergenceSettings(BaseSettings):
     pair_min_salton: float = 0.05     # 对强度下限(过滤噪声共类)
 
 
+class DisruptionSettings(BaseSettings):
+    """颠覆层参数(Phase C,spec 2026-10-14 §6-C)。"""
+
+    model_config = SettingsConfigDict(env_prefix="DISRUPTION_")
+    # DisruptScore z 分权重(Σ=1.0):新颖/增速/新进入者/小团队/术语新度
+    w_novelty_comb: float = 0.30
+    w_growth: float = 0.25
+    w_new_entrant: float = 0.20
+    w_small_team: float = 0.15
+    w_term_novelty: float = 0.10
+    llm_enabled: bool = True          # 漏斗 LLM(关=纯统计,verdict 留 pending)
+    top_n_llm: int = 50               # 漏斗宽度(配额纪律:只碰 Top-N)
+    llm_runs: int = 3                 # 每对象评分次数(取中位)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -204,6 +219,7 @@ class Settings(BaseSettings):
     profile_api: ProfileApiSettings = Field(default_factory=ProfileApiSettings)
     weak_signal: WeakSignalSettings = Field(default_factory=WeakSignalSettings)
     emergence: EmergenceSettings = Field(default_factory=EmergenceSettings)
+    disruption: DisruptionSettings = Field(default_factory=DisruptionSettings)
 
 
 @lru_cache

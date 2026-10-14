@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, desc
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from metaprofile.shared.db.session import get_db
 from metaprofile.settings_api.domain.orm_models import CollectionTaskORM, DataSourceConfigORM
-from metaprofile.settings_api.schemas.models import CollectionTaskOut, CollectionTaskStats, TriggerCollectionResponse
+from metaprofile.settings_api.schemas.models import (
+    CollectionTaskOut,
+    CollectionTaskStats,
+    TriggerCollectionResponse,
+)
 from metaprofile.settings_api.services.collector_service import get_task_stats, trigger_collection
+from metaprofile.shared.db.session import get_db
 
 router = APIRouter(prefix="/api/v1/settings/collection", tags=["采集任务"])
 

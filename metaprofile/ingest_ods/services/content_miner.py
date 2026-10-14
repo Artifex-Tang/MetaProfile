@@ -2,14 +2,17 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from pydantic import TypeAdapter
 
 from metaprofile.ingest_ods.domain.relation_rules import NAME_SATELLITE_PREFIX
 from metaprofile.ingest_ods.llm.prompts import (
-    MINE_SYSTEM_PROMPT, MinedEntity, MinedRelation, map_predicate,
+    MINE_SYSTEM_PROMPT,
+    MinedEntity,
+    MinedRelation,
+    map_predicate,
 )
 from metaprofile.shared.config.settings import settings
 from metaprofile.shared.schemas.base import EntityType, SourceMethod
@@ -61,7 +64,7 @@ class ContentMiner:
         entities: list[dict] = []
         rels: list[RelationTriple] = []
         unmapped: list[dict] = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for att in attachments:
             text = att.get("clean_content")
             if not text:

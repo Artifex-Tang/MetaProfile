@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from metaprofile.shared.db.session import get_db
 from metaprofile.settings_api.domain.orm_models import LLMProviderConfigORM
 from metaprofile.settings_api.schemas.models import (
     LLMProviderConfigCreate,
@@ -13,6 +12,7 @@ from metaprofile.settings_api.schemas.models import (
     LLMTestResponse,
 )
 from metaprofile.settings_api.services.llm_sync_service import test_llm_connection
+from metaprofile.shared.db.session import get_db
 
 router = APIRouter(prefix="/api/v1/settings/llm", tags=["LLM配置"])
 

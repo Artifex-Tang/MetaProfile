@@ -6,13 +6,12 @@
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 
 from sqlalchemy import (
     JSON,
     Boolean,
     Date,
-    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -64,31 +63,31 @@ class PersonProfileORM(Base, TimestampMixin):
     dq_index: Mapped[float] = mapped_column(Float, default=0.0, nullable=False, comment="数据质量综合评分0-1")
     data_as_of: Mapped[date | None] = mapped_column(Date)
 
-    educations: Mapped[list["PersonEducationORM"]] = relationship(
+    educations: Mapped[list[PersonEducationORM]] = relationship(
         back_populates="person", cascade="all, delete-orphan"
     )
-    careers: Mapped[list["PersonCareerORM"]] = relationship(
+    careers: Mapped[list[PersonCareerORM]] = relationship(
         back_populates="person", cascade="all, delete-orphan"
     )
-    awards: Mapped[list["PersonAwardORM"]] = relationship(
+    awards: Mapped[list[PersonAwardORM]] = relationship(
         back_populates="person", cascade="all, delete-orphan"
     )
-    academic_outputs: Mapped[list["PersonAcademicOutputORM"]] = relationship(
+    academic_outputs: Mapped[list[PersonAcademicOutputORM]] = relationship(
         back_populates="person", cascade="all, delete-orphan"
     )
-    opinions: Mapped[list["PersonOpinionORM"]] = relationship(
+    opinions: Mapped[list[PersonOpinionORM]] = relationship(
         back_populates="person", cascade="all, delete-orphan"
     )
-    reviews: Mapped[list["PersonReviewORM"]] = relationship(
+    reviews: Mapped[list[PersonReviewORM]] = relationship(
         back_populates="person", cascade="all, delete-orphan"
     )
-    tech_focuses: Mapped[list["PersonFocusORM"]] = relationship(
+    tech_focuses: Mapped[list[PersonFocusORM]] = relationship(
         "PersonFocusORM",
         primaryjoin="and_(PersonFocusORM.person_id==PersonProfileORM.person_id, PersonFocusORM.focus_type=='tech')",
         cascade="all, delete-orphan",
         overlaps="reform_focuses",
     )
-    reform_focuses: Mapped[list["PersonFocusORM"]] = relationship(
+    reform_focuses: Mapped[list[PersonFocusORM]] = relationship(
         "PersonFocusORM",
         primaryjoin="and_(PersonFocusORM.person_id==PersonProfileORM.person_id, PersonFocusORM.focus_type=='reform')",
         cascade="all, delete-orphan",

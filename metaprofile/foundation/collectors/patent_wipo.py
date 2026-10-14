@@ -16,7 +16,6 @@ from metaprofile.foundation.collectors.base import (
     CollectQuery,
     RawDocument,
 )
-from metaprofile.shared.config.settings import settings
 
 logger = structlog.get_logger(__name__)
 

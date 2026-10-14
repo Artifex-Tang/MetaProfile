@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pymysql
@@ -75,7 +75,7 @@ class Extractor:
     ) -> list[dict]:
         watermark = _sanitize_watermark(watermark)
         rows = await asyncio.to_thread(_fetch_rows, dsn, table, last_id, batch_size, watermark)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         out: list[dict] = []
         max_id = last_id
         key = KEY_COL.get(table, "id")

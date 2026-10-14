@@ -1,5 +1,6 @@
 """IPC 分类回卷 + 字典查名。L1 技术域 = IPC subclass(如 G06T)。"""
 from __future__ import annotations
+
 import re
 from functools import lru_cache
 from pathlib import Path

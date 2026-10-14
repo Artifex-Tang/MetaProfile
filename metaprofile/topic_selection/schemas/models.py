@@ -1,7 +1,7 @@
 """选题服务 API 模型。"""
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class _Base(BaseModel):

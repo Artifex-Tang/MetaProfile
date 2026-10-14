@@ -1,7 +1,7 @@
 """人员画像 RAG 补全服务。"""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import structlog
@@ -42,7 +42,7 @@ class PersonEnrichmentService:
 
         completeness = float(row[0])
         entity_name = row[1] if len(row) > 1 else None
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if completeness < _ENRICH_THRESHOLD:
             result = enrich_person.delay(person_id)

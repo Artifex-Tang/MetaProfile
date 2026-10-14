@@ -5,11 +5,11 @@ task_type→celery 任务 由 TASK_DISPATCH 注册表懒构造（import 时 cele
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from croniter import croniter
 
-_EPOCH = datetime(2000, 1, 1, tzinfo=timezone.utc)
+_EPOCH = datetime(2000, 1, 1, tzinfo=UTC)
 
 
 def is_due(cron: str, last_run_at: datetime | None, now: datetime) -> bool:
@@ -21,9 +21,9 @@ def is_due(cron: str, last_run_at: datetime | None, now: datetime) -> bool:
         raise ValueError(f"非法 cron 表达式: {cron}")
     base = last_run_at or _EPOCH
     if base.tzinfo is None:
-        base = base.replace(tzinfo=timezone.utc)
+        base = base.replace(tzinfo=UTC)
     if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
+        now = now.replace(tzinfo=UTC)
     next_fire = croniter(cron, base).get_next(datetime)
     return next_fire <= now
 
@@ -40,8 +40,8 @@ TASK_DISPATCH: dict[str, object] = {}
 
 
 def _build_registry() -> dict[str, object]:
-    from metaprofile.shared.worker.translate_tasks import batch_translate_names
     from metaprofile.shared.worker.collection_tasks import run_collection
+    from metaprofile.shared.worker.translate_tasks import batch_translate_names
     return {
         "translate_batch": lambda **p: batch_translate_names.delay(p.get("entity_type")),
         # task_type=collection → celery worker 跑 run_sql_warehouse_collection（5 阶段灌库）
@@ -69,7 +69,7 @@ async def dispatch(*, task_type: str, params: dict) -> str:
 
 async def tick(session, *, now: datetime | None = None) -> dict:
     """扫 enabled scheduled_task，到期即 dispatch + 更新 last_run_at/last_status。"""
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     rows = (await session.execute(
         select(ScheduledTaskORM).where(ScheduledTaskORM.enabled.is_(True))
     )).scalars().all()

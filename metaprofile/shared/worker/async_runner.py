@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from typing import Awaitable, TypeVar
+from collections.abc import Awaitable
+from typing import TypeVar
 
 _T = TypeVar("_T")
 

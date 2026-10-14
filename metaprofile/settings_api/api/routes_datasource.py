@@ -4,13 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from metaprofile.shared.db.session import get_db
 from metaprofile.settings_api.domain.orm_models import DataSourceConfigORM
 from metaprofile.settings_api.schemas.models import (
     DataSourceConfigCreate,
     DataSourceConfigOut,
     DataSourceConfigUpdate,
 )
+from metaprofile.shared.db.session import get_db
 
 router = APIRouter(prefix="/api/v1/settings/datasources", tags=["数据源配置"])
 

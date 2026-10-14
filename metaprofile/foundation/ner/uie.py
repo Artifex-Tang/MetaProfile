@@ -10,7 +10,6 @@ Response: {"result": {"技术": [{"text": "...", "start": 0, "end": 4, "probabil
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 import httpx

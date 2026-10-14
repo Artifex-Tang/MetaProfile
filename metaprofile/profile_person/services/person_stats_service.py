@@ -1,7 +1,7 @@
 """人员画像统计服务。"""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import func, select, text
@@ -50,7 +50,7 @@ class PersonStatsService:
             )
         ).scalar_one()
 
-        period_start = datetime.now(timezone.utc) - timedelta(days=_PERIOD_DAYS)
+        period_start = datetime.now(UTC) - timedelta(days=_PERIOD_DAYS)
 
         new_count: int = (
             await session.execute(
@@ -129,5 +129,5 @@ class PersonStatsService:
             domain_distribution=domain_dist,
             completeness_histogram=completeness_hist,
             llm_contribution_ratio=round(llm_ratio, 4),
-            updated_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(UTC),
         )

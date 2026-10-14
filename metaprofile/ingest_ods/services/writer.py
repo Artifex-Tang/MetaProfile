@@ -1,15 +1,15 @@
 """阶段⑤ 写入：profile 主表 upsert + 评分列 + 变更日志；关系→TripleWriter→Neo4j。"""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaprofile.foundation.relation.triple_writer import TripleWriter
-from metaprofile.ingest_ods.domain.relation_rules import NAME_SATELLITE_PREFIX
 from metaprofile.ingest_ods.domain.orm_models import IngestErrorORM, RelationStagingORM
+from metaprofile.ingest_ods.domain.relation_rules import NAME_SATELLITE_PREFIX
 from metaprofile.profile_org.domain.orm_models import OrgProfileORM
 from metaprofile.profile_person.domain.orm_models import PersonProfileORM
 from metaprofile.profile_project.domain.orm_models import ProjectProfileORM
@@ -112,7 +112,7 @@ class Writer:
         valid_cols = set(orm_cls.__table__.columns.keys())
         merged = {k: v for k, v in merged.items() if k in valid_cols}
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if orm is None:
             merged[id_col] = entity_id
             orm = orm_cls(**merged)

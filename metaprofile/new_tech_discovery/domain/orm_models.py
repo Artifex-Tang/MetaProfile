@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import JSON, Date, Float, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, Date, Float, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from metaprofile.shared.db.base import Base, TimestampMixin
@@ -96,3 +96,29 @@ class TechEmergenceIndicatorORM(Base, TimestampMixin):
     object_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     window_month: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     metrics: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class DisruptionAssessmentORM(Base, TimestampMixin):
+    """颠覆性评估(Phase C):对象×窗口 组件分+合分+LLM rubric 判定。"""
+
+    __tablename__ = "disruption_assessment"
+    __table_args__ = (
+        UniqueConstraint(
+            "object_type", "object_id", "window_month",
+            name="uq_disruption_object_window",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    object_type: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    object_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    window_month: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    novelty_comb: Mapped[float] = mapped_column(Float, default=0.0)
+    growth: Mapped[float] = mapped_column(Float, default=0.0)
+    new_entrant: Mapped[float] = mapped_column(Float, default=0.0)
+    small_team: Mapped[float] = mapped_column(Float, default=0.0)
+    term_novelty: Mapped[float] = mapped_column(Float, default=0.0)
+    disrupt_score: Mapped[float] = mapped_column(Float, default=0.0, index=True)
+    llm_verdict: Mapped[str] = mapped_column(String(16), default="pending")
+    llm_scores: Mapped[dict] = mapped_column(JSON, default=dict)
+    llm_evidence: Mapped[str | None] = mapped_column(Text)

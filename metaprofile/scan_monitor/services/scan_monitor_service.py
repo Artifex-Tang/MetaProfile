@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -163,6 +163,6 @@ class ScanMonitorService:
             alert_type="burst",
             severity="critical",
             message=f"前沿技术融合分={orm.fusion_score:.2f}，超过告警阈值 {_ALERT_THRESHOLD}",
-            fired_at=datetime.now(timezone.utc),
+            fired_at=datetime.now(UTC),
         )
         self._db.add(alert)

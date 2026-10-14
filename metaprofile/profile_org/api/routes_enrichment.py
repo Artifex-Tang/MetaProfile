@@ -37,9 +37,10 @@ async def get_enrichment_task_status(
 
 
 # ── 翻译（en→cn name_cn 补全，#9 非中文策略）──
-from metaprofile.shared.worker.translate_tasks import translate_name  # noqa: E402
 from celery.result import AsyncResult  # noqa: E402
+
 from metaprofile.shared.worker.celery_app import celery_app as _celery_app  # noqa: E402
+from metaprofile.shared.worker.translate_tasks import translate_name  # noqa: E402
 
 
 @router.post("/profile/org/{org_id}/translate")

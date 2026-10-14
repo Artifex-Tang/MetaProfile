@@ -5,7 +5,7 @@ celery AsyncResult 过期即丢，前端轮询外无法回看历史；故落 enr
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import update
@@ -48,10 +48,10 @@ async def finish_task(
     """worker 完成后调用：更新终态 + completed_at。行不存在则静默（兼容未落库的旧任务）。"""
     values: dict[str, Any] = {
         "status": status,
-        "completed_at": datetime.now(timezone.utc),
+        "completed_at": datetime.now(UTC),
     }
     if status == "running" and "started_at" not in values:
-        values["started_at"] = datetime.now(timezone.utc)
+        values["started_at"] = datetime.now(UTC)
     if filled_fields is not None:
         values["filled_fields"] = filled_fields
     if error_msg:

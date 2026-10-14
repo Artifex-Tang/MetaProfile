@@ -6,12 +6,11 @@
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 
 from sqlalchemy import (
     JSON,
     Date,
-    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -67,13 +66,13 @@ class ProjectProfileORM(Base, TimestampMixin):
     dq_index: Mapped[float] = mapped_column(Float, default=0.0, nullable=False, comment="数据质量综合评分0-1")
     data_as_of: Mapped[date | None] = mapped_column(Date)
 
-    histories: Mapped[list["ProjectHistoryORM"]] = relationship(
+    histories: Mapped[list[ProjectHistoryORM]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
-    budgets: Mapped[list["ProjectBudgetORM"]] = relationship(
+    budgets: Mapped[list[ProjectBudgetORM]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
-    outputs: Mapped[list["ProjectOutputORM"]] = relationship(
+    outputs: Mapped[list[ProjectOutputORM]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
 

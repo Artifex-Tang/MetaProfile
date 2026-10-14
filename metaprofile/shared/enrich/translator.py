@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -33,10 +33,10 @@ _SYSTEM_PROMPT = (
 
 def _orm_cls(entity_type: str):
     """entity_type → ORM 类（延迟 import 避免循环）。"""
-    from metaprofile.profile_tech.domain.orm_models import TechProfileORM
     from metaprofile.profile_org.domain.orm_models import OrgProfileORM
     from metaprofile.profile_person.domain.orm_models import PersonProfileORM
     from metaprofile.profile_project.domain.orm_models import ProjectProfileORM
+    from metaprofile.profile_tech.domain.orm_models import TechProfileORM
     return {
         "tech": TechProfileORM, "org": OrgProfileORM,
         "person": PersonProfileORM, "project": ProjectProfileORM,
@@ -95,7 +95,7 @@ async def translate_name_one(
         entity_id=entity_id, entity_type=entity_type, field=cn_field,
         old_value=None, new_value={"name_cn": translated},
         method="llm_translate", operator=None, source_doc_id=None,
-        reason=f"en→cn translate: {en}", changed_at=datetime.now(timezone.utc),
+        reason=f"en→cn translate: {en}", changed_at=datetime.now(UTC),
     ))
     await db.flush()
     return TranslateOutcome(True, new_value=translated)

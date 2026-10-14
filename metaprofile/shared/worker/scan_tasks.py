@@ -5,8 +5,9 @@
 """
 from __future__ import annotations
 
-import structlog
 from typing import Any
+
+import structlog
 
 from metaprofile.scan_monitor.domain.orm_models import FrontierTechORM
 from metaprofile.scan_monitor.services.llm_agent_validator import FrontierAgentValidator

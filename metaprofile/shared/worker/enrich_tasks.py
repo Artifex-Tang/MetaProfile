@@ -7,8 +7,9 @@
 """
 from __future__ import annotations
 
-import structlog
 from typing import Any
+
+import structlog
 
 from metaprofile.foundation.enrichment.llm_filler import LLMFieldFiller
 from metaprofile.profile_org.domain.orm_models import OrgProfileORM

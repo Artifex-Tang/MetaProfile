@@ -86,9 +86,9 @@ async def get_topic_detail(
         raise HTTPException(status_code=404, detail="topic not found")
     detail = TopicDetail.model_validate(row)
     # 解析关联实体名称，避免前端只看到 ID
-    from metaprofile.profile_tech.domain.orm_models import TechProfileORM
     from metaprofile.profile_org.domain.orm_models import OrgProfileORM
     from metaprofile.profile_project.domain.orm_models import ProjectProfileORM
+    from metaprofile.profile_tech.domain.orm_models import TechProfileORM
 
     async def _names(model, id_attr, ids):
         if not ids:

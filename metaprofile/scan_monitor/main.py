@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import FastAPI
 
-from metaprofile.scan_monitor.api import routes_frontier, routes_alert
+from metaprofile.scan_monitor.api import routes_alert, routes_frontier
 from metaprofile.shared.config.settings import settings
 
 logger = structlog.get_logger(__name__)

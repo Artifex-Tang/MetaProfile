@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import NamedTuple
 
 from metaprofile.shared.schemas.base import EntityType, SourceMethod
@@ -100,7 +100,7 @@ def extract_relations(
         所有命中规则的关系三元组
     """
     results: list[RelationTriple] = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     for i, subj in enumerate(spans):
         for j, obj in enumerate(spans):

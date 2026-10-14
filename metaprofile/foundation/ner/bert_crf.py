@@ -7,7 +7,6 @@ BERT-CRF NER 推理客户端。
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import httpx
 import structlog

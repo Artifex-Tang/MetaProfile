@@ -7,7 +7,7 @@ L1 IPC subclass 域 → L2 具体技术概念的树形归属边,为 Spec2/3 真 
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from metaprofile.shared.schemas.base import EntityType, SourceMethod
 from metaprofile.shared.schemas.relations import RelationTriple, RelationType
@@ -23,7 +23,7 @@ def build_containment_triples(
     l2_concepts: [{"entity_id", "name", "parent_ipc"}]
     l1_subclasses: 已建 L1 的 subclass code 集合({"G06T", ...})
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     out: list[RelationTriple] = []
     for c in l2_concepts:
         sub = c.get("parent_ipc")

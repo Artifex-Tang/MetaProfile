@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -41,7 +41,7 @@ async def trigger_collection(
     await session.refresh(task)
 
     # 更新数据源最近运行状态
-    source.last_run_at = datetime.now(timezone.utc)
+    source.last_run_at = datetime.now(UTC)
     source.last_run_status = "running"
 
     # 后台运行，不阻塞请求
@@ -62,7 +62,7 @@ async def _run_collection(
     logs: list[str] = []
 
     def log(msg: str) -> None:
-        logs.append(f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] {msg}")
+        logs.append(f"[{datetime.now(UTC).strftime('%H:%M:%S')}] {msg}")
         logger.info("collector", task_id=task_id, msg=msg)
 
     async with get_session() as session:
@@ -71,7 +71,7 @@ async def _run_collection(
             return
 
         task.status = "running"
-        task.started_at = datetime.now(timezone.utc)
+        task.started_at = datetime.now(UTC)
         await session.flush()
 
         records: list[dict[str, Any]] = []
@@ -120,7 +120,7 @@ async def _run_collection(
             task.status = "failed"
             task.error_msg = error_msg[:500]
         finally:
-            task.completed_at = datetime.now(timezone.utc)
+            task.completed_at = datetime.now(UTC)
             task.log_text = "\n".join(logs[-200:])  # 保留最后200行
             await session.flush()
 

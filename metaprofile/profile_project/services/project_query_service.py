@@ -26,14 +26,14 @@ from metaprofile.profile_project.schemas.response import (
 )
 from metaprofile.shared.db.elasticsearch import ESRepo
 from metaprofile.shared.llm.embedding import get_default_embedding_client
-from metaprofile.shared.utils.enum_util import safe_enum_list
 from metaprofile.shared.schemas.entity_project import (
+    BudgetActivity,
     ProjectBudget,
     ProjectHistory,
     ProjectOutput,
     ProjectStatus,
-    BudgetActivity,
 )
+from metaprofile.shared.utils.enum_util import safe_enum_list
 
 logger = structlog.get_logger(__name__)
 

@@ -5,17 +5,18 @@ run_async 复用 worker 持久 loop（非 asyncio.run，避免 asyncpg 跨任务
 """
 from __future__ import annotations
 
-import structlog
 from typing import Any
 
-from metaprofile.shared.db.postgres import get_session
-from metaprofile.shared.worker.async_runner import run_async
-from metaprofile.shared.worker.celery_app import celery_app
+import structlog
+
+from metaprofile.ingest_ods.collectors.sql_warehouse import run_sql_warehouse_collection
 from metaprofile.settings_api.domain.orm_models import (
     CollectionTaskORM,
     DataSourceConfigORM,
 )
-from metaprofile.ingest_ods.collectors.sql_warehouse import run_sql_warehouse_collection
+from metaprofile.shared.db.postgres import get_session
+from metaprofile.shared.worker.async_runner import run_async
+from metaprofile.shared.worker.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
 

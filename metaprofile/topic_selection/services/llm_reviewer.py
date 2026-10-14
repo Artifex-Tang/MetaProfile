@@ -1,14 +1,13 @@
 """LLM 评审员：对候选选题进行 4 维度评分（新颖性/重要性/可行性/表达）。"""
 from __future__ import annotations
 
+import structlog
 from pydantic import Field
 
 from metaprofile.shared.config.settings import settings
 from metaprofile.shared.llm.function_calling import call_with_schema
 from metaprofile.shared.llm.gateway import LLMGateway
 from metaprofile.shared.schemas.base import ProfileBase
-
-import structlog
 
 logger = structlog.get_logger(__name__)
 

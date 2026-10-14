@@ -10,7 +10,7 @@ context_docs 传空——按需补全以画像自身已知属性为上下文）�
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 import structlog
@@ -122,7 +122,7 @@ async def enrich_one(
         old_value=None,
         new_value={"filled": applied},
         method=SourceMethod.LLM_ENRICH.value,
-        changed_at=datetime.now(timezone.utc),
+        changed_at=datetime.now(UTC),
     ))
     await session.commit()
 

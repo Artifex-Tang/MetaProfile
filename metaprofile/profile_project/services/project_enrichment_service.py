@@ -1,7 +1,7 @@
 """项目画像 RAG 补全服务。"""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import structlog
@@ -44,7 +44,7 @@ class ProjectEnrichmentService:
         name_cn = row[1] if len(row) > 1 else None
         # project name_cn 是 list → 取首个中文名做展示
         entity_name = name_cn[0] if isinstance(name_cn, list) and name_cn else None
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if completeness < _ENRICH_THRESHOLD:
             result = enrich_project.delay(project_id)

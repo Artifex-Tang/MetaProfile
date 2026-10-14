@@ -11,7 +11,8 @@ import structlog
 
 from metaprofile.foundation.enrichment.completeness import score_completeness
 from metaprofile.ingest_ods.services.quality_rules import (
-    credibility_score, timeliness_score,
+    credibility_score,
+    timeliness_score,
 )
 from metaprofile.shared.config.settings import settings
 from metaprofile.shared.schemas.base import EntityType

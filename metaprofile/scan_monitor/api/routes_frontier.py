@@ -4,9 +4,10 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Query
 from celery.result import AsyncResult
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaprofile.scan_monitor.domain.orm_models import FrontierTechORM
 from metaprofile.scan_monitor.schemas.models import (
@@ -18,8 +19,6 @@ from metaprofile.scan_monitor.schemas.models import (
 from metaprofile.shared.db.session import get_db
 from metaprofile.shared.worker.celery_app import celery_app
 from metaprofile.shared.worker.scan_tasks import verify_frontier_tech
-from fastapi import Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -85,6 +84,7 @@ async def trigger_scan(
     评审/演示模式：基于已有画像数据同步生成一批前沿技术 + 告警，确保触发后立即可见。
     """
     from datetime import timedelta
+
     from metaprofile.shared.demo_analysis import generate_frontier
 
     today = date.today()

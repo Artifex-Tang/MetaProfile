@@ -1,11 +1,11 @@
 """同步 LLM 配置到 LiteLLM Proxy。"""
 from __future__ import annotations
 
-import structlog
 import httpx
+import structlog
 
-from metaprofile.shared.config.settings import settings
 from metaprofile.settings_api.domain.orm_models import LLMProviderConfigORM
+from metaprofile.shared.config.settings import settings
 
 logger = structlog.get_logger(__name__)
 

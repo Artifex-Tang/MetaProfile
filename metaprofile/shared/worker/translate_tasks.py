@@ -4,13 +4,18 @@ run_async 复用 worker 持久 loop（非 asyncio.run，避免 asyncpg 跨任务
 """
 from __future__ import annotations
 
-import structlog
 from typing import Any
 
+import structlog
 from sqlalchemy import or_, select
 
 from metaprofile.shared.db.postgres import get_session
-from metaprofile.shared.enrich.translator import NAME_FIELDS, TranslateOutcome, _orm_cls, translate_name_one
+from metaprofile.shared.enrich.translator import (
+    NAME_FIELDS,
+    TranslateOutcome,
+    _orm_cls,
+    translate_name_one,
+)
 from metaprofile.shared.worker.async_runner import run_async
 from metaprofile.shared.worker.celery_app import celery_app
 

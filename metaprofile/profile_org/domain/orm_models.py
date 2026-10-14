@@ -6,13 +6,11 @@
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 
 from sqlalchemy import (
     JSON,
-    Boolean,
     Date,
-    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -61,37 +59,37 @@ class OrgProfileORM(Base, TimestampMixin):
     dq_index: Mapped[float] = mapped_column(Float, default=0.0, nullable=False, comment="数据质量综合评分0-1")
     data_as_of: Mapped[date | None] = mapped_column(Date)
 
-    histories: Mapped[list["OrgHistoryORM"]] = relationship(
+    histories: Mapped[list[OrgHistoryORM]] = relationship(
         back_populates="org", cascade="all, delete-orphan"
     )
-    affiliations: Mapped[list["OrgAffiliationORM"]] = relationship(
+    affiliations: Mapped[list[OrgAffiliationORM]] = relationship(
         back_populates="org", cascade="all, delete-orphan"
     )
-    awards: Mapped[list["OrgAwardORM"]] = relationship(
+    awards: Mapped[list[OrgAwardORM]] = relationship(
         back_populates="org", cascade="all, delete-orphan"
     )
-    budgets: Mapped[list["OrgBudgetORM"]] = relationship(
+    budgets: Mapped[list[OrgBudgetORM]] = relationship(
         back_populates="org", cascade="all, delete-orphan"
     )
-    fundings_received: Mapped[list["OrgFundingReceivedORM"]] = relationship(
+    fundings_received: Mapped[list[OrgFundingReceivedORM]] = relationship(
         back_populates="org", cascade="all, delete-orphan"
     )
-    outputs: Mapped[list["OrgOutputORM"]] = relationship(
+    outputs: Mapped[list[OrgOutputORM]] = relationship(
         back_populates="org", cascade="all, delete-orphan"
     )
-    reviews: Mapped[list["OrgReviewORM"]] = relationship(
+    reviews: Mapped[list[OrgReviewORM]] = relationship(
         back_populates="org", cascade="all, delete-orphan"
     )
-    addresses: Mapped[list["OrgAddressORM"]] = relationship(
+    addresses: Mapped[list[OrgAddressORM]] = relationship(
         back_populates="org", cascade="all, delete-orphan"
     )
-    activities: Mapped[list["OrgActivityORM"]] = relationship(
+    activities: Mapped[list[OrgActivityORM]] = relationship(
         back_populates="org", cascade="all, delete-orphan"
     )
-    team: Mapped["OrgTeamORM | None"] = relationship(
+    team: Mapped[OrgTeamORM | None] = relationship(
         back_populates="org", cascade="all, delete-orphan", uselist=False
     )
-    facilities: Mapped[list["OrgFacilityORM"]] = relationship(
+    facilities: Mapped[list[OrgFacilityORM]] = relationship(
         back_populates="org", cascade="all, delete-orphan"
     )
 

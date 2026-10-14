@@ -26,6 +26,7 @@ from metaprofile.profile_org.schemas.response import (
 )
 from metaprofile.shared.db.elasticsearch import ESRepo
 from metaprofile.shared.llm.embedding import get_default_embedding_client
+from metaprofile.shared.schemas.base import ReviewType
 from metaprofile.shared.schemas.entity_org import (
     OrgActivity,
     OrgAddress,
@@ -41,7 +42,6 @@ from metaprofile.shared.schemas.entity_org import (
     OrgTeam,
     OrgType,
 )
-from metaprofile.shared.schemas.base import ReviewType
 from metaprofile.shared.utils.enum_util import safe_enum, safe_enum_list
 
 logger = structlog.get_logger(__name__)

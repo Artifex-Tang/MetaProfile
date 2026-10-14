@@ -1,7 +1,7 @@
 """人员画像核心服务：生成、更新、批量导入。"""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import structlog
@@ -165,7 +165,7 @@ class PersonProfileService:
             new_value={"action": "create"},
             method=method.value,
             source_doc_id=source_doc_id,
-            changed_at=datetime.now(timezone.utc),
+            changed_at=datetime.now(UTC),
         ))
 
         await session.flush()
@@ -195,7 +195,7 @@ class PersonProfileService:
         updatable = payload.model_dump(
             exclude={"operator", "reason"}, exclude_none=True
         )
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for field, new_val in updatable.items():
             old_val = getattr(orm, field, None)
@@ -237,5 +237,5 @@ class PersonProfileService:
         return BulkImportResult(
             task_id=task_id,
             accepted_count=accepted,
-            submitted_at=datetime.now(timezone.utc),
+            submitted_at=datetime.now(UTC),
         )

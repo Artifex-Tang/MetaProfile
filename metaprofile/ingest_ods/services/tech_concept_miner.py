@@ -11,7 +11,7 @@ import json
 import structlog
 from pydantic import TypeAdapter
 
-from metaprofile.ingest_ods.llm.prompts import MinedTechTerm, TECH_MINER_SYSTEM_PROMPT
+from metaprofile.ingest_ods.llm.prompts import TECH_MINER_SYSTEM_PROMPT, MinedTechTerm
 from metaprofile.shared.config.settings import settings
 
 logger = structlog.get_logger(__name__)

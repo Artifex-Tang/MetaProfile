@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import random
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,7 +87,7 @@ async def generate_frontier(session: AsyncSession, *, period_from: date,
                 alert_type=rng.choice(_ALERT_TYPES),
                 severity=rng.choice(["info", "warn", "critical"]),
                 message=f"{t['tech_name']}{rng.choice(_ALERT_MSG)}",
-                fired_at=datetime.now(timezone.utc), is_read=False,
+                fired_at=datetime.now(UTC), is_read=False,
             ))
     await session.commit()
     return n

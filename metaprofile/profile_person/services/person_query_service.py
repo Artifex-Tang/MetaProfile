@@ -11,7 +11,6 @@ from sqlalchemy.orm import selectinload
 
 from metaprofile.profile_person.domain.orm_models import (
     EntityChangeLogORM,
-    PersonFocusORM,
     PersonProfileORM,
 )
 from metaprofile.profile_person.schemas.request import (
@@ -28,7 +27,6 @@ from metaprofile.profile_person.schemas.response import (
 from metaprofile.shared.db.elasticsearch import ESRepo
 from metaprofile.shared.llm.embedding import get_default_embedding_client
 from metaprofile.shared.schemas.base import ReviewType
-from metaprofile.shared.utils.enum_util import safe_enum
 from metaprofile.shared.schemas.entity_person import (
     AcademicForm,
     AuthorRank,
@@ -44,6 +42,7 @@ from metaprofile.shared.schemas.entity_person import (
     PersonReformFocus,
     PersonReview,
 )
+from metaprofile.shared.utils.enum_util import safe_enum
 
 logger = structlog.get_logger(__name__)
 

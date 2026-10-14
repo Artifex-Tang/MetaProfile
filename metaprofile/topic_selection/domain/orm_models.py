@@ -1,9 +1,7 @@
 """选题服务 ORM 模型：选题候选存储。"""
 from __future__ import annotations
 
-from datetime import date
-
-from sqlalchemy import Date, Float, Integer, JSON, String, Text
+from sqlalchemy import JSON, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from metaprofile.shared.db.base import Base, TimestampMixin

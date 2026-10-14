@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import structlog
 from pydantic import Field
 
 from metaprofile.shared.config.settings import settings
@@ -12,8 +13,6 @@ from metaprofile.shared.llm.function_calling import call_with_schema
 from metaprofile.shared.llm.gateway import LLMGateway
 from metaprofile.shared.schemas.base import ProfileBase
 from metaprofile.topic_selection.services.input_aggregator import AggregatedInput
-
-import structlog
 
 logger = structlog.get_logger(__name__)
 

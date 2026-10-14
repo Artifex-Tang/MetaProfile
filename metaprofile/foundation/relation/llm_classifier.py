@@ -8,8 +8,7 @@ LLM 关系分类器。
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 from pydantic import Field
 
@@ -103,5 +102,5 @@ class LLMRelationClassifier:
             confidence=result.confidence,
             source_doc_id=source_doc_id,
             method=SourceMethod.LLM_EXTRACT,
-            extracted_at=datetime.now(timezone.utc),
+            extracted_at=datetime.now(UTC),
         )

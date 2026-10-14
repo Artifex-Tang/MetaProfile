@@ -4,13 +4,16 @@ scheduled_task CRUD + 立即执行 + cron 校验；批量翻译触发。
 """
 from __future__ import annotations
 
+from croniter import croniter
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from croniter import croniter
-
 from metaprofile.settings_api.services.scheduler_service import (
-    create_task, delete_task, get_task, list_tasks, run_now, update_task,
+    create_task,
+    delete_task,
+    list_tasks,
+    run_now,
+    update_task,
 )
 from metaprofile.shared.db.session import get_db
 from metaprofile.shared.worker.translate_tasks import batch_translate_names

@@ -13,7 +13,6 @@ from typing import Any
 
 import structlog
 
-from metaprofile.shared.schemas.base import EntityType
 from metaprofile.shared.utils.date_normalizer import normalize_date
 
 logger = structlog.get_logger(__name__)

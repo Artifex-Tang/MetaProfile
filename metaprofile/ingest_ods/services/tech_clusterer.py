@@ -1,6 +1,7 @@
 """L2 同义聚类:术语归一(别名词典 + 规范化)→ 稳定 entity_id。
 embedding 余弦合并留 P2(共现网)一并做;P1 先用词典归一兜底,保证明显同义合并。"""
 from __future__ import annotations
+
 import hashlib
 import re
 

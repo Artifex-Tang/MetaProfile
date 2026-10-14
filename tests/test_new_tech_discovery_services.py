@@ -8,7 +8,6 @@ import pytest
 
 from metaprofile.new_tech_discovery.services.weak_signal_extractor import SignalStrengthQuantifier
 
-
 # ─── helpers ──────────────────────────────────────────────────────────────────
 
 def _make_period() -> tuple[date, date]:
@@ -150,7 +149,10 @@ class TestTrendRecognizer:
 class TestAdaptiveThreshold:
     @pytest.mark.asyncio
     async def test_compute_returns_default_on_db_error(self):
-        from metaprofile.new_tech_discovery.services.adaptive_threshold import AdaptiveThreshold, _DEFAULT_THRESHOLD
+        from metaprofile.new_tech_discovery.services.adaptive_threshold import (
+            _DEFAULT_THRESHOLD,
+            AdaptiveThreshold,
+        )
         mock_db = AsyncMock()
         mock_db.execute.side_effect = Exception("DB unavailable")
         threshold = AdaptiveThreshold(mock_db)
@@ -183,8 +185,8 @@ class TestAdaptiveThreshold:
 class TestNetworkCorrelator:
     @pytest.mark.asyncio
     async def test_build_network_with_related_ids(self):
-        from metaprofile.new_tech_discovery.services.network_correlator import NetworkCorrelator
         from metaprofile.new_tech_discovery.domain.orm_models import WeakSignalORM
+        from metaprofile.new_tech_discovery.services.network_correlator import NetworkCorrelator
 
         mock_db = AsyncMock()
         mock_db.add = MagicMock()

@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -26,7 +26,6 @@ from metaprofile.profile_project.services.project_query_service import ProjectQu
 from metaprofile.profile_project.services.project_relation_service import ProjectRelationService
 from metaprofile.profile_project.services.project_stats_service import ProjectStatsService
 from metaprofile.shared.schemas.entity_project import ProjectProfile
-
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -206,7 +205,7 @@ class TestProjectQueryService:
         session.execute = AsyncMock(side_effect=[count_result, rows_result])
 
         svc = ProjectQueryService()
-        since = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        since = datetime(2026, 1, 1, tzinfo=UTC)
         result = await svc.list_changes(session, since=since, until=None, limit=100)
         assert result.total == 0
         assert result.items == []
@@ -426,7 +425,7 @@ class TestProjectStatsService:
             domain_distribution={"信息技术": 10},
             completeness_histogram={"60-80": 8},
             llm_contribution_ratio=0.8,
-            updated_at=datetime.now(timezone.utc).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
         )
         with patch.object(
             svc._cache, "get", new_callable=AsyncMock, return_value=cached_data

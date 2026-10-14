@@ -12,16 +12,13 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from decimal import Decimal
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import inspect, select, text
+from sqlalchemy import inspect, text
 
-from metaprofile.shared.llm.gateway import LLMResponse
 from metaprofile.shared.llm import token_meter
-
+from metaprofile.shared.llm.gateway import LLMResponse
 
 # ── 单元测试(无 DB) ─────────────────────────────────────────────────────────
 
@@ -76,7 +73,6 @@ async def _migration_table(test_dsn, db_engine):
     验证 migration 文件,这里先 drop 该表 + 相关 alembic 记录,再用 alembic op
     上下文直接跑 migration.upgrade()。
     """
-    import importlib
     from sqlalchemy.ext.asyncio import create_async_engine
 
     mod = _load_migration_mod()
@@ -165,8 +161,6 @@ async def test_migration_creates_table_and_indexes(_migration_table):
 @pytest.mark.asyncio
 async def test_record_call_async_writes_row_without_warning(_migration_table, caplog):
     """gateway 记日志路径不再 warn llm_call_log_record_failed,行可读回。"""
-    from metaprofile.shared.db.postgres import get_session
-    from metaprofile.shared.db.base import Base
     # 确保表已建(migration 已建);get_session 用生产 DSN 配置 → 跳到测试库由
     # 环境变量 POSTGRES_DSN 决定。集成测试需指向同一 DB。
 

@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from metaprofile.shared.schemas.base import EntityType
 from metaprofile.shared.schemas.relations import RelationTriple, RelationType
@@ -31,7 +31,7 @@ def test_relation_triple_accepts_satellite_endpoints():
         object_type=EntityType.STRATEGY,
         object_name="某战略",
         confidence=0.9,
-        extracted_at=datetime.now(timezone.utc),
+        extracted_at=datetime.now(UTC),
     )
     assert tri.object_type == EntityType.STRATEGY
     assert tri.subject_type == EntityType.ORG
@@ -39,8 +39,8 @@ def test_relation_triple_accepts_satellite_endpoints():
 
 def test_neo4j_labels_cover_satellites():
     """Neo4j label 图覆盖 5 卫星类(两个消费点:repo EntityType 键 + triple_writer value 键)。"""
-    from metaprofile.foundation.storage.neo4j_repo import _ENTITY_LABELS as repo_labels
     from metaprofile.foundation.relation.triple_writer import _ENTITY_LABELS as tw_labels
+    from metaprofile.foundation.storage.neo4j_repo import _ENTITY_LABELS as repo_labels
 
     satellites = (EntityType.STRATEGY, EntityType.EVENT, EntityType.ENTERPRISE,
                   EntityType.CONTRACT, EntityType.PACKAGE)

@@ -2,13 +2,11 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Literal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from metaprofile.topic_selection.services.score_fusion import ScoreFusion, TopicCandidate
-
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -210,7 +208,11 @@ class TestImpactStrategyScorer:
 
     @pytest.mark.asyncio
     async def test_score_capped_at_one(self):
-        from metaprofile.topic_selection.services.strategy_impact import ImpactStrategyScorer, _ORG_MAX, _PROJ_MAX
+        from metaprofile.topic_selection.services.strategy_impact import (
+            _ORG_MAX,
+            _PROJ_MAX,
+            ImpactStrategyScorer,
+        )
         scorer = ImpactStrategyScorer()
         org_resp = MagicMock()
         org_resp.status_code = 200
@@ -329,7 +331,9 @@ class TestLLMRagStrategyScorer:
     @pytest.mark.asyncio
     async def test_generate_returns_suggestions(self):
         from metaprofile.topic_selection.services.strategy_llm_rag import (
-            LLMRagStrategyScorer, TopicSuggestion, TopicSuggestions
+            LLMRagStrategyScorer,
+            TopicSuggestion,
+            TopicSuggestions,
         )
         mock_gateway = MagicMock()
         scorer = LLMRagStrategyScorer(mock_gateway)

@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from metaprofile.foundation.disambiguation.candidate_recall import (
-    CandidatePair,
     CandidateRecaller,
 )
 from metaprofile.foundation.disambiguation.llm_judge import (
@@ -17,12 +16,10 @@ from metaprofile.foundation.disambiguation.llm_judge import (
 )
 from metaprofile.foundation.disambiguation.merger import (
     EntityMerger,
-    MergeResult,
     _is_empty,
     _merge_attributes,
 )
 from metaprofile.shared.schemas.base import EntityType
-
 
 # ─── CandidateRecaller ────────────────────────────────────────────────────────
 

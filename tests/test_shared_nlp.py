@@ -1,12 +1,9 @@
 """单元测试：shared/nlp 模块（无外部依赖）。"""
 from __future__ import annotations
 
-import pytest
-
-from metaprofile.shared.nlp.burst_detection import BurstResult, compute_burst_scores
+from metaprofile.shared.nlp.burst_detection import compute_burst_scores
 from metaprofile.shared.nlp.keyword import extract_keywords, extract_tfidf
 from metaprofile.shared.nlp.tokenizer import get_tokenizer
-
 
 # ─── tokenizer ──────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-from metaprofile.ingest_ods.services.security import encrypt_pw, decrypt_pw
+from metaprofile.ingest_ods.services.security import decrypt_pw, encrypt_pw
 
 
 def test_encrypt_decrypt_roundtrip() -> None:

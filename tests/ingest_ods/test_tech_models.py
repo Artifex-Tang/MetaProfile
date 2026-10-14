@@ -1,6 +1,6 @@
-from metaprofile.shared.schemas.relations import RelationType
-from metaprofile.profile_tech.domain.orm_models import TechProfileORM
 from metaprofile.ingest_ods.domain.orm_models import TechEvidenceORM
+from metaprofile.profile_tech.domain.orm_models import TechProfileORM
+from metaprofile.shared.schemas.relations import RelationType
 
 
 def test_relation_type_has_tech_contains():

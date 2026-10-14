@@ -1,5 +1,6 @@
 import asyncio
 from datetime import date, timedelta
+
 from metaprofile.ingest_ods.services.scorer import RuleScorer
 
 

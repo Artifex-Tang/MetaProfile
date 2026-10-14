@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 from metaprofile.ingest_ods.services.watermark import WatermarkStore
@@ -23,6 +23,6 @@ def test_set_and_get_roundtrip() -> None:
 
 def test_set_watermark_datetime() -> None:
     src = _source()
-    ts = datetime(2026, 6, 17, tzinfo=timezone.utc)
+    ts = datetime(2026, 6, 17, tzinfo=UTC)
     WatermarkStore.set(src, "last_watermark", ts)
     assert WatermarkStore.get(src, "last_watermark") == ts.isoformat()

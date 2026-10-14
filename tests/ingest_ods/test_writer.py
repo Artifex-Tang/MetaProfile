@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -66,7 +66,7 @@ async def test_write_relations_ensures_satellite_nodes_before_write() -> None:
         object_name="张三",
         confidence=1.0,
         method=SourceMethod.RULE,
-        extracted_at=datetime.now(timezone.utc),
+        extracted_at=datetime.now(UTC),
     )
     await w.write_relations([tri])
 

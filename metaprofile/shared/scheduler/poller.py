@@ -5,7 +5,7 @@ task_type→celery 任务 由 TASK_DISPATCH 注册表懒构造（import 时 cele
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from croniter import croniter
 
@@ -41,11 +41,32 @@ TASK_DISPATCH: dict[str, object] = {}
 
 def _build_registry() -> dict[str, object]:
     from metaprofile.shared.worker.collection_tasks import run_collection
+    from metaprofile.shared.worker.newtech_tasks import (
+        compute_disruption,
+        compute_emergence,
+        extract_weak_signals,
+    )
     from metaprofile.shared.worker.translate_tasks import batch_translate_names
     return {
         "translate_batch": lambda **p: batch_translate_names.delay(p.get("entity_type")),
         # task_type=collection → celery worker 跑 run_sql_warehouse_collection（5 阶段灌库）
         "collection": lambda **p: run_collection.delay(p.get("source_id")),
+        # Phase E3(2026-10-14):情报管线 cron 类型
+        # weak_signal_scan: 定时弱信号提取(默认回看 days 天)
+        "weak_signal_scan": lambda **p: extract_weak_signals.delay(
+            period_from=(
+                date.today() - timedelta(days=int(p.get("days", 90)))
+            ).isoformat(),
+            period_to=date.today().isoformat(),
+            domain=p.get("domain"),
+        ),
+        # emergence_scan: 新兴指标+颠覆分重算
+        "emergence_scan": lambda **p: compute_emergence.delay(
+            years_back=p.get("years_back"),
+        ),
+        "disruption_scan": lambda **p: compute_disruption.delay(
+            years_back=p.get("years_back"), llm=p.get("llm"),
+        ),
     }
 
 

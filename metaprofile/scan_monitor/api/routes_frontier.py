@@ -81,15 +81,27 @@ async def trigger_scan(
 ) -> ScanTaskResponse:
     """手动触发前沿技术扫描任务。
 
-    评审/演示模式：基于已有画像数据同步生成一批前沿技术 + 告警，确保触发后立即可见。
+    Phase E1(2026-10-14):优先真数据(弱信号+新兴指标+颠覆分融合候选);
+    三源全空(冷启动/评审环境)→ 回落 demo 生成,保证触发后立即可见。
     """
     from datetime import timedelta
 
+    from metaprofile.scan_monitor.services.frontier_candidate_service import (
+        build_frontier_candidates,
+    )
     from metaprofile.shared.demo_analysis import generate_frontier
 
     today = date.today()
     pf = period_from or (today - timedelta(days=30))
     pt = period_to or today
+    try:
+        res = await build_frontier_candidates(db, period_from=pf, period_to=pt)
+        await db.commit()
+        if res["candidates"] > 0:
+            return ScanTaskResponse(task_id=res["task_id"], period_from=pf, period_to=pt)
+    except Exception as exc:  # noqa: BLE001  真数据失败回落 demo
+        from structlog import get_logger
+        get_logger(__name__).warning("frontier_real_scan_failed", error=str(exc))
     task_id = f"scan-{uuid.uuid4().hex[:12]}"
     await generate_frontier(db, period_from=pf, period_to=pt,
                             count=8, seed=abs(hash(task_id)) % 1000)

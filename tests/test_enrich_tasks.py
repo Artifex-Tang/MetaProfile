@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from metaprofile.shared.enrich.orm_enricher import EnrichOutcome
 from metaprofile.shared.schemas.base import EntityType
 

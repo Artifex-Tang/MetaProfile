@@ -4,13 +4,9 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from metaprofile.shared.schemas.base import EntityType, ReviewType, SourceMethod
+from metaprofile.shared.schemas.base import EntityType, SourceMethod
 from metaprofile.shared.schemas.entity_tech import TechExtractionResult, TechProfile
-from metaprofile.shared.schemas.entity_org import OrgProfile
-from metaprofile.shared.schemas.entity_person import PersonProfile
-from metaprofile.shared.schemas.entity_project import ProjectProfile
 from metaprofile.shared.schemas.relations import RelationTriple, RelationType
-
 
 # ─── TechProfile ────────────────────────────────────────────────────────────
 

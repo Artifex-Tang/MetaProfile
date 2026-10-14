@@ -9,8 +9,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -20,7 +19,6 @@ from metaprofile.foundation.storage.postgres_repo import PostgresRepo
 from metaprofile.foundation.storage.unified_repo import UnifiedRepo
 from metaprofile.shared.schemas.base import EntityType, SourceMethod
 from metaprofile.shared.schemas.relations import RelationTriple, RelationType
-
 
 # ─── PostgresRepo ────────────────────────────────────────────────────────────
 

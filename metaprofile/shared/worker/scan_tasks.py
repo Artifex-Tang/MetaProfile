@@ -41,15 +41,24 @@ async def _async_verify(frontier_id: int, task_id: str) -> dict[str, Any]:
             elif verdict.final_decision == "否":
                 row.status = "rejected"
             # "待定" → 保持原 status（通常 pending）
+            # Phase E2(子项目3 v1):validated → 选题候选联动
+            topics_created = 0
+            if row.status == "validated":
+                from metaprofile.scan_monitor.services.frontier_candidate_service import (
+                    sync_validated_to_topics,
+                )
+                topics_created = await sync_validated_to_topics(session)
             logger.info(
                 "frontier_verified",
                 frontier_id=frontier_id, task_id=task_id,
                 verdict=verdict.final_decision, status=row.status,
+                topics_created=topics_created,
             )
             return {
                 "status": "done",
                 "llm_verdict": verdict.final_decision,
                 "frontier_status": row.status,
+                "topics_created": topics_created,
             }
     except Exception as exc:  # noqa: BLE001
         logger.warning("frontier_verify_failed", frontier_id=frontier_id, error=str(exc))

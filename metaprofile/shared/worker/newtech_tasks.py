@@ -123,3 +123,26 @@ def compute_disruption(
 ) -> dict[str, Any]:
     """颠覆性评估(Phase C):组件 z 合分 + 漏斗 LLM Rotolo rubric。"""
     return run_async(_async_disruption(years_back, db_connection_id, llm))
+
+
+async def _async_tech_graph() -> dict[str, Any]:
+    from metaprofile.new_tech_discovery.services.tech_graph_service import (
+        build_cooccurrence_edges,
+        build_temporal_evolve_edges,
+    )
+
+    try:
+        async with get_session() as session:
+            co = await build_cooccurrence_edges(session)
+            ev = await build_temporal_evolve_edges(session)
+            await session.commit()
+            return {"status": "done", "cooccurrence": co, "evolve": ev}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("tech_graph_task_failed", error=str(exc))
+        return {"status": "failed", "error": str(exc)}
+
+
+@celery_app.task(name="metaprofile.newtech.build_tech_graph")
+def build_tech_graph() -> dict[str, Any]:
+    """tech-tech 真挖掘(Phase E4/E5):共现网 + 时序演进链 → Neo4j。"""
+    return run_async(_async_tech_graph())

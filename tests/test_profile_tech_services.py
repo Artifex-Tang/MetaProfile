@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -26,7 +26,6 @@ from metaprofile.profile_tech.services.tech_query_service import TechQueryServic
 from metaprofile.profile_tech.services.tech_relation_service import TechRelationService
 from metaprofile.profile_tech.services.tech_stats_service import TechStatsService
 from metaprofile.shared.schemas.entity_tech import TechProfile
-
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -197,7 +196,7 @@ class TestTechQueryService:
         session.execute = AsyncMock(side_effect=[count_result, rows_result])
 
         svc = TechQueryService()
-        since = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        since = datetime(2026, 1, 1, tzinfo=UTC)
         result = await svc.list_changes(session, since=since, until=None, limit=100)
         assert result.total == 0
         assert result.items == []
@@ -415,7 +414,7 @@ class TestTechStatsService:
             domain_distribution={"AI": 20},
             completeness_histogram={"60-80": 30},
             llm_contribution_ratio=0.75,
-            updated_at=datetime.now(timezone.utc).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
         )
         with patch.object(
             svc._cache, "get", new_callable=AsyncMock, return_value=cached_data

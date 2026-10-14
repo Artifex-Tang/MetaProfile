@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -26,7 +26,6 @@ from metaprofile.profile_person.services.person_query_service import PersonQuery
 from metaprofile.profile_person.services.person_relation_service import PersonRelationService
 from metaprofile.profile_person.services.person_stats_service import PersonStatsService
 from metaprofile.shared.schemas.entity_person import PersonProfile
-
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -208,7 +207,7 @@ class TestPersonQueryService:
         session.execute = AsyncMock(side_effect=[count_result, rows_result])
 
         svc = PersonQueryService()
-        since = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        since = datetime(2026, 1, 1, tzinfo=UTC)
         result = await svc.list_changes(session, since=since, until=None, limit=100)
         assert result.total == 0
         assert result.items == []
@@ -428,7 +427,7 @@ class TestPersonStatsService:
             domain_distribution={"量子物理": 30},
             completeness_histogram={"60-80": 50},
             llm_contribution_ratio=0.7,
-            updated_at=datetime.now(timezone.utc).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
         )
         with patch.object(
             svc._cache, "get", new_callable=AsyncMock, return_value=cached_data

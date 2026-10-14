@@ -7,10 +7,9 @@ import pytest
 
 from metaprofile.foundation.cleaners.deduplicator import Deduplicator, _normalize_title
 from metaprofile.foundation.cleaners.normalizer import normalize
+from metaprofile.foundation.cleaners.pipeline import CleaningPipeline
 from metaprofile.foundation.cleaners.validator import ValidateOutcome, validate
-from metaprofile.foundation.cleaners.pipeline import CleaningPipeline, PipelineStats
 from metaprofile.foundation.collectors.base import RawDocument
-
 
 # ─── 测试工厂 ────────────────────────────────────────────────────────────────
 

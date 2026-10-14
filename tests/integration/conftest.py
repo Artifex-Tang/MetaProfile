@@ -12,7 +12,7 @@ import os
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 # 导入所有 ORM 让 metadata 完整
 import metaprofile.foundation.storage.orm_models  # noqa: F401

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from metaprofile.ingest_ods.domain.orm_models import (
-    DBConnectionORM, IngestRawORM, RelationStagingORM, IngestErrorORM,
+    DBConnectionORM,
+    IngestErrorORM,
+    IngestRawORM,
+    RelationStagingORM,
 )
-from metaprofile.profile_tech.domain.orm_models import TechProfileORM
 from metaprofile.profile_org.domain.orm_models import OrgProfileORM
 from metaprofile.profile_person.domain.orm_models import PersonProfileORM
 from metaprofile.profile_project.domain.orm_models import ProjectProfileORM
+from metaprofile.profile_tech.domain.orm_models import TechProfileORM
 
 
 def _cols(orm_cls) -> set[str]:

@@ -114,6 +114,7 @@ class RelationType(StrEnum):
     TECH_EVOLVE = "演进"
     TECH_PREREQ = "前置"
     TECH_CONTAINS = "包含"   # L1 技术域 contains L2 具体技术(section→subclass→concept)
+    TECH_CO_OCCURS = "共现"  # 经 2026-10-14 评审新增(Phase E4:同文档 L2 共现网)
 
 
 class RelationTriple(ProfileBase):

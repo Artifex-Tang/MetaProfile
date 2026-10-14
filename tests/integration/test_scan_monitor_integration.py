@@ -1,7 +1,7 @@
 """集成测试：scan_monitor 域模型持久化（需真实 PostgreSQL）。"""
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -52,7 +52,7 @@ async def test_scan_alert_created(db_session):
         alert_type="burst",
         severity="warn",
         message="专利异动超基线 2.5 倍",
-        fired_at=datetime.now(timezone.utc),
+        fired_at=datetime.now(UTC),
     )
     db_session.add(alert)
     await db_session.flush()
@@ -66,6 +66,7 @@ async def test_multiple_frontier_records_ordered(db_session):
     await db_session.flush()
 
     from sqlalchemy import desc, select
+
     from metaprofile.scan_monitor.domain.orm_models import FrontierTechORM as ORM
     rows = (await db_session.execute(
         select(ORM).where(ORM.scan_task_id.like("scan-order-%"))

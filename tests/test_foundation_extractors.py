@@ -17,7 +17,6 @@ from metaprofile.foundation.ner.bert_crf import NERSpan
 from metaprofile.shared.schemas.base import EntityType
 from metaprofile.shared.schemas.entity_tech import TechExtractionResult
 
-
 # ─── rules.py ───────────────────────────────────────────────────────────────
 
 class TestRulesPatent:

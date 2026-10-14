@@ -1,0 +1,13 @@
+# 本机端口冲突 override(仅本机使用,勿进部署 kit):
+# - ga-frontend 容器占 8000 → backend 不映射宿主端口
+# - graphiti-neo4j 容器占 7474/7687 → neo4j 映射到 17474/17687
+# 容器间互通走 compose 内网(bolt://neo4j:7687),不受宿主映射影响。
+# 用法:docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml \
+#       -f deploy/docker-compose.local.ports.yml up -d <svc>
+services:
+  backend:
+    ports: !override []
+  neo4j:
+    ports:
+      - "127.0.0.1:17474:7474"
+      - "127.0.0.1:17687:7687"

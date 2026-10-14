@@ -29,10 +29,12 @@ const REL_LABEL: Record<string, string> = {
   PROJECT_RESEARCHER: '研究', PROJECT_INVOLVE_TECH: '涉及', PROJECT_NEXT_PHASE: '转阶段',
   PERSON_AFFILIATED_ORG: '隶属', PERSON_COOPERATE: '合作', PERSON_SUPERIOR: '上级',
   TECH_CONTRIBUTOR: '贡献者', TECH_REVIEWED_BY: '被评议',
-  TECH_EVOLVE: '演进', TECH_PREREQ: '前置',
+  TECH_EVOLVE: '演进', TECH_PREREQ: '前置', TECH_CONTAINS: '包含',
+  TECH_CO_OCCURS: '共现',
   // 中文键（mock 落库类型为中文值时命中）
   隶属: '隶属', 资助: '资助', 承研: '承研', 合作: '合作', 涉及: '涉及',
   管理: '管理', 研究: '研究', 贡献者: '贡献者', 演进: '演进', 前置: '前置',
+  包含: '包含', 共现: '共现',
 }
 
 export const relLabel = (r?: string | null) => (r && REL_LABEL[r]) ? REL_LABEL[r] : (r ?? '')

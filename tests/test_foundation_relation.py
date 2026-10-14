@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -16,10 +16,9 @@ from metaprofile.foundation.relation.rule_extractor import (
     _match_rules,
     extract_relations,
 )
-from metaprofile.foundation.relation.triple_writer import TripleWriter, WriteStats
+from metaprofile.foundation.relation.triple_writer import TripleWriter
 from metaprofile.shared.schemas.base import EntityType, SourceMethod
 from metaprofile.shared.schemas.relations import RelationTriple, RelationType
-
 
 # ─── rule_extractor ──────────────────────────────────────────────────────────
 
@@ -264,7 +263,7 @@ def _make_triple(
         confidence=0.85,
         source_doc_id="doc1",
         method=SourceMethod.RULE,
-        extracted_at=datetime.now(timezone.utc),
+        extracted_at=datetime.now(UTC),
     )
 
 
@@ -343,7 +342,7 @@ async def test_triple_writer_caps_evidence_at_500_chars():
         evidence=long_evidence,
         confidence=0.8,
         method=SourceMethod.RULE,
-        extracted_at=datetime.now(timezone.utc),
+        extracted_at=datetime.now(UTC),
     )
 
     writer = TripleWriter(neo4j_repo=mock_neo4j)

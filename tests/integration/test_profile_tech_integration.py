@@ -1,8 +1,6 @@
 """集成测试：profile_tech 服务层（需真实 PostgreSQL）。"""
 from __future__ import annotations
 
-from datetime import date
-
 import pytest
 
 from metaprofile.profile_tech.domain.orm_models import TechProfileORM

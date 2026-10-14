@@ -5,25 +5,20 @@
 """
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from datetime import date, UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 
 from metaprofile.foundation.collectors.base import (
-    AbstractCollector,
-    CollectError,
     CollectQuery,
     RawDocument,
 )
-from metaprofile.foundation.collectors.patent_cnipa import CNIPACollector
-from metaprofile.foundation.collectors.paper_wos import WoSCollector
-from metaprofile.foundation.collectors.project_nsfc import NSFCCollector
 from metaprofile.foundation.collectors.enterprise_tianyancha import TianyanchaColl
+from metaprofile.foundation.collectors.paper_wos import WoSCollector
+from metaprofile.foundation.collectors.patent_cnipa import CNIPACollector
 from metaprofile.foundation.collectors.policy_gov import PolicyGovCollector
-
+from metaprofile.foundation.collectors.project_nsfc import NSFCCollector
 
 # ─── 测试辅助 ────────────────────────────────────────────────────────────────
 

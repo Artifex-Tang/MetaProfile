@@ -1,4 +1,4 @@
-from metaprofile.ingest_ods.services.tech_clusterer import normalize_term, cluster_entity_id
+from metaprofile.ingest_ods.services.tech_clusterer import cluster_entity_id, normalize_term
 
 
 def test_normalize_alias_dict():

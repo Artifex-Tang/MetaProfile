@@ -1,4 +1,4 @@
-from metaprofile.ingest_ods.domain.ipc_taxonomy import subclass_of, section_of, name_of
+from metaprofile.ingest_ods.domain.ipc_taxonomy import name_of, section_of, subclass_of
 
 
 def test_subclass_of_strips_version_suffix():

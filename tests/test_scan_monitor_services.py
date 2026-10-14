@@ -1,16 +1,17 @@
 """单元测试：scan_monitor 信号服务 + 融合评分 + LLM 验证 + TRL 标注。"""
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
-from typing import Any
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from metaprofile.scan_monitor.services.fusion_scorer import FrontierTechFusionScorer
-from metaprofile.scan_monitor.services.llm_agent_validator import FrontierAgentValidator, FrontierAgentVerdict
+from metaprofile.scan_monitor.services.llm_agent_validator import (
+    FrontierAgentValidator,
+    FrontierAgentVerdict,
+)
 from metaprofile.scan_monitor.services.trl_annotator import TRLAnnotation, TRLAnnotator
-
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -153,7 +154,10 @@ class TestCitationSignalScorer:
 
     @pytest.mark.asyncio
     async def test_score_high_citations(self):
-        from metaprofile.scan_monitor.services.signal_citation import CitationSignalScorer, _HIGH_CITATION_THRESHOLD, _MIN_CLUSTER_SIZE
+        from metaprofile.scan_monitor.services.signal_citation import (
+            _HIGH_CITATION_THRESHOLD,
+            CitationSignalScorer,
+        )
         scorer = CitationSignalScorer()
         pf, pt = _make_period()
 
@@ -187,7 +191,10 @@ class TestCitationSignalScorer:
 class TestInvestSignalScorer:
     @pytest.mark.asyncio
     async def test_score_invest_capped_at_one(self):
-        from metaprofile.scan_monitor.services.signal_invest import InvestSignalScorer, _INVEST_HIGH_THRESHOLD_M
+        from metaprofile.scan_monitor.services.signal_invest import (
+            _INVEST_HIGH_THRESHOLD_M,
+            InvestSignalScorer,
+        )
         scorer = InvestSignalScorer()
         pf, pt = _make_period()
 

@@ -1,7 +1,10 @@
 import pytest
 
 from metaprofile.ingest_ods.llm.prompts import (
-    DisambigResult, MinedEntity, MinedRelation, ScoreOutput, _PREDICATE_MAP,
+    _PREDICATE_MAP,
+    DisambigResult,
+    MinedEntity,
+    ScoreOutput,
     map_predicate,
 )
 from metaprofile.shared.schemas.relations import RelationType

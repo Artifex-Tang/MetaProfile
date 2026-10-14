@@ -20,7 +20,11 @@ from metaprofile.shared.worker.translate_tasks import batch_translate_names
 
 router = APIRouter(prefix="/api/v1/settings", tags=["scheduled-tasks"])
 
-_ALLOWED_TASK_TYPES = {"translate_batch", "collection"}
+_ALLOWED_TASK_TYPES = {
+    "translate_batch", "collection",
+    # Phase E3(2026-10-14):情报管线 cron
+    "weak_signal_scan", "emergence_scan", "disruption_scan",
+}
 
 
 @router.get("/scheduled-tasks")

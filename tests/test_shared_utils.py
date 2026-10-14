@@ -5,6 +5,7 @@ from datetime import date
 
 import pytest
 
+from metaprofile.shared.schemas.base import EntityType
 from metaprofile.shared.utils.date_normalizer import normalize_date, to_iso_date
 from metaprofile.shared.utils.id_generator import new_entity_id, stable_id_from_attrs
 from metaprofile.shared.utils.text_normalizer import (
@@ -14,8 +15,6 @@ from metaprofile.shared.utils.text_normalizer import (
     strip_org_suffix,
     truncate_text,
 )
-from metaprofile.shared.schemas.base import EntityType
-
 
 # ─── date_normalizer ────────────────────────────────────────────────────────
 

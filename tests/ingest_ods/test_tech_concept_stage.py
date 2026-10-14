@@ -20,7 +20,6 @@ from metaprofile.ingest_ods.domain.orm_models import TechEvidenceORM
 from metaprofile.ingest_ods.services.orchestrator import BatchOrchestrator
 from metaprofile.ingest_ods.services.tech_clusterer import cluster_entity_id
 from metaprofile.ingest_ods.services.tech_concept_miner import TechConceptMiner
-from metaprofile.ingest_ods.services.watermark import WatermarkStore
 
 
 def _source(tables, workers=2, batch=10, mode="structured_only"):

@@ -16,17 +16,30 @@ from dataclasses import dataclass
 from datetime import date
 
 import structlog
+from sqlalchemy import delete as sa_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from metaprofile.new_tech_discovery.domain.orm_models import WeakSignalORM
+from metaprofile.new_tech_discovery.domain.orm_models import (
+    SignalNetworkEdgeORM,
+    WeakSignalORM,
+)
 from metaprofile.new_tech_discovery.services.adaptive_threshold import AdaptiveThreshold
+from metaprofile.new_tech_discovery.services.entity_linker import EntityLinker
+from metaprofile.new_tech_discovery.services.evidence_builder import (
+    build_term_stat_rows,
+    cooccurrence_pairs,
+    persist_term_stats,
+    select_evidence,
+)
 from metaprofile.new_tech_discovery.services.signal_metrics import (
+    TermStats,
     build_term_stats,
     build_windows,
     burst_score,
     coherence_score,
     diversity_score,
     novelty_score,
+    tokenize,
     velocity_score,
 )
 from metaprofile.shared.config.settings import settings
@@ -79,11 +92,12 @@ class WeakSignalExtractor:
 
         步骤：
         1. 构建历史+当前窗口（lookback/window 月）
-        2. 拉取 lookback_start..period_to 全期语料
-        3. build_term_stats → 每候选词项的窗口/源统计
+        2. 拉取 lookback_start..period_to 全期语料（8 源,domain→industry 过滤）
+        3. build_term_stats → 每候选词项的窗口/源计数统计
         4. 逐项算 burst/novelty/diversity/velocity/coherence → strength
         5. 自适应阈值 + burst_theta 过滤 → 弱信号
-        6. 落 WeakSignalORM（signal_id 幂等）
+        6. 证据链回填（A4）:evidence_doc_ids + related_*_ids + 真共现边（A5）
+        7. term_stats 持久化（A3）+ 落 WeakSignalORM（signal_id 幂等）
         """
         if self._db_connection_id is None:
             logger.warning("weak_signal_no_db_connection_id")
@@ -99,9 +113,10 @@ class WeakSignalExtractor:
         n_history = len(history_idx)
 
         lookback_start = windows[0].start if windows else period_from
-        docs = await self._load_corpus(lookback_start, period_to, db)
+        docs = await self._load_corpus(lookback_start, period_to, db, domain)
 
         term_stats = build_term_stats(docs, windows, min_df=2)
+        stats_by_term = {ts.term: ts for ts in term_stats}
 
         candidates: list[dict] = []
         for ts in term_stats:
@@ -146,7 +161,7 @@ class WeakSignalExtractor:
                 continue
             kw = [c["term"]]
             sig_id = "WS-" + hashlib.md5("|".join(kw).encode()).hexdigest()[:16]
-            sig = WeakSignal(
+            signals.append(WeakSignal(
                 signal_id=sig_id, keywords=kw,
                 related_tech_ids=[], related_org_ids=[], related_person_ids=[],
                 strength=round(c["strength"], 4),
@@ -156,7 +171,30 @@ class WeakSignalExtractor:
                 velocity=round(c["velocity"], 4),
                 period_from=period_from, period_to=period_to,
                 evidence_doc_ids=[],
-            )
+            ))
+
+        # 单轮信号上限(首轮自适应阈值落地板时存活可达数千 → 边表爆炸)
+        if len(signals) > ws.max_signals:
+            signals.sort(key=lambda s: (s.strength, s.velocity), reverse=True)
+            dropped = len(signals) - ws.max_signals
+            signals = signals[:ws.max_signals]
+            logger.info("weak_signal_capped", kept=ws.max_signals, dropped=dropped)
+
+        # 先删后插(审查 H3):signal_id=md5(keywords) 不含周期/域,窗口重叠的
+        # 重扫同词必撞 unique → 整任务回滚。分块 IN 防参数超 32767(真跑
+        # 百万候选踩过);显式 DELETE 先于 flush 的 INSERT 执行。
+        # 边表 signal_id 为裸串无 FK,由各写入方自清理。
+        if signals:
+            sids = [s.signal_id for s in signals]
+            for i in range(0, len(sids), 1000):
+                await db.execute(
+                    sa_delete(WeakSignalORM).where(
+                        WeakSignalORM.signal_id.in_(sids[i:i + 1000])
+                    )
+                )
+
+        orm_by_sid: dict[str, WeakSignalORM] = {}
+        for sig in signals:
             orm = WeakSignalORM(
                 signal_id=sig.signal_id, keywords=sig.keywords,
                 related_tech_ids=[], related_org_ids=[], related_person_ids=[],
@@ -167,23 +205,114 @@ class WeakSignalExtractor:
                 velocity=sig.velocity,
             )
             db.add(orm)
-            signals.append(sig)
+            orm_by_sid[sig.signal_id] = orm
         await db.flush()
+
+        # ── A4:证据链回填 ──
+        await self._link_evidence(db, signals, stats_by_term, docs, ws, orm_by_sid)
+        # ── A5:同文档真共现边 ──
+        if ws.cooccurrence_edges:
+            await self._write_cooccurrence_edges(db, signals, docs)
+        # ── A3:term_stats 持久化 ──
+        if ws.persist_term_stats:
+            rows = build_term_stat_rows(
+                self._top_stats(term_stats, ws.term_stats_max_terms), windows,
+            )
+            await persist_term_stats(db, rows)
+
         logger.info(
             "weak_signal_extracted", count=len(signals), threshold=threshold,
             candidates=len(candidates),
         )
         return signals
 
-    async def _load_corpus(self, start: date, end: date, db: AsyncSession):
+    @staticmethod
+    def _top_stats(term_stats: list[TermStats], cap: int) -> list[TermStats]:
+        if len(term_stats) <= cap:
+            return term_stats
+        ranked = sorted(
+            term_stats, key=lambda t: sum(t.df_by_window), reverse=True,
+        )
+        return ranked[:cap]
+
+    async def _link_evidence(self, db, signals, stats_by_term, docs, ws,
+                             orm_by_sid: dict) -> None:
+        """每信号:evidence_doc_ids(最近 N 篇)+ evidence 文档实体 → 画像 id。"""
+        if not signals:
+            return
+        docs_by_id = {d.doc_id: d for d in docs}
+        linker = EntityLinker(db)
+        for sig in signals:
+            ts = stats_by_term.get(sig.keywords[0])
+            if ts is None or not ts.doc_ids:
+                continue
+            ev = select_evidence(ts.doc_ids, cap=ws.evidence_docs_cap)
+            sig.evidence_doc_ids = ev
+            ent_names: list[str] = []
+            for did in ev:
+                doc = docs_by_id.get(did)
+                if doc is not None:
+                    ent_names.extend(doc.entities or [])
+            if ent_names:
+                sig.related_org_ids = await linker.link_orgs(
+                    ent_names, cap=ws.related_cap,
+                )
+                sig.related_person_ids = await linker.link_persons(
+                    ent_names, cap=ws.related_cap,
+                )
+                sig.related_tech_ids = await linker.link_techs(
+                    sig.keywords + ent_names, cap=ws.related_cap,
+                )
+            orm = orm_by_sid.get(sig.signal_id)
+            if orm is not None:
+                orm.evidence_doc_ids = sig.evidence_doc_ids
+                orm.related_org_ids = sig.related_org_ids
+                orm.related_person_ids = sig.related_person_ids
+                orm.related_tech_ids = sig.related_tech_ids
+        await db.flush()
+
+    async def _write_cooccurrence_edges(self, db, signals, docs) -> None:
+        """同文档共现的信号词对 → signal↔signal 边(替换 REST 启发式,G6)。"""
+        if len(signals) < 2:
+            return
+        sig_by_term = {s.keywords[0]: s.signal_id for s in signals}
+        signal_terms = set(sig_by_term)
+        # 生成器惰性求值(审查 M5):避免 16 万文档的词集全量物化
+        docs_terms = (
+            set(tokenize(d.text)) | set(d.entities or []) for d in docs
+        )
+        weights = cooccurrence_pairs(docs_terms, signal_terms)
+        if not weights:
+            return
+        sig_ids = list({sid for sid in sig_by_term.values()})
+        for i in range(0, len(sig_ids), 1000):
+            await db.execute(
+                sa_delete(SignalNetworkEdgeORM).where(
+                    SignalNetworkEdgeORM.signal_id.in_(sig_ids[i:i + 1000]),
+                    SignalNetworkEdgeORM.edge_type == "co_occurrence",
+                )
+            )
+        for (a, b), w in weights.items():
+            db.add(SignalNetworkEdgeORM(
+                signal_id=sig_by_term[a], source_id=sig_by_term[a],
+                source_type="signal", target_id=sig_by_term[b],
+                target_type="signal", edge_type="co_occurrence",
+                weight=float(w),
+            ))
+        await db.flush()
+
+    async def _load_corpus(self, start: date, end: date, db: AsyncSession,
+                           domain: str | None = None):
         if self._loader is None:
             from metaprofile.new_tech_discovery.services.corpus_loader import CorpusLoader
             self._loader = CorpusLoader()
+        from metaprofile.new_tech_discovery.services.corpus_loader import _SOURCE_SPECS
         docs = []
-        for source in ("science", "patent", "market", "attachment"):
+        for source in _SOURCE_SPECS:
             docs.extend(
                 await self._loader.load(
-                    self._db_connection_id, source, start, end, session=db,
+                    self._db_connection_id, source, start, end,
+                    industry=domain, session=db,
                 )
             )
         return docs

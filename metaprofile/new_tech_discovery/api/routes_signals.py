@@ -79,10 +79,10 @@ async def get_signal_network(
             weight=e.weight,
         ))
     # 解析实体名称（按类型批量查询各画像表），避免前端只显示 ID
-    from metaprofile.profile_tech.domain.orm_models import TechProfileORM
     from metaprofile.profile_org.domain.orm_models import OrgProfileORM
     from metaprofile.profile_person.domain.orm_models import PersonProfileORM
     from metaprofile.profile_project.domain.orm_models import ProjectProfileORM
+    from metaprofile.profile_tech.domain.orm_models import TechProfileORM
 
     by_type: dict[str, set[str]] = {}
     for n in nodes:
@@ -95,12 +95,22 @@ async def get_signal_network(
         "person": (PersonProfileORM, "name_cn"),
         "project": (ProjectProfileORM, "name_cn"),
     }
+    # signal↔signal 真共现边引入 signal 节点:名称取 weak_signal.keywords 首词
+    sig_ids = by_type.get("signal", set())
+    if sig_ids:
+        from metaprofile.new_tech_discovery.domain.orm_models import WeakSignalORM
+
+        for r in (await db.execute(
+            select(WeakSignalORM).where(WeakSignalORM.signal_id.in_(sig_ids))
+        )).scalars().all():
+            kw = r.keywords or []
+            name_map[r.signal_id] = (kw[0] if kw else r.signal_id)
     for etype, ids in by_type.items():
         if etype not in table_map or not ids:
             continue
         orm_cls, name_col = table_map[etype]
         rows = (await db.execute(
-            select(getattr(orm_cls, "id") if False else orm_cls).where(
+            select(orm_cls.id if False else orm_cls).where(
                 getattr(orm_cls, f"{etype}_id").in_(ids)
             )
         )).scalars().all()

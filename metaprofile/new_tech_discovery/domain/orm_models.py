@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Date, Float, Integer, JSON, String, Text
+from sqlalchemy import JSON, Date, Float, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from metaprofile.shared.db.base import Base, TimestampMixin
@@ -42,8 +42,33 @@ class SignalNetworkEdgeORM(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     signal_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
     source_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    source_type: Mapped[str] = mapped_column(String(32), nullable=False)  # tech/org/person
+    source_type: Mapped[str] = mapped_column(String(32), nullable=False)  # tech/org/person/signal
     target_id: Mapped[str] = mapped_column(String(64), nullable=False)
     target_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    edge_type: Mapped[str] = mapped_column(String(64), nullable=False)  # co_occurrence/citation/funding
+    # co_occurrence/citation/funding
+    edge_type: Mapped[str] = mapped_column(String(64), nullable=False)
     weight: Mapped[float] = mapped_column(Float, default=1.0)
+
+
+class TermStatORM(Base, TimestampMixin):
+    """术语窗口计数持久化(Phase A3):窗口×源×术语 df/tf。
+
+    source="*" 表示全源合并行(当前实现);分源行留作扩展。
+    修 G7(无时序存储,每次重算)与 G8(coherence presence→计数)。
+    """
+
+    __tablename__ = "term_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "window_month", "source", "term", "term_kind",
+            name="uq_term_stats",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    window_month: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="*")
+    term: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    term_kind: Mapped[str] = mapped_column(String(16), nullable=False, default="term")
+    df: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    tf: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

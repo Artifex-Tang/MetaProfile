@@ -189,10 +189,14 @@ def build_windows(period_from, period_to, *, lookback_months, window_months) -> 
 @dataclass
 class TermStats:
     term: str
-    df_by_window: list[int]                      # 每窗文档频，时间顺序（对齐 windows）
-    df_by_source: dict[str, int]                 # 当前期内按源文档频
-    df_by_source_window: list[dict[str, int]]    # 每窗按源（用于 coherence 取相邻窗）
+    df_by_window: list[int]                      # 每窗文档频（计数），时间顺序（对齐 windows）
+    df_by_source: dict[str, int]                 # 当前期内按源文档频（计数）
+    df_by_source_window: list[dict[str, int]]    # 每窗按源文档频（计数，coherence 用）
     is_entity: bool
+    tf_by_window: list[int] | None = None        # 每窗词频（出现次数，term_stats 持久化用）
+    # 命中文档 id，**按时间戳降序（最近在前）**，截断到 doc_cap（证据回填用，
+    # 审查 H2:不得按加载序取"最近"）
+    doc_ids: list[str] | None = None
 
 
 def _to_date(ts) -> date:
@@ -210,12 +214,44 @@ def _window_index(ts, windows: list[Window]) -> int | None:
     return None
 
 
-def build_term_stats(docs, windows: list[Window], *, min_df: int = 2) -> list[TermStats]:
-    """语料 + 窗口 → 每候选词项的窗口/源统计。min_df 过滤极低频噪声（默认 ≥2）。"""
-    n_win = len(windows)
-    term_windows: dict[str, set[int]] = {}
-    term_source_window: dict[str, list[set[str]]] = {}
+def build_term_stats(docs, windows: list[Window], *, min_df: int = 2,
+                     doc_cap: int = 40) -> list[TermStats]:
+    """语料 + 窗口 → 每候选词项的窗口/源统计。
+
+    【2026-10-14 G8 修复】df/tf 全部为**计数**（原 presence 常量 1 → coherence
+    只能测 0→1 涌现）。doc_ids 按**时间戳降序**截断到 doc_cap（证据回填取最近
+    篇，统计不受截断影响）。min_df 过滤极低频噪声（默认 ≥2）。
+
+    【审查 M6】窗口计数用稀疏 dict[wi] 存储（多数术语只出现在少数窗，
+    稠密 list×百万词表会到 GB 级）。
+    """
+    # term → {wi: df} / {wi: {source: df}} / {wi: tf} / [(ts, doc_id)]（截断）
+    term_df: dict[str, dict[int, int]] = {}
+    term_sw: dict[str, dict[int, dict[str, int]]] = {}
+    term_tf: dict[str, dict[int, int]] = {}
+    term_docs: dict[str, list[tuple[date, str]]] = {}
     term_is_entity: dict[str, bool] = {}
+
+    def _hit(term: str, wi: int, source: str, tf: int,
+             ts: date, doc_id: str) -> None:
+        if term not in term_df:
+            term_df[term] = {}
+            term_sw[term] = {}
+            term_tf[term] = {}
+            term_docs[term] = []
+            term_is_entity[term] = False
+        term_df[term][wi] = term_df[term].get(wi, 0) + 1
+        swd = term_sw[term].setdefault(wi, {})
+        swd[source] = swd.get(source, 0) + 1
+        term_tf[term][wi] = term_tf[term].get(wi, 0) + tf
+        docs_list = term_docs[term]
+        if len(docs_list) < doc_cap:
+            docs_list.append((ts, doc_id))
+        else:
+            # 已满:只保留更新的(逐个找最小换入;cap 小,O(cap) 可接受)
+            min_i = min(range(len(docs_list)), key=lambda i: docs_list[i][0])
+            if ts > docs_list[min_i][0]:
+                docs_list[min_i] = (ts, doc_id)
 
     for doc in docs:
         wi = _window_index(doc.timestamp, windows)
@@ -224,30 +260,40 @@ def build_term_stats(docs, windows: list[Window], *, min_df: int = 2) -> list[Te
         toks = tokenize(doc.text)
         ent_tok = set(doc.entities or [])
         terms_here = set(toks) | {e for e in ent_tok if len(e) > 1}
+        tf_here: dict[str, int] = {}
+        for t in toks:
+            tf_here[t] = tf_here.get(t, 0) + 1
+        d = _to_date(doc.timestamp)
         for term in terms_here:
-            term_windows.setdefault(term, set()).add(wi)
-            swl = term_source_window.setdefault(term, [set() for _ in range(n_win)])
-            swl[wi].add(doc.source)
-            term_is_entity[term] = term_is_entity.get(term, False) or (term in ent_tok)
+            _hit(term, wi, doc.source, tf_here.get(term, 1), d, doc.doc_id)
+            if term in ent_tok:
+                term_is_entity[term] = True
 
+    n_win = len(windows)
     stats: list[TermStats] = []
-    for term, wis in term_windows.items():
-        df_by_window = [1 if i in wis else 0 for i in range(n_win)]
+    for term, df_sparse in term_df.items():
+        df_by_window = [df_sparse.get(i, 0) for i in range(n_win)]
         total_df = sum(df_by_window)
         if total_df < min_df:
             continue
-        df_by_source_window = [
-            {s: 1 for s in term_source_window[term][i]} for i in range(n_win)
-        ]
+        sw_sparse = term_sw[term]
         df_by_source: dict[str, int] = {}
         for i, w in enumerate(windows):
             if w.is_history:
                 continue
-            for s in term_source_window[term][i]:
-                df_by_source[s] = df_by_source.get(s, 0) + 1
+            for s, c in sw_sparse.get(i, {}).items():
+                df_by_source[s] = df_by_source.get(s, 0) + c
+        tf_sparse = term_tf[term]
+        # 证据 doc_ids:统一按时间戳降序(最近在前)
+        recent_docs = sorted(
+            term_docs[term], key=lambda x: x[0], reverse=True,
+        )
         stats.append(TermStats(
             term=term, df_by_window=df_by_window,
-            df_by_source=df_by_source, df_by_source_window=df_by_source_window,
-            is_entity=term_is_entity.get(term, False),
+            df_by_source=df_by_source,
+            df_by_source_window=[dict(sw_sparse.get(i, {})) for i in range(n_win)],
+            is_entity=term_is_entity[term],
+            tf_by_window=[tf_sparse.get(i, 0) for i in range(n_win)],
+            doc_ids=[doc_id for _, doc_id in recent_docs],
         ))
     return stats

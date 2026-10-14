@@ -15,7 +15,7 @@ def _fake_conn():
     """返回一个 mock pymysql 连接：cur.execute/cur.fetchall/cur.description 可控。"""
     conn = MagicMock()
     cur = MagicMock()
-    cur.description = [("id",), ("title",), ("abstract",), ("keyword",), ("pubdate",)]
+    cur.description = [("id",), ("title",), ("abstract",), ("keyword",), ("event_time",)]
     cur.fetchall.return_value = [
         (1, "quantum computing", "abstract about qubits", "quantum; qubit", date(2026, 1, 15)),
         (2, "machine learning", "ml abstract", "ml; neural", date(2026, 2, 20)),
@@ -59,7 +59,7 @@ async def test_load_science_maps_to_corpus_doc():
         )
     assert len(docs) == 2
     assert docs[0].source == "science"
-    assert docs[0].doc_id == "1"
+    assert docs[0].doc_id == "science:1"  # 带源前缀,跨源 id 不碰撞(审查 H1)
     assert "quantum" in docs[0].text
     assert docs[0].timestamp == date(2026, 1, 15)
     assert "quantum" in docs[0].entities  # keyword 拆为实体

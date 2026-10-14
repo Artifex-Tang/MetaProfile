@@ -160,6 +160,13 @@ class WeakSignalSettings(BaseSettings):
     lookback_months: int = 12         # novelty/burst 基线历史月数
     velocity_recent_windows: int = 3  # 增速回归用最近窗口数（§4.5）
     max_docs_per_source: int = 20000  # 每源单次拉取上限（防 OOM）
+    # Phase A(2026-10-14 spec):证据链 + term_stats 持久化
+    evidence_docs_cap: int = 20       # 每信号证据文档上限(§6-A4)
+    related_cap: int = 10             # 每信号关联 org/person/tech id 上限
+    persist_term_stats: bool = True   # 当前窗口计数落 term_stats 表(§6-A3)
+    term_stats_max_terms: int = 20000 # 单轮持久化术语上限(按 total_df 降序截断)
+    cooccurrence_edges: bool = True   # 同文档信号词对真共现边(§6-A5)
+    max_signals: int = 500            # 单轮落库信号上限(按强度降序截断,防首轮阈值地板→海量信号+边爆炸)
 
 
 class Settings(BaseSettings):

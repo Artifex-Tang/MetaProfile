@@ -105,8 +105,8 @@ services:
       - "127.0.0.1:8030:8030"   # FE Web UI
       - "127.0.0.1:9030:9030"   # MySQL 协议（提取器/客户端连此）
     volumes:
-      - H:/docker/doris/fe/doris-meta:/opt/apache-doris/fe/doris-meta
-      - H:/docker/doris/fe/log:/opt/apache-doris/fe/log
+      - G:/docker/doris/fe/doris-meta:/opt/apache-doris/fe/doris-meta
+      - G:/docker/doris/fe/log:/opt/apache-doris/fe/log
     networks:
       dorisnet:
         ipv4_address: 172.28.80.10
@@ -131,8 +131,8 @@ services:
     ports:
       - "127.0.0.1:8040:8040"   # BE Web UI
     volumes:
-      - H:/docker/doris/be/storage:/opt/apache-doris/be/storage
-      - H:/docker/doris/be/log:/opt/apache-doris/be/log
+      - G:/docker/doris/be/storage:/opt/apache-doris/be/storage
+      - G:/docker/doris/be/log:/opt/apache-doris/be/log
     networks:
       dorisnet:
         ipv4_address: 172.28.80.20

@@ -52,13 +52,15 @@ class NetworkCorrelator:
             edges.append(edge)
 
         for tid in (signal.related_tech_ids or []):
+            # 语义区分(审查 M4):名称匹配边 ≠ 语料共现边
+            # (真共现边=extractor 的 signal↔signal co_occurrence)
             edge = SignalNetworkEdgeORM(
                 signal_id=signal.signal_id,
                 source_id=signal.signal_id,
                 source_type="signal",
                 target_id=tid,
                 target_type="tech",
-                edge_type="co_occurrence",
+                edge_type="entity_match",
                 weight=1.0,
             )
             self._db.add(edge)

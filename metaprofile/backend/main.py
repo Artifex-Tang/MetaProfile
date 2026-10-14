@@ -24,44 +24,6 @@ from contextlib import AsyncExitStack, asynccontextmanager
 import structlog
 from fastapi import FastAPI
 
-from metaprofile.profile_org.api import (
-    routes_enrichment as org_enrich,
-    routes_mutation as org_mut,
-    routes_query as org_query,
-    routes_relation as org_relation,
-    routes_stats as org_stats,
-)
-from metaprofile.profile_person.api import (
-    routes_enrichment as person_enrich,
-    routes_mutation as person_mut,
-    routes_query as person_query,
-    routes_relation as person_relation,
-    routes_stats as person_stats,
-)
-from metaprofile.profile_project.api import (
-    routes_enrichment as project_enrich,
-    routes_mutation as project_mut,
-    routes_query as project_query,
-    routes_relation as project_relation,
-    routes_stats as project_stats,
-)
-from metaprofile.profile_tech.api import (
-    routes_enrichment as tech_enrich,
-    routes_mutation as tech_mut,
-    routes_query as tech_query,
-    routes_relation as tech_relation,
-    routes_stats as tech_stats,
-)
-from metaprofile.scan_monitor.api import routes_alert, routes_frontier
-from metaprofile.new_tech_discovery.api import routes_new_tech, routes_signals
-from metaprofile.topic_selection.api import routes_feedback, routes_topics
-from metaprofile.settings_api.api.routes_collection import router as col_router
-from metaprofile.settings_api.api.routes_datasource import router as ds_router
-from metaprofile.settings_api.api.routes_enrichment_tasks import router as enrich_tasks_router
-from metaprofile.settings_api.api.routes_db_connections import router as dbc_router
-from metaprofile.settings_api.api.routes_llm import router as llm_router
-from metaprofile.settings_api.api.routes_scheduler import router as scheduler_router
-from metaprofile.shared.config.settings import settings
 from metaprofile.backend.readonly_guard import readonly_guard
 from metaprofile.backend.routes_runtime import router as runtime_router
 from metaprofile.mcp_server.registry import SERVICES as MCP_SERVICES
@@ -72,6 +34,80 @@ from metaprofile.mcp_server.server import (
     default_backend_client,
     mount_mcp,
 )
+from metaprofile.new_tech_discovery.api import (
+    routes_emergence,
+    routes_new_tech,
+    routes_signals,
+)
+from metaprofile.profile_org.api import (
+    routes_enrichment as org_enrich,
+)
+from metaprofile.profile_org.api import (
+    routes_mutation as org_mut,
+)
+from metaprofile.profile_org.api import (
+    routes_query as org_query,
+)
+from metaprofile.profile_org.api import (
+    routes_relation as org_relation,
+)
+from metaprofile.profile_org.api import (
+    routes_stats as org_stats,
+)
+from metaprofile.profile_person.api import (
+    routes_enrichment as person_enrich,
+)
+from metaprofile.profile_person.api import (
+    routes_mutation as person_mut,
+)
+from metaprofile.profile_person.api import (
+    routes_query as person_query,
+)
+from metaprofile.profile_person.api import (
+    routes_relation as person_relation,
+)
+from metaprofile.profile_person.api import (
+    routes_stats as person_stats,
+)
+from metaprofile.profile_project.api import (
+    routes_enrichment as project_enrich,
+)
+from metaprofile.profile_project.api import (
+    routes_mutation as project_mut,
+)
+from metaprofile.profile_project.api import (
+    routes_query as project_query,
+)
+from metaprofile.profile_project.api import (
+    routes_relation as project_relation,
+)
+from metaprofile.profile_project.api import (
+    routes_stats as project_stats,
+)
+from metaprofile.profile_tech.api import (
+    routes_enrichment as tech_enrich,
+)
+from metaprofile.profile_tech.api import (
+    routes_mutation as tech_mut,
+)
+from metaprofile.profile_tech.api import (
+    routes_query as tech_query,
+)
+from metaprofile.profile_tech.api import (
+    routes_relation as tech_relation,
+)
+from metaprofile.profile_tech.api import (
+    routes_stats as tech_stats,
+)
+from metaprofile.scan_monitor.api import routes_alert, routes_frontier
+from metaprofile.settings_api.api.routes_collection import router as col_router
+from metaprofile.settings_api.api.routes_datasource import router as ds_router
+from metaprofile.settings_api.api.routes_db_connections import router as dbc_router
+from metaprofile.settings_api.api.routes_enrichment_tasks import router as enrich_tasks_router
+from metaprofile.settings_api.api.routes_llm import router as llm_router
+from metaprofile.settings_api.api.routes_scheduler import router as scheduler_router
+from metaprofile.shared.config.settings import settings
+from metaprofile.topic_selection.api import routes_feedback, routes_topics
 
 logger = structlog.get_logger(__name__)
 
@@ -149,6 +185,7 @@ app.include_router(routes_alert.router, prefix=PREFIX, tags=["scan_monitor"])
 app.include_router(routes_frontier.router, prefix=PREFIX, tags=["scan_monitor"])
 app.include_router(routes_new_tech.router, prefix=PREFIX, tags=["new_tech_discovery"])
 app.include_router(routes_signals.router, prefix=PREFIX, tags=["new_tech_discovery"])
+app.include_router(routes_emergence.router, prefix=PREFIX, tags=["new_tech_discovery"])
 app.include_router(routes_topics.router, prefix=PREFIX, tags=["topic_selection"])
 app.include_router(routes_feedback.router, prefix=PREFIX, tags=["topic_selection"])
 

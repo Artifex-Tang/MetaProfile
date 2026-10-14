@@ -169,6 +169,16 @@ class WeakSignalSettings(BaseSettings):
     max_signals: int = 500            # 单轮落库信号上限(按强度降序截断,防首轮阈值地板→海量信号+边爆炸)
 
 
+class EmergenceSettings(BaseSettings):
+    """新兴指标层参数(Phase B,spec 2026-10-14 §6-B)。"""
+
+    model_config = SettingsConfigDict(env_prefix="EMERGENCE_")
+    years_back: int = 8               # 专利年窗深度(S 曲线需 ≥6 点)
+    max_patent_rows: int = 400000     # 单轮拉取专利上限(防 OOM;6M 全表超此值截断)
+    pair_lookback_years: int = 3      # 新 IPC 对判定:首现距最新窗 ≤ 此值
+    pair_min_salton: float = 0.05     # 对强度下限(过滤噪声共类)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -193,6 +203,7 @@ class Settings(BaseSettings):
     collectors: CollectorSettings = Field(default_factory=CollectorSettings)
     profile_api: ProfileApiSettings = Field(default_factory=ProfileApiSettings)
     weak_signal: WeakSignalSettings = Field(default_factory=WeakSignalSettings)
+    emergence: EmergenceSettings = Field(default_factory=EmergenceSettings)
 
 
 @lru_cache

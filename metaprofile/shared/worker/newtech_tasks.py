@@ -76,3 +76,26 @@ def extract_weak_signals(
     pf = date.fromisoformat(period_from)
     pt = date.fromisoformat(period_to)
     return run_async(_async_extract(pf, pt, domain, db_connection_id, self.request.id))
+
+
+async def _async_emergence(years_back: int | None,
+                           db_connection_id: int | None) -> dict[str, Any]:
+    from metaprofile.new_tech_discovery.services.emergence_service import (
+        EmergenceService,
+    )
+
+    try:
+        svc = EmergenceService(db_connection_id=db_connection_id)
+        return await svc.compute(years_back=years_back)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("emergence_task_failed", error=str(exc))
+        return {"status": "failed", "error": str(exc)}
+
+
+@celery_app.task(name="metaprofile.newtech.compute_emergence")
+def compute_emergence(
+    years_back: int | None = None,
+    db_connection_id: int | None = None,
+) -> dict[str, Any]:
+    """新兴指标计算(Phase B):Doris 专利 → Porter/TLC/TEM/Salton → 指标表。"""
+    return run_async(_async_emergence(years_back, db_connection_id))

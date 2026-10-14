@@ -401,6 +401,45 @@ export interface SignalNetwork {
   edges: SignalNetworkEdge[]
 }
 
+// ── 新兴指标 / 颠覆性评估(Phase B/C,2026-10-14)──────────────────────────────
+
+export interface EmergenceItem {
+  object_type: 'ipc_domain' | 'ipc_pair'
+  object_id: string
+  window_month: string
+  metrics: Record<string, number | string | boolean>
+}
+
+export interface EmergenceList {
+  total: number
+  items: EmergenceItem[]
+}
+
+export interface DisruptionItem {
+  object_type: string
+  object_id: string
+  window_month: string
+  novelty_comb: number
+  growth: number
+  new_entrant: number
+  small_team: number
+  term_novelty: number
+  disrupt_score: number
+  llm_verdict: string
+  llm_scores: Record<string, number>
+  llm_evidence: string | null
+}
+
+export interface DisruptionList {
+  total: number
+  items: DisruptionItem[]
+}
+
+export interface ComputeTaskResponse {
+  status: string
+  detail: string
+}
+
 // ── Topic Selection ───────────────────────────────────────────────────────────
 
 export interface TopicItem {

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计决策 · 科技情报挖掘升级 · 2026-10-14</title>
+<style>
+  :root{
+    --ink:#1a2332; --sub:#5a6b85; --line:#e3e8f0; --bg:#f7f9fc;
+    --blue:#1f6feb; --green:#1a7f37; --red:#cf222e; --amber:#9a6700;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{font-family:"Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg);margin:0;line-height:1.7}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 24px 80px}
+  header{border-bottom:3px solid var(--ink);padding-bottom:16px;margin-bottom:28px}
+  h1{font-size:26px;margin:0 0 6px}
+  .meta{color:var(--sub);font-size:13px}
+  h2{font-size:19px;margin-top:44px;border-left:4px solid var(--blue);padding-left:10px}
+  h3{font-size:15.5px;margin-top:26px}
+  table{border-collapse:collapse;width:100%;background:var(--card);font-size:13.5px;margin:12px 0;border:1px solid var(--line)}
+  th{background:#eef2f8;text-align:left;padding:8px 10px;border:1px solid var(--line);white-space:nowrap}
+  td{padding:7px 10px;border:1px solid var(--line);vertical-align:top}
+  code{background:#eef1f6;padding:1px 5px;border-radius:4px;font-family:Consolas,monospace;font-size:12.5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 18px;margin:12px 0}
+  .yes{color:var(--green);font-weight:600}.no{color:var(--red);font-weight:600}
+  .warn{color:var(--amber);font-weight:600}
+  .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:10px;border:1px solid;margin-right:6px;vertical-align:1px}
+  .t-b{border-color:var(--blue);color:var(--blue)} .t-g{border-color:var(--green);color:var(--green)}
+  .t-r{border-color:var(--red);color:var(--red)} .t-a{border-color:var(--amber);color:var(--amber)}
+  .formula{font-family:Consolas,monospace;background:#0d1b2a;color:#d8e8ff;padding:12px 16px;border-radius:6px;font-size:13px;overflow-x:auto;margin:10px 0}
+  .formula b{color:#7ee0a3}
+  ul{margin:8px 0} li{margin:4px 0}
+  .small{font-size:12.5px;color:var(--sub)}
+  .num{display:inline-block;background:var(--ink);color:#fff;border-radius:50%;width:22px;height:22px;text-align:center;line-height:22px;font-size:12px;margin-right:8px}
+</style>
+</head>
+<body><div class="wrap">
+
+<header>
+  <h1>科技情报挖掘升级 — 本轮设计决策全记录</h1>
+  <div class="meta">2026-10-14 · MetaProfile · 范围:新技术发现 / 弱信号 / 颠覆性识别 / 实体挖掘 · Phase A–E 全部落地(5 commit,<code>3cf6757..caaa9ee</code>,已 push)</div>
+</header>
+
+<h2>0. 一页总览</h2>
+<div class="card">
+  <b>四问:</b>挖掘新技术 · 发现弱信号 · 发现颠覆性技术 · 挖掘人/机构/项目/技术。<br>
+  <b>硬约束(决定了一切取舍):</b>
+  <ul>
+    <li><b>全库无引文数据</b>(patent/science 均无 citation 字段)→ 引文类经典方法(CD index、引文网络、co-citation)<span class="no">全部出局</span>,一律用 citation-free 替代;</li>
+    <li><b>LLM 配额有限</b>(glm 曾 429)→ <b>统计层跑全库零 LLM;LLM 只碰漏斗末端 Top-N</b>;</li>
+    <li><b>GPL 库不进主代码</b>(pybibx/cdindex)→ 算法自研或借思路;</li>
+    <li>云端只读栈无 Doris/ES/worker → 新能力全部落在本地全栈。</li>
+  </ul>
+</div>
+
+<h2>1. 方法学决策(调研 → 采纳/淘汰)</h2>
+<h3>1.1 采纳(按落地顺序)</h3>
+<table>
+<tr><th>#</th><th>方法</th><th>出处</th><th>为什么是它</th><th>落点</th></tr>
+<tr><td>1</td><td>Porter 新兴指标</td><td>Porter/Small;JRC 弱信号报告同款</td><td>只要 year+applicant,零 LLM 零引文</td><td>emergence 指标层</td></tr>
+<tr><td>2</td><td>TLC / Haupt 比</td><td>Haupt 2007;EPO 2023</td><td>专利数/申请人增速比判生命周期,字段全有</td><td>emergence 指标层</td></tr>
+<tr><td>3</td><td>TEM 象限</td><td>WISDOM arXiv:2409.15340</td><td>份额×增速纯 count;弱信号=低份额高增,切点有原文精确设定(x=均值,y=0)</td><td>emergence 指标层</td></tr>
+<tr><td>4</td><td>IPC 共类融合(Salton)</td><td>Curran &amp; Leker 2011</td><td>中文"技术融合→颠覆"主线;多 IPC 专利 43% 可用</td><td>emergence 指标层</td></tr>
+<tr><td>5</td><td>Wang 组合新颖性(无引文改造)</td><td>NBER w22180</td><td>全网无现成实现=自研;"历史未见 IPC 对占比"替代引文对</td><td>颠覆层组件</td></tr>
+<tr><td>6</td><td>DisruptScore 加权</td><td>中文漏斗模型合成(陈伟 2024 等)</td><td>0.30 新颖+0.25 增速+0.20 新进入者+0.15 小团队+0.10 术语新度,可解释可配置</td><td>颠覆层合分</td></tr>
+<tr><td>7</td><td>LLM Rotolo rubric</td><td>Rotolo 2015;Ikoma 2025</td><td>五属性 1–5 分×3 取中位,只打 Top-N;弥补无引文导致的 impact 维缺失</td><td>颠覆层漏斗</td></tr>
+<tr><td>8</td><td>ROR 机构归一</td><td>ror.org(CC0)</td><td>免费权威字典;API 匹配 + 本地画像比对双路</td><td>实体层 D1</td></tr>
+<tr><td>9</td><td>作者消歧(规则版)</td><td>OpenAlex/S2AND 思路简化</td><td>blocking+共作者 Jaccard 先行;S2AND(ML)后置</td><td>实体层 D2</td></tr>
+<tr><td>10</td><td>项目 LLM 零样本分类</td><td>LLM 分类实践</td><td>批处理(20 项目/调用)省配额</td><td>实体层 D3</td></tr>
+</table>
+
+<h3>1.2 淘汰(及理由)</h3>
+<table>
+<tr><th>方法</th><th>淘汰理由</th></tr>
+<tr><td><span class="no">CD index / DISRED</span></td><td>无引文,原生不可算;DISRED 经 Crossref/OpenAlex 核查<span class="warn">查无此方法</span>(记忆偏差)</td></tr>
+<tr><td><span class="no">引文网络 TLC / co-citation / science linkage</span></td><td>同上,无引文</td></tr>
+<tr><td><span class="no">Uzzi 引文对 z 分数</span></td><td>用 IPC 对替代(决策 #5)</td></tr>
+<tr><td><span class="no">BERTopic 全库主题空间</span><td>向量底座本地 GPU 未定,先 IPC+术语层;列为 P2 增强</td></tr>
+<tr><td><span class="no">S2AND 预训练消歧</span></td><td>重(LightGBM+嵌入),规则版先行</td></tr>
+<tr><td><span class="no">Agentic 科学家(FutureHouse 类)</span></td><td>ROI 低于统计层,后置</td></tr>
+</table>
+
+<h2>2. 架构决策:五层</h2>
+<div class="card">
+<pre style="margin:0;font-size:13px">
+L0 地基      8 源语料(修 3 bug+扩 4 源)→ 计数化统计 → term_stats 持久化 → 证据链
+L1 新兴指标   Porter/TLC/TEM/Salton  → tech_emergence_indicator      (零 LLM,全库)
+L2 颠覆识别   组合新颖 z 合分 → DisruptScore → LLM Rotolo(漏斗) → disruption_assessment
+L3 实体挖掘   ROR 归一 / 作者消歧 / 项目分类 → entity_resolution_suggestion(只建议不自动并)
+L4 管线串联   frontier 真扫(G4 修复)→ LLM 验证 → 选题联动 → cron 三新类型
+</pre>
+<span class="small">大图:<code>docs/diagrams/tech-intel-mining-architecture.drawio</code>(5 页)</span>
+</div>
+<b>关键取舍:</b>三层分析层此前各自 mock 独立;本次把"弱信号→扫描→选题"接成真数据流,<b>但每层保留独立表与触发入口</b>(cron/手动/ingest hook 三路),不搞硬耦合大编排——单层可独立重跑、独立降级。
+
+<h2>3. 数据模型决策(4 张新表,migration 0010–0013)</h2>
+<table>
+<tr><th>表</th><th>粒度</th><th>设计理由</th></tr>
+<tr><td><code>term_stats</code></td><td>窗口×源×术语 df/tf</td><td>修"无时序存储每次重算";<b>df 计数化</b>同时修 coherence 只能测 0→1 的缺陷(G8);source="*" 全源合并行留分源扩展</td></tr>
+<tr><td><code>tech_emergence_indicator</code></td><td>对象×窗口× metrics JSONB</td><td>指标族持续扩充,JSONB 免频繁改表;对象=ipc 域/IPC 对</td></tr>
+<tr><td><code>disruption_assessment</code></td><td>对象×窗口×组件分+LLM 判定</td><td>组件 z 分<b>落库可解释</b>("为什么颠覆"五维可查);LLM verdict 复用 frontier 是/否/待定语义</td></tr>
+<tr><td><code>entity_resolution_suggestion</code></td><td>实体×建议,unique(类型,名,建议型)</td><td><b>建议制不自动合并</b>——消歧/归一错误代价高,人工确认后应用</td></tr>
+</table>
+<p><b>不改 RelationType 既有 55 枚举</b>,仅按评审惯例新增 <code>TECH_CO_OCCURS="共现"</code>;tech-tech 真挖边统一走 <b>TripleWriter 枚举 VALUE</b>(与已存 TECH_CONTAINS 一致),前端 relationMeta 补 VALUE 键中文标签。</p>
+
+<h2>4. 算法决策细节</h2>
+<div class="formula">
+burst(k,t)   = max(0, (df−E)/σ)                       <span style="color:#8899b5">← z-score 版保留(Kleinberg Viterbi 版列为增强)</span><br>
+novelty(k)   = 1 − clamp(seen/total)                  <br>
+diversity(k) = 归一 Shannon 熵 / log|S|               <br>
+strength(k)  = .30·novelty + .25·coherence + .20·diversity + .25·velocity<br>
+threshold    = μ + k·σ(k 可配,首轮地板 0.40)          <span style="color:#8899b5">← max_signals=500 护栏防首轮海量</span>
+</div>
+<div class="formula">
+<b>TEM</b>: x=对象份额, y=份额增速; 切点 x=全体均值, y=0 → strong/weak/latent/nswb<br>
+<b>S 曲线</b>: Logistic vs Gompertz curve_fit,AIC 择优; N&lt;0.2L→emerging … &gt;0.8L→mature/saturated<br>
+<b>Haupt 比</b> = 专利 CAGR / 申请人 CAGR<br>
+<b>组合新颖</b> = 含"历史未见 IPC 对"的专利占比(域级聚合)<br>
+<b>DisruptScore</b> = Σ wᵢ·zᵢ (0.30/0.25/0.20/0.15/0.10)<br>
+<b>Rotolo 判定</b> = 五属性中位综合 ≥4.0→是, ≤2.5→否, 其间→待定(×3 次取中位抗抖)<br>
+<b>fusion v1</b> = 0.5·burst + 0.3·patent_growth + 0.2·disrupt <span style="color:#8899b5">(citation/invest/policy 三维留接口)</span>
+</div>
+<div class="card"><b>漏斗实测最有说服力的一幕:</b>统计层把成熟域 H04W/H01F 顶上 DisruptScore 前列(novelty z=12 假阳性),LLM Rotolo 判"否"压掉——统计层保召回,LLM 层保精度,双层各司其职。</div>
+
+<h2>5. 工程决策</h2>
+<table>
+<tr><th>决策</th><th>理由 / 教训</th></tr>
+<tr><td>证据 doc_id 源限定(<code>science:123</code>)</td><td>8 张 ODS 表 id 序列独立,裸 id 跨源必然碰撞→证据错链(审查 HIGH)</td></tr>
+<tr><td>证据按<b>时间戳降序</b>取最近 N 篇</td><td>加载序=源优先,不是时间序(审查 HIGH)</td></tr>
+<tr><td>重扫<b>先删后插</b>(分块 IN≤1000)</td><td>signal_id=md5(关键词) 不含周期,窗口重叠重扫必撞 unique→整任务回滚;真跑还曝了 IN 参数 &gt;32767 上限</td></tr>
+<tr><td>窗口计数<b>稀疏 dict[wi]</b> 存储</td><td>百万词表×稠密 list 会到 GB 级</td></tr>
+<tr><td>correlator 名称匹配边改 <code>entity_match</code></td><td>同名边≠语料共现边,语义必须分开(真共现=signal↔signal co_occurrence)</td></tr>
+<tr><td>实体解析<b>只产建议</b></td><td>见 §3;建议行带 score/detail 供人工审</td></tr>
+<tr><td>拉专利 <code>ORDER BY id DESC LIMIT cap</code></td><td>ASC 截的是最老年份——cap 保护下必须保新</td></tr>
+<tr><td>curve_fit 模型函数必须 <code>np.exp</code></td><td>math.exp(ndarray) 静默崩→拟合全 inf(真踩)</td></tr>
+<tr><td>增量同步 watermark=<b>本地 MAX(update_time)</b></td><td>免状态文件,幂等重跑(旧 _load_state.json 已丢)</td></tr>
+<tr><td>云部署线<b>冻结</b>(用户决策)</td><td>主线本地开发;线上 47.120.41.179 旧栈照跑不动;VPN 云 Doris 属数据源,继续用</td></tr>
+</table>
+
+<h2>6. 审查与修复</h2>
+<div class="card">Phase A 交独立 code review:<b>16 findings 修 14</b>(3 HIGH 全修:doc_id 碰撞/证据时序/重扫幂等;MEDIUM 全修)。遗留 L11(掉出信号的旧边)/L14(ORM server_default 漂移)/L16(domain→industry 逐字匹配)记录在 spec。</div>
+
+<h2>7. 真数据实证(本地 Doris ods_zbzx,19G)</h2>
+<table>
+<tr><th>层</th><th>输入</th><th>产出</th><th>亮点</th></tr>
+<tr><td>A 弱信号</td><td>8 源真语料</td><td>89,971 候选→122 信号+155 共现边+1,144 term_stats</td><td>重扫幂等(122/155/1144 不变);evidence 全源可溯</td></tr>
+<tr><td>B 新兴指标</td><td>40 万专利(2023–25)</td><td>625 域+43 融合对</td><td>G01N/A61K/B23K/H02J=strong+emerging(DT&lt;2 年);<b>G21K|H05H 2025 全新跨域对</b></td></tr>
+<tr><td>C 颠覆</td><td>同上</td><td>617 域排行</td><td>LLM 漏斗 glm 实测:H04W/H01F 判"否"压掉 z 假阳性 ✓</td></tr>
+<tr><td>D 实体</td><td>申请人/作者/项目</td><td>ROR 真网命中(华为 score=1);596 干净名→5 消歧建议</td><td>authors 字段脏 JSON 串已过滤</td></tr>
+<tr><td>E 管线</td><td>三源融合</td><td>frontier 真扫 29 候选;cron 三类型</td><td>demo 断链(G4)修复,空库自动回落 demo</td></tr>
+</table>
+
+<h2>8. 已知局限 → 后续</h2>
+<ul>
+<li><b>E4/E5 待 L2 概念语料</b>:tech_evidence=0(冷启动 L2 正在跑,glm 配额已恢复);跑完共现网/演进链即生效</li>
+<li>E5 演进链为<b>时序启发版 v1</b>(同域证据时序相邻,conf 0.3);LLM problem-solution 升级留口</li>
+<li>作者消歧对英文机构名误报偏高(建议制人工审兜底);2025 年多 IPC 专利占比暴跌(仅 2%)→ 融合对信号变稀</li>
+<li>融合分 fusion v1 只有三维;弱信号 period 与 frontier 窗口对齐后 burst 维补全</li>
+<li>VPN 增量同步进行中(家宽 ~290KB/s,长活;保活循环 15s/次防自动断)</li>
+</ul>
+
+<p class="small">详档:<code>docs/superpowers/specs/2026-10-14-tech-intel-mining-upgrade-design.md</code> · 图:<code>docs/diagrams/tech-intel-mining-architecture.drawio</code> · commits <code>3cf6757 / 7f4d353 / faacff2 / 7a53da1 / caaa9ee</code></p>
+</div></body></html>

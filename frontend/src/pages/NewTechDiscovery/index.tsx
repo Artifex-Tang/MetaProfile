@@ -104,6 +104,15 @@ function SignalDrawer({
         <Descriptions.Item label="多样性">{signal.diversity.toFixed(3)}</Descriptions.Item>
         <Descriptions.Item label="增速">{signal.velocity.toFixed(3)}</Descriptions.Item>
         <Descriptions.Item label="领域">{signal.domain ?? '-'}</Descriptions.Item>
+        <Descriptions.Item label="证据文档">
+          {signal.evidence_doc_ids?.length
+            ? <Space size={4} wrap>{signal.evidence_doc_ids.slice(0, 10).map(d =>
+                <Tag key={d} color="geekblue">{d}</Tag>)}
+              {signal.evidence_doc_ids.length > 10
+                ? <Text type="secondary">+{signal.evidence_doc_ids.length - 10}</Text> : null}
+            </Space>
+            : <Text type="secondary">-</Text>}
+        </Descriptions.Item>
         <Descriptions.Item label="状态"><Tag>{signal.status}</Tag></Descriptions.Item>
         <Descriptions.Item label="周期">
           {signal.period_from?.slice(0, 10)} ~ {signal.period_to?.slice(0, 10)}

@@ -151,6 +151,18 @@ def analysis_tests():
     code, _, d = req("GET", "api-discovery/api/v1/new-tech/signals?page=1&page_size=3")
     record("API-DISC-02", "弱信号列表非空", code == 200 and d and d.get("total", 0) > 0,
            f"total={d.get('total') if d else '?'}")
+    # Phase B/C 新端点(2026-10-14):新兴指标 + 颠覆评估
+    code, _, d = req("GET", "api-discovery/api/v1/new-tech/emergence"
+                     "?object_type=ipc_domain&page=1&page_size=3")
+    record("API-DISC-03", "新兴指标列表", code == 200,
+           f"code={code} total={d.get('total') if isinstance(d, dict) else '?'}")
+    code, _, d = req("GET", "api-discovery/api/v1/new-tech/emergence"
+                     "?object_type=ipc_domain&quadrant=weak&page=1&page_size=3")
+    record("API-DISC-04", "TEM 象限过滤(weak)", code == 200,
+           f"code={code} total={d.get('total') if isinstance(d, dict) else '?'}")
+    code, _, d = req("GET", "api-discovery/api/v1/new-tech/disruption?page=1&page_size=3")
+    record("API-DISC-05", "颠覆评估列表(按分降序)", code == 200,
+           f"code={code} total={d.get('total') if isinstance(d, dict) else '?'}")
     # topics
     code, _, d = req("POST", "api-topic/api/v1/topics/generate?target_count=5")
     record("API-TOP-01", "选题生成触发", code == 200, f"code={code}")

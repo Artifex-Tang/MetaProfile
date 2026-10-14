@@ -175,7 +175,7 @@ services:
       context: ..
       dockerfile: Dockerfile
     command: uvicorn metaprofile.backend.main:app --host 0.0.0.0 --port 8000 --workers 2
-    ports: ["8000:8000"]
+    ports: ["${BACKEND_PORT:-8000}:8000"]  # 端口可 env 覆盖(本机 ga-frontend 占 8000 时用 BACKEND_PORT=18000)
     environment:
       PORT: "8000"
       # 分析层回调画像层 → 指向自身（同一复合后端）
@@ -219,7 +219,7 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    ports: ["80:80"]
+    ports: ["${FRONTEND_PORT:-80}:80"]  # 同上,冲突时 FRONTEND_PORT=18080
     depends_on:
       backend:
         condition: service_healthy

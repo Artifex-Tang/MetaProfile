@@ -170,6 +170,9 @@ class WeakSignalSettings(BaseSettings):
     # 语料源白名单(产业技术聚焦:默认排除 market/key_events 消费品噪声源,
     # 用户反馈"卫生巾"类信号治理;env WEAK_SIGNAL_SOURCES 覆盖,如 "science,patent,market")
     sources: str = "science,patent,policy,industry_report,intl_news,attachment"
+    tech_term_boost: float = 0.15    # 命中技术词典(concept/域名)的词强度加成
+    nontech_burst_gate: float = 2.5  # 非技术词典词须 burst≥此值才入围(泛词治理)
+    nontech_discount: float = 0.7    # 非技术词强度折减(技术词榜单反超,对称刀)
 
     @property
     def source_list(self) -> list[str]:

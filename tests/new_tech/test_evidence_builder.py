@@ -78,3 +78,23 @@ def test_cooccurrence_pairs_counts_codoc():
 def test_cooccurrence_pairs_ignores_docs_with_lt_2_signal_terms():
     weights = cooccurrence_pairs([{"quantum"}], signal_terms={"quantum", "chip"})
     assert weights == {}
+
+
+def test_apply_source_weights_discounts_finance_sources():
+    """研报/新闻源 df 降权(diversity 前应用),未知源 1.0。"""
+    from metaprofile.new_tech_discovery.services.signal_metrics import (
+        apply_source_weights,
+        diversity_score,
+    )
+    raw = {"science": 10, "industry_report": 10, "patent": 10}
+    w = apply_source_weights(raw)
+    assert w == {"science": 10, "industry_report": 4, "patent": 10}
+    # 全研报单源 → 仍 0(单源无多样性)
+    assert diversity_score(apply_source_weights({"industry_report": 100})) == 0.0
+
+
+def test_finance_stopwords_filtered():
+    from metaprofile.new_tech_discovery.services.signal_metrics import tokenize
+    toks = tokenize("深成指成交额走强,量子芯片突破")
+    assert "深成指" not in toks and "成交额" not in toks
+    assert "量子芯片" in toks or "量子" in toks

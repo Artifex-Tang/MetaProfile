@@ -17,6 +17,7 @@ from datetime import date
 
 import structlog
 from sqlalchemy import delete as sa_delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaprofile.new_tech_discovery.domain.orm_models import (
@@ -33,12 +34,14 @@ from metaprofile.new_tech_discovery.services.evidence_builder import (
 )
 from metaprofile.new_tech_discovery.services.signal_metrics import (
     TermStats,
+    apply_source_weights,
     build_term_stats,
     build_windows,
     burst_score,
     coherence_score,
     diversity_score,
     novelty_score,
+    prime_jieba,
     tokenize,
     velocity_score,
 )
@@ -62,6 +65,7 @@ class WeakSignal:
     period_from: date
     period_to: date
     evidence_doc_ids: list[str]
+    is_tech_term: bool = False
 
 
 class WeakSignalExtractor:
@@ -115,6 +119,10 @@ class WeakSignalExtractor:
         lookback_start = windows[0].start if windows else period_from
         docs = await self._load_corpus(lookback_start, period_to, db, domain)
 
+        # 技术词典(概念名/域名词,2026-10-15 词质量治理):命中词 strength 加成;
+        # 注入 jieba 必须在 build_term_stats(切词)之前——技术整词不被切碎
+        tech_dict = await self._load_tech_dict(db)
+        prime_jieba(tech_dict)
         term_stats = build_term_stats(docs, windows, min_df=2)
         stats_by_term = {ts.term: ts for ts in term_stats}
 
@@ -127,7 +135,7 @@ class WeakSignalExtractor:
             burst = burst_score(df_current, df_history) if df_history else 0.0
             seen = sum(1 for i in history_idx if ts.df_by_window[i] > 0)
             novelty = novelty_score(seen, n_history)
-            diversity = diversity_score(ts.df_by_source)
+            diversity = diversity_score(apply_source_weights(ts.df_by_source))
             recent = [
                 ts.df_by_window[i]
                 for i in current_idx[-ws.velocity_recent_windows:]
@@ -143,11 +151,17 @@ class WeakSignalExtractor:
                 novelty=novelty, coherence=coherence,
                 diversity=diversity, velocity=velocity,
             )
+            is_tech_term = ts.term in tech_dict
+            if is_tech_term:
+                strength = min(1.0, strength + ws.tech_term_boost)
+            else:
+                strength *= ws.nontech_discount
             candidates.append({
                 "term": ts.term, "strength": strength, "burst": burst,
                 "novelty": novelty, "diversity": diversity,
                 "velocity": velocity, "coherence": coherence,
                 "is_entity": ts.is_entity, "df_current": df_current,
+                "is_tech_term": is_tech_term,
             })
 
         if not candidates:
@@ -157,6 +171,10 @@ class WeakSignalExtractor:
 
         signals: list[WeakSignal] = []
         for c in candidates:
+            # 双池门槛(2026-10-15 词质量治理):非技术词典词须突现极强才入围,
+            # 防"反复/2026/两市"类泛词靠 novelty/diversity 空转刷分
+            if not c.get("is_tech_term") and c["burst"] < ws.nontech_burst_gate:
+                continue
             if c["strength"] < threshold and c["burst"] < ws.burst_theta:
                 continue
             kw = [c["term"]]
@@ -171,11 +189,16 @@ class WeakSignalExtractor:
                 velocity=round(c["velocity"], 4),
                 period_from=period_from, period_to=period_to,
                 evidence_doc_ids=[],
+                is_tech_term=c.get("is_tech_term", False),
             ))
 
-        # 单轮信号上限(首轮自适应阈值落地板时存活可达数千 → 边表爆炸)
+        # 单轮信号上限(首轮自适应阈值落地板时存活可达数千 → 边表爆炸);
+        # 排序=技术词典词优先占席,泛词只能垫底(词质量治理终刀)
         if len(signals) > ws.max_signals:
-            signals.sort(key=lambda s: (s.strength, s.velocity), reverse=True)
+            signals.sort(
+                key=lambda s: (s.is_tech_term, s.strength, s.velocity),
+                reverse=True,
+            )
             dropped = len(signals) - ws.max_signals
             signals = signals[:ws.max_signals]
             logger.info("weak_signal_capped", kept=ws.max_signals, dropped=dropped)
@@ -234,6 +257,25 @@ class WeakSignalExtractor:
             term_stats, key=lambda t: sum(t.df_by_window), reverse=True,
         )
         return ranked[:cap]
+
+    @staticmethod
+    async def _load_tech_dict(db: AsyncSession) -> set[str]:
+        """技术词典:tech_profile 全部概念/域中英文名(词质量治理加权用)。"""
+        from metaprofile.profile_tech.domain.orm_models import TechProfileORM
+
+        rows = (await db.execute(
+            select(TechProfileORM.tech_name_cn, TechProfileORM.tech_name_en,
+                   TechProfileORM.cluster_terms)
+        )).all()
+        names: set[str] = set()
+        for cn, en, cluster in rows:
+            for n in (cn, en):
+                if n and len(n) >= 2:
+                    names.add(n)
+            for t in (cluster or []):
+                if t and len(t) >= 2:
+                    names.add(t)
+        return names
 
     async def _link_evidence(self, db, signals, stats_by_term, docs, ws,
                              orm_by_sid: dict) -> None:

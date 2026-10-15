@@ -50,6 +50,24 @@ def diversity_score(df_by_source: dict[str, int]) -> float:
     return entropy / math.log(n)
 
 
+# 源权重(2026-10-15 弱信号词质量治理):研报/新闻类语料是市场舆情不是
+# 技术信号,diversity 前按权重缩 df,防"研报多源高熵"假多样性。
+SOURCE_WEIGHTS = {
+    "industry_report": 0.4,
+    "intl_news": 0.5,
+    "market": 0.5,
+    "key_events": 0.5,
+}
+
+
+def apply_source_weights(df_by_source: dict[str, int]) -> dict[str, int]:
+    """按 SOURCE_WEIGHTS 缩放各源 df(未知源 1.0)。"""
+    return {
+        s: int(c * SOURCE_WEIGHTS.get(s, 1.0))
+        for s, c in df_by_source.items()
+    }
+
+
 def coherence_score(df_by_source_current: dict[str, int],
                     df_by_source_prev: dict[str, int]) -> float:
     """一致性（§4.6）：当前窗源频次"上升"的源占比。
@@ -118,6 +136,14 @@ def velocity_score(df_recent: list[int],
 _CN_STOPWORDS = {
     "的", "了", "和", "与", "在", "是", "为", "及", "等", "对", "中", "或",
     "一种", "一个", "本",
+    # 财经/研报噪声词(2026-10-15:研报源淹没技术词治理)
+    "深成指", "上证", "创业板", "科创板", "涨停", "跌停", "基金", "净值",
+    "券商", "个股", "大盘", "走势", "涨幅", "跌幅", "收盘", "盘中", "资金",
+    "北向", "两融", "估值", "市盈率", "营收", "净利", "毛利", "财报",
+    "季报", "年报", "中报", "业绩", "预期", "目标价", "评级", "买入",
+    "增持", "持有", "减持", "卖出", "成交额", "成交量", "成交", "指数",
+    "并非", "并未", "规避", "密切", "良性", "占优", "踏准", "相继",
+    "利好", "利空", "牛市", "熊市", "龙头", "标的", "赛道", "板块",
 }
 _EN_STOPWORDS = {
     "the", "a", "an", "is", "are", "of", "and", "to", "in",
@@ -129,6 +155,24 @@ try:
     _JIEBA_AVAILABLE = True
 except ImportError:  # jieba 缺失 → 中文退回正则切字/词
     jieba = None  # type: ignore
+
+# 技术词典注入 jieba(2026-10-15 词质量治根):"量子计算"不被切碎成
+# "量子/计算",整词进 term 空间 → 词典匹配/novelty/burst 全在整词上生效。
+_PRIMED: set[str] = set()
+
+
+def prime_jieba(terms) -> None:
+    """技术词注入 jieba 自定义词典(高频,保证整词保留)。幂等。"""
+    if not _JIEBA_AVAILABLE:
+        return
+    for t in terms:
+        t = str(t).strip()
+        if len(t) >= 2 and t not in _PRIMED:
+            _PRIMED.add(t)
+            try:
+                jieba.add_word(t, freq=1_000_000)
+            except Exception:  # noqa: BLE001
+                continue
 
 
 def _detect_lang(text: str) -> str:

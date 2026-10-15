@@ -109,6 +109,8 @@ def build_profile_rows(clusters: list[dict], ipc_names: dict[str, str]) -> list[
             # 采购公告类旧数据 0.3 沉底,2026-10-15 用户决策)
             "confidence": round(0.7 + min(c["patents"] / 50, 0.25), 4),
             "_sample_titles": c["sample_titles"],
+            "_ipc": c["ipc"],
+            "_n": c["patents"],
         })
     return out
 
@@ -140,6 +142,8 @@ async def upsert_layouts(session: AsyncSession, rows: list[dict]) -> int:
     written = 0
     for r in rows:
         titles = r.pop("_sample_titles", [])
+        r.pop("_ipc", None)
+        r.pop("_n", None)
         orm = await session.get(ProjectProfileORM, r["project_id"])
         if orm is None:
             session.add(ProjectProfileORM(**r))
@@ -158,6 +162,47 @@ async def upsert_layouts(session: AsyncSession, rows: list[dict]) -> int:
         if written % 1000 == 0:
             await session.flush()
     await session.flush()
+    return written
+
+
+async def write_layout_edges(rows: list[dict]) -> int:
+    """布局→IPC 域 PROJECT_INVOLVE_TECH 边(Neo4j)。
+
+    端节点:Project(pp: id 新建)+ Tech(ipc:X 域节点已有)。
+    供图谱页渲染(用户反馈:项目关联图谱 canvas 空)。
+    """
+    from metaprofile.foundation.relation.triple_writer import TripleWriter
+    from metaprofile.foundation.storage.neo4j_repo import FoundationNeo4jRepo
+    from metaprofile.shared.schemas.base import EntityType, SourceMethod
+    from metaprofile.shared.schemas.relations import (
+        RelationTriple,
+        RelationType,
+    )
+
+    writer = TripleWriter(FoundationNeo4jRepo())
+    repo = FoundationNeo4jRepo()
+    written = 0
+    for r in rows:
+        ipc = r.get("_ipc")
+        if not ipc:
+            continue
+        # Project 节点先建(MERGE 关系需两端存在——坑 B 教训)
+        await repo.upsert_entity_node(
+            EntityType.PROJECT, r["project_id"],
+            {"entity_id": r["project_id"], "name": r["name_cn"][0]},
+        )
+        triple = RelationTriple(
+            subject_id=r["project_id"], subject_type=EntityType.PROJECT,
+            subject_name=r["name_cn"][0],
+            relation=RelationType.PROJECT_INVOLVE_TECH,
+            object_id=f"ipc:{ipc}",
+            object_type=EntityType.TECH,
+            object_name=ipc,
+            evidence=f"专利聚合布局({r.get('_n', '')}件)",
+            confidence=0.9, source_doc_id=None,
+            method=SourceMethod.RULE, extracted_at=datetime.now(UTC),
+        )
+        written += int(await writer.write(triple))
     return written
 
 
@@ -189,6 +234,8 @@ class PatentProjectMiner:
                      )).scalars().all() if t.ipc_code}
         profile_rows = build_profile_rows(clusters, ipc_names)
         written = await upsert_layouts(session, profile_rows)
-        logger.info("patent_layouts_mined", clusters=len(clusters), written=written)
+        edges = await write_layout_edges(profile_rows)
+        logger.info("patent_layouts_mined", clusters=len(clusters),
+                    written=written, edges=edges)
         return {"status": "done", "patent_rows": len(rows),
-                "clusters": len(clusters), "written": written}
+                "clusters": len(clusters), "written": written, "edges": edges}

@@ -5,6 +5,7 @@ import {
   DashboardOutlined, ExperimentOutlined, ProjectOutlined,
   BankOutlined, UserOutlined, RadarChartOutlined,
   BulbOutlined, FileTextOutlined, SettingOutlined,
+  ApartmentOutlined,
 } from '@ant-design/icons'
 
 const { Sider, Content, Header } = Layout
@@ -18,6 +19,7 @@ const menuItems = [
   { key: 'person',     icon: <UserOutlined />,        label: '人员画像' },
   { key: 'scan',       icon: <RadarChartOutlined />,  label: '扫描监测' },
   { key: 'discovery',  icon: <BulbOutlined />,        label: '新技术发现' },
+      { key: 'explore',    icon: <ApartmentOutlined />,   label: '关系探索' },
   { key: 'topics',     icon: <FileTextOutlined />,    label: '选题服务' },
   { key: 'settings',   icon: <SettingOutlined />,     label: '系统配置' },
 ]

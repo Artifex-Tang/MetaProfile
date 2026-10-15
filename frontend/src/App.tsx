@@ -6,6 +6,7 @@ import ProfileProject from './pages/ProfileProject'
 import ProfileOrg from './pages/ProfileOrg'
 import ProfilePerson from './pages/ProfilePerson'
 import ScanMonitor from './pages/ScanMonitor'
+import RelationExplore from './pages/RelationExplore'
 import NewTechDiscovery from './pages/NewTechDiscovery'
 import TopicSelection from './pages/TopicSelection'
 import Settings from './pages/Settings'
@@ -27,6 +28,8 @@ export default function App() {
           <Route path="person/:id" element={<ProfilePerson />} />
           <Route path="scan" element={<ScanMonitor />} />
           <Route path="discovery" element={<NewTechDiscovery />} />
+          <Route path="explore" element={<RelationExplore />} />
+          <Route path="explore" element={<RelationExplore />} />
           <Route path="topics" element={<TopicSelection />} />
           <Route path="settings" element={<Settings />} />
         </Route>

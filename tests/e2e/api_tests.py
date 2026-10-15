@@ -381,4 +381,8 @@ def main():
 
 
 if __name__ == "__main__":
+    import sys
+    for _i, _a in enumerate(sys.argv):
+        if _a == "--base" and _i + 1 < len(sys.argv):
+            BASE = sys.argv[_i + 1]
     main()

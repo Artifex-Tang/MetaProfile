@@ -98,3 +98,22 @@ def test_finance_stopwords_filtered():
     toks = tokenize("深成指成交额走强,量子芯片突破")
     assert "深成指" not in toks and "成交额" not in toks
     assert "量子芯片" in toks or "量子" in toks
+
+
+def test_pairs_from_evidence_counts_and_top():
+    from metaprofile.new_tech_discovery.services.evolve_llm import (
+        _pairs_from_evidence,
+    )
+    rows = [
+        ("t1", "d1", "p"), ("t2", "d1", "p"),
+        ("t1", "d2", "p"), ("t2", "d2", "p"),
+        ("t1", "d3", "p"), ("t2", "d3", "p"), ("t3", "d3", "p"),
+        ("t1", "d4", "p"), ("t2", "d4", "p"),
+    ]
+    pairs = _pairs_from_evidence(rows, min_codocs=2, top=10)
+    d = dict(pairs)
+    assert d[("t1", "t2")] == 4
+    assert ("t1", "t3") not in d   # 单共现 < min_codocs=2 被滤
+    assert ("t2", "t3") not in d
+    # top 截断
+    assert _pairs_from_evidence(rows, min_codocs=2, top=1)[0][0] == ("t1", "t2")

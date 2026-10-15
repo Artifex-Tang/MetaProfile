@@ -52,6 +52,10 @@ async def build_frontier_candidates(
 ) -> dict:
     """三源 → frontier_tech 候选行 + 告警。返回统计。"""
     task_id = f"scan-{uuid.uuid4().hex[:12]}"
+    # 替换式扫描:清旧 pending 候选(保留 validated/rejected 审计历史),
+    # 防多次扫描同名堆积(实测同域双行)
+    from sqlalchemy import delete
+    await db.execute(delete(FrontierTechORM).where(FrontierTechORM.status == "pending"))
     # 归一基准
     max_strength = (await db.execute(
         select(func.max(WeakSignalORM.strength))
@@ -92,6 +96,10 @@ async def build_frontier_candidates(
         m = ind.metrics or {}
         if m.get("tem_quadrant") not in ("weak", "strong"):
             continue
+        # 小样本域护栏(2026-10-15:冲水马桶/烟嘴烟盒类小域 growth clamp 顶格
+        # 假高):专利量不足 min_domain_patents 的域不进候选
+        if int(m.get("patents") or 0) < 50:
+            continue
         name = ipc_names.get(ind.object_id) or ind.object_id.split(":", 1)[-1]
         code = ind.object_id.split(":", 1)[-1]
         if name in candidates or code in candidates:
@@ -114,7 +122,7 @@ async def build_frontier_candidates(
         select(DisruptionAssessmentORM)
         .order_by(DisruptionAssessmentORM.disrupt_score.desc()).limit(per_source)
     )).scalars().all():
-        name = dis.object_id.split(":", 1)[-1]
+        name = ipc_names.get(dis.object_id) or dis.object_id.split(":", 1)[-1]
         if name in candidates:
             candidates[name]["disrupt"] = (dis.disrupt_score or 0.0) / max_disrupt
         else:

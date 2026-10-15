@@ -146,3 +146,24 @@ async def _async_tech_graph() -> dict[str, Any]:
 def build_tech_graph() -> dict[str, Any]:
     """tech-tech 真挖掘(Phase E4/E5):共现网 + 时序演进链 → Neo4j。"""
     return run_async(_async_tech_graph())
+
+
+async def _async_evolve_llm(top_n: int) -> dict[str, Any]:
+    from metaprofile.new_tech_discovery.services.evolve_llm import (
+        build_llm_evolve_edges,
+    )
+
+    try:
+        async with get_session() as session:
+            res = await build_llm_evolve_edges(session, top_n=top_n)
+            await session.commit()
+            return res
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("evolve_llm_task_failed", error=str(exc))
+        return {"status": "failed", "error": str(exc)}
+
+
+@celery_app.task(name="metaprofile.newtech.build_evolve_llm")
+def build_evolve_llm(top_n: int = 200) -> dict[str, Any]:
+    """E5 LLM 演进链:共现概念对 → LLM 判向 → TECH_EVOLVE(conf 0.7·c)。"""
+    return run_async(_async_evolve_llm(top_n))

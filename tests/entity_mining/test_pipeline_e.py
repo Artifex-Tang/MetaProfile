@@ -68,9 +68,10 @@ class _FakeSignal:
 
 
 class _FakeIndicator:
-    def __init__(self, obj, quadrant, growth):
+    def __init__(self, obj, quadrant, growth, patents=100):
         self.object_id = obj
-        self.metrics = {"tem_quadrant": quadrant, "tem_growth": growth}
+        self.metrics = {"tem_quadrant": quadrant, "tem_growth": growth,
+                        "patents": patents}
 
 
 class _FakeDisruption:
@@ -88,6 +89,7 @@ async def test_build_frontier_candidates_merges_sources():
     ipc_rows = MagicMock()
     ipc_rows.all.return_value = []   # ipc_names 域名映射(空)
     db = _mock_db([
+        MagicMock(),            # 替换式 DELETE pending(不消费结果)
         _scalar_result(0.8),   # max strength
         _scalar_result(3.0),   # max disrupt
         ipc_rows,              # ipc_names
@@ -95,13 +97,14 @@ async def test_build_frontier_candidates_merges_sources():
         _scalars_result([
             _FakeIndicator("ipc:G06T", "weak", 0.6),
             _FakeIndicator("ipc:G06F", "mature", 0.9),   # 非 weak/strong 跳过
+            _FakeIndicator("ipc:B44C", "weak", 1.0, patents=3),  # 小样本域拦
         ]),
         _scalars_result([_FakeDisruption("ipc:G06T", 3.0)]),  # 与指标同名 → 补 disrupt
     ])
     res = await build_frontier_candidates(
         db, period_from=date(2026, 1, 1), period_to=date(2026, 3, 31),
     )
-    assert res["candidates"] == 3      # quantum + cobots + G06T(融合指标与颠覆)
+    assert res["candidates"] == 3      # quantum + cobots + G06T(B44C 小样本被拦)
     added_rows = [c.args[0] for c in db.add_all.call_args_list if c.args]
     frontier_rows = [r for batch in added_rows for r in batch
                      if type(r).__name__ == "FrontierTechORM"]

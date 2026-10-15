@@ -85,9 +85,12 @@ async def test_build_frontier_candidates_merges_sources():
         build_frontier_candidates,
     )
 
+    ipc_rows = MagicMock()
+    ipc_rows.all.return_value = []   # ipc_names 域名映射(空)
     db = _mock_db([
         _scalar_result(0.8),   # max strength
         _scalar_result(3.0),   # max disrupt
+        ipc_rows,              # ipc_names
         _scalars_result([_FakeSignal("quantum", 0.8), _FakeSignal("cobots", 0.4)]),
         _scalars_result([
             _FakeIndicator("ipc:G06T", "weak", 0.6),
@@ -106,6 +109,7 @@ async def test_build_frontier_candidates_merges_sources():
     g06t = next(r for r in frontier_rows if r.tech_name == "G06T")
     # burst=0 patent=0.6 disrupt=1.0 → 0.3*0.6+0.2*1.0=0.38
     assert g06t.fusion_score == 0.38
+    assert g06t.tech_domain == ["G06T"]   # 领域名列(象限标签不进此列)
     assert g06t.patent_score == 0.6
 
 

@@ -150,7 +150,7 @@ def _fetch_source(source_name: str, dsn: dict, spec: SourceSpec,
         if industry:
             where += " AND `industry` = %s"
             params.append(industry)
-        sql = f"SELECT {cols_sql} FROM `{table}` WHERE {where} ORDER BY id LIMIT %s"
+        sql = f"SELECT {cols_sql} FROM `{table}` WHERE {where} ORDER BY id DESC LIMIT %s"
         params.append(limit)
         cur.execute(sql, tuple(params))
         cols = [d[0] for d in cur.description]

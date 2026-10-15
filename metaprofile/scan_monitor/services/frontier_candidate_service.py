@@ -31,6 +31,7 @@ logger = structlog.get_logger(__name__)
 _FUSION_W = {"burst": 0.5, "patent": 0.3, "disrupt": 0.2}
 
 
+
 def _clamp01(v: float) -> float:
     return max(0.0, min(1.0, v))
 
@@ -58,6 +59,13 @@ async def build_frontier_candidates(
     max_disrupt = (await db.execute(
         select(func.max(DisruptionAssessmentORM.disrupt_score))
     )).scalar() or 1.0
+    # ipc:X → 中文名(缺名回落码,用户反馈"技术名称是编码"修复)
+    from metaprofile.profile_tech.domain.orm_models import TechProfileORM
+    ipc_names = {t.tech_id: (t.tech_name_cn or t.tech_id)
+                 for t in (await db.execute(
+                     select(TechProfileORM.tech_id, TechProfileORM.tech_name_cn)
+                     .where(TechProfileORM.tech_layer == "DOMAIN")
+                 )).all()}
 
     candidates: dict[str, dict] = {}
 
@@ -84,10 +92,11 @@ async def build_frontier_candidates(
         m = ind.metrics or {}
         if m.get("tem_quadrant") not in ("weak", "strong"):
             continue
-        name = ind.object_id.split(":", 1)[-1]
-        if name in candidates:
-            # 已有信号同名 → 补 patent 维
-            candidates[name]["patent"] = _clamp01(float(m.get("tem_growth", 0)))
+        name = ipc_names.get(ind.object_id) or ind.object_id.split(":", 1)[-1]
+        code = ind.object_id.split(":", 1)[-1]
+        if name in candidates or code in candidates:
+            hit = candidates.get(name) or candidates.get(code)
+            hit["patent"] = _clamp01(float(m.get("tem_growth", 0)))
             continue
         if len([c for c in candidates.values() if c["tech_id"].startswith("ipc:")]) >= per_source:
             continue
@@ -96,7 +105,9 @@ async def build_frontier_candidates(
             "burst": 0.0,
             "patent": _clamp01(float(m.get("tem_growth", 0))),
             "disrupt": 0.0,
-            "domains": [m.get("tem_quadrant", "")],
+            # tech_domain 存领域名(用户反馈:象限标签与"领域"语义不搭;
+            # 象限状态留在新兴指标页)
+            "domains": [name],
         }
 
     for dis in (await db.execute(

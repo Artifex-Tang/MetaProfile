@@ -167,6 +167,13 @@ class WeakSignalSettings(BaseSettings):
     term_stats_max_terms: int = 20000 # 单轮持久化术语上限(按 total_df 降序截断)
     cooccurrence_edges: bool = True   # 同文档信号词对真共现边(§6-A5)
     max_signals: int = 500            # 单轮落库信号上限(按强度降序截断,防首轮阈值地板→海量信号+边爆炸)
+    # 语料源白名单(产业技术聚焦:默认排除 market/key_events 消费品噪声源,
+    # 用户反馈"卫生巾"类信号治理;env WEAK_SIGNAL_SOURCES 覆盖,如 "science,patent,market")
+    sources: str = "science,patent,policy,industry_report,intl_news,attachment"
+
+    @property
+    def source_list(self) -> list[str]:
+        return [s.strip() for s in self.sources.split(",") if s.strip()]
 
 
 class EmergenceSettings(BaseSettings):

@@ -55,7 +55,52 @@ def cols_of(conn, table: str) -> list[str]:
     return out
 
 
-def sync_table(table: str, batch: int, pk_chunk: int = 0) -> dict:
+def _worker(table: str, seg: tuple[int, int], pk: str, col_sql: str, ph: str,
+            batch: int, wm, worker_id: int, state: dict, lock) -> None:
+    """单 worker 拉自己负责的 pk 区间(独立远/本地连接)。"""
+    rem = pymysql.connect(**REMOTE)
+    loc = pymysql.connect(**LOCAL)
+    lo, hi = seg
+    wcur = loc.cursor()
+    try:
+        cur = lo
+        while cur <= hi:
+            end = cur + state["pk_chunk"]
+            where = (f"WHERE `{pk}` >= {cur} AND `{pk}` < {end} "
+                     f"AND `update_time` > %s" if wm
+                     else f"WHERE `{pk}` >= {cur} AND `{pk}` < {end}")
+            params = (wm,) if wm else ()
+            rcur = rem.cursor(pymysql.cursors.SSCursor)
+            rcur.execute(
+                f"SELECT {col_sql} FROM `{table}` {where} ORDER BY `{pk}`", params,
+            )
+            while True:
+                rows = rcur.fetchmany(batch)
+                if not rows:
+                    break
+                wcur.executemany(
+                    f"INSERT INTO `{table}` ({col_sql}) VALUES ({ph})", rows,
+                )
+                loc.commit()
+                with lock:
+                    state["total"] += len(rows)
+                    n = state["total"]
+                if len(rows) >= batch and (n // batch) % 10 == 0:
+                    print(f"  {table} w{worker_id}: +{n} rows "
+                          f"({time.time()-state['t0']:.0f}s)", flush=True)
+            rcur.close()
+            cur = end
+    except Exception as exc:  # noqa: BLE001
+        print(f"  {table} w{worker_id} SEG[{lo},{hi}] FAILED: {exc}", flush=True)
+    finally:
+        rem.close()
+        loc.close()
+
+
+def sync_table(table: str, batch: int, pk_chunk: int = 0,
+               full: bool = False, workers: int = 1) -> dict:
+    import threading
+
     rem = pymysql.connect(**REMOTE)
     loc = pymysql.connect(**LOCAL)
     try:
@@ -68,58 +113,82 @@ def sync_table(table: str, batch: int, pk_chunk: int = 0) -> dict:
         lcur.execute(f"SELECT MAX(`update_time`) FROM `{table}`")
         wm = lcur.fetchone()[0]
         lcur.close()
-        wcur = loc.cursor()
-        total = 0
-        t0 = time.time()
+        if full:
+            wm = None   # 全量重拉(Doris UNIQUE 按 pk 幂等,重复行内更新)
 
-        def _drain(rcur) -> int:
-            nonlocal total
-            while True:
-                rows = rcur.fetchmany(batch)
-                if not rows:
-                    break
-                wcur.executemany(
-                    f"INSERT INTO `{table}` ({col_sql}) VALUES ({ph})", rows,
-                )
-                loc.commit()
-                total += len(rows)
-                print(f"  {table}: +{total} rows ({time.time()-t0:.0f}s)", flush=True)
-            rcur.close()
+        state = {"total": 0, "t0": time.time(), "pk_chunk": pk_chunk}
+        lock = threading.Lock()
 
-        if pk_chunk > 0:
-            # 主键分段扫描(宽表全表谓词/排序都会在远端 BE 爆内存,
-            # company 13M×30 列 28GB FullGC 实测;分段只物化小窗口)
+        if pk_chunk > 0 and workers > 1:
+            # 并行:pk 总区间切 workers 段,各线程独立连接拉(单 TCP 受
+            # RTT 窗口限,多连接近线性,直到物理带宽顶)
             rcur0 = rem.cursor()
             rcur0.execute(f"SELECT MIN(`{pk}`), MAX(`{pk}`) FROM `{table}`")
             lo, hi = rcur0.fetchone()
             rcur0.close()
-            cur = int(lo or 0)
-            hi_i = int(hi or 0)
-            while cur <= hi_i:
-                end = cur + pk_chunk
-                where = (f"WHERE `{pk}` >= {cur} AND `{pk}` < {end} "
-                         f"AND `update_time` > %s" if wm
-                         else f"WHERE `{pk}` >= {cur} AND `{pk}` < {end}")
+            lo_i, hi_i = int(lo or 0), int(hi or 0)
+            span = (hi_i - lo_i + workers) // workers
+            threads = []
+            for w in range(workers):
+                seg = (lo_i + w * span, min(lo_i + (w + 1) * span - 1, hi_i))
+                t = threading.Thread(
+                    target=_worker,
+                    args=(table, seg, pk, col_sql, ph, batch, wm, w, state, lock),
+                    daemon=True,
+                )
+                t.start()
+                threads.append(t)
+            for t in threads:
+                t.join()
+        else:
+            wcur = loc.cursor()
+
+            def _drain(rcur) -> None:
+                while True:
+                    rows = rcur.fetchmany(batch)
+                    if not rows:
+                        break
+                    wcur.executemany(
+                        f"INSERT INTO `{table}` ({col_sql}) VALUES ({ph})", rows,
+                    )
+                    loc.commit()
+                    state["total"] += len(rows)
+                    print(f"  {table}: +{state['total']} rows "
+                          f"({time.time()-state['t0']:.0f}s)", flush=True)
+                rcur.close()
+
+            if pk_chunk > 0:
+                rcur0 = rem.cursor()
+                rcur0.execute(f"SELECT MIN(`{pk}`), MAX(`{pk}`) FROM `{table}`")
+                lo, hi = rcur0.fetchone()
+                rcur0.close()
+                cur = int(lo or 0)
+                hi_i = int(hi or 0)
+                while cur <= hi_i:
+                    end = cur + pk_chunk
+                    where = (f"WHERE `{pk}` >= {cur} AND `{pk}` < {end} "
+                             f"AND `update_time` > %s" if wm
+                             else f"WHERE `{pk}` >= {cur} AND `{pk}` < {end}")
+                    params = (wm,) if wm else ()
+                    rcur = rem.cursor(pymysql.cursors.SSCursor)
+                    rcur.execute(
+                        f"SELECT {col_sql} FROM `{table}` {where} "
+                        f"ORDER BY `{pk}`", params,
+                    )
+                    _drain(rcur)
+                    cur = end
+            else:
+                where = "WHERE `update_time` > %s" if wm else ""
                 params = (wm,) if wm else ()
                 rcur = rem.cursor(pymysql.cursors.SSCursor)
                 rcur.execute(
-                    f"SELECT {col_sql} FROM `{table}` {where} "
-                    f"ORDER BY `{pk}`", params,
+                    f"SELECT {col_sql} FROM `{table}` {where} ORDER BY `{pk}`",
+                    params,
                 )
                 _drain(rcur)
-                cur = end
-        else:
-            where = "WHERE `update_time` > %s" if wm else ""
-            params = (wm,) if wm else ()
-            rcur = rem.cursor(pymysql.cursors.SSCursor)
-            # ORDER BY 主键(而非 update_time):宽表全局按 update_time 排序会爆远端内存
-            rcur.execute(
-                f"SELECT {col_sql} FROM `{table}` {where} ORDER BY `{pk}`", params,
-            )
-            _drain(rcur)
-        wcur.close()
-        return {"table": table, "watermark": str(wm), "new_rows": total,
-                "seconds": round(time.time() - t0, 1)}
+        return {"table": table, "watermark": str(wm),
+                "new_rows": state["total"],
+                "seconds": round(time.time() - state["t0"], 1)}
     finally:
         rem.close()
         loc.close()
@@ -132,6 +201,10 @@ def main() -> None:
     ap.add_argument("--batch", type=int, default=2000)
     ap.add_argument("--pk-chunk", type=int, default=0,
                     help="主键分段扫描窗口(宽表如 company 用,如 200000)")
+    ap.add_argument("--full", action="store_true",
+                    help="忽略 watermark 全量重拉(Doris UNIQUE 幂等)")
+    ap.add_argument("--workers", type=int, default=1,
+                    help="并行连接数(pk-chunk 模式下按 pk 区间分工)")
     args = ap.parse_args()
     REMOTE = _dsn(1)
     LOCAL = _dsn(2)
@@ -141,7 +214,9 @@ def main() -> None:
             continue
         try:
             print("SYNC", t, flush=True)
-            print(" ", sync_table(t, args.batch, pk_chunk=args.pk_chunk), flush=True)
+            print(" ", sync_table(t, args.batch, pk_chunk=args.pk_chunk,
+                                  full=args.full, workers=args.workers),
+                  flush=True)
         except Exception as exc:  # noqa: BLE001
             print(f"  {t} FAILED: {exc}", flush=True)
 

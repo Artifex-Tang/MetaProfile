@@ -1,7 +1,9 @@
 # 科技情报挖掘升级设计:新技术发现 / 弱信号 / 颠覆性识别 / 实体挖掘
 
 - 日期:2026-10-14
-- 状态:设计定稿;**Phase A 已实现含审查修复+M1 真数据验证通过**(2026-10-14 本地 Doris `G:/docker/doris` 19G 全在,库 `ods_zbzx`;8 源真语料 89,971 候选→122 信号+155 真共现边+1,144 term_stats 行落库;重扫幂等验证 122/155/1144 不变;attachment 表探测优雅跳过实证)。真跑补修:IN 参数>32767 分块(候选百万级)+`max_signals=500` 护栏(首轮阈值地板防边爆炸)
+- 状态:**Phase A-E 全部实现**(commits 3cf6757/7f4d353/faacff2/7a53da1/caaa9ee,本地 main 未 push)。pytest 878 绿(预存 mcp_mount 环境失败除外)· vitest 70 · tsc 净 · migration 0010-0013 已应用
+- **真数据实证(本地 Doris ods_zbzx)**:弱信号 122+155 边;新兴指标 625 域+43 融合对(G21K|H05H 2025 新对);颠覆 617 域+LLM 漏斗 glm 实测;frontier 真扫 29 候选;作者消歧 596 名→5 建议;ROR 真网命中
+- **已知待办**:①tech-graph(E4/E5)待 L2 概念语料(冷启动 L2 需 glm 跑 ingest,636 L1 域已就绪)②project_classify 无未分类项目可跑(mock 已填 domain)③作者消歧对英文机构串误报偏高(建议制人工审)④E5 演进链为时序启发版,LLM problem-solution 升级留口⑤VPN 增量(10.242.0.1 不通,待连)⑥审查遗留 L11/L14/L16
 - 审查遗留 follow-up:L11(掉出信号的旧边不清理)/L14(ORM 无 server_default 的 schema 漂移+spec BIGSERIAL vs INT)/L16(domain→industry 逐字匹配,无归一;未来 attachment 表须含 industry 列)/related_*_ids 本地仅 mock 画像故空(Phase D ROR 后实化)
 - 输入:全网方法学调研(2026-10-14)、开源调研(2026-10-14)、现有代码盘点
 - 前置:弱信号子项目1(`2026-06-20-weak-signal-pipeline-design.md`)、技术概念 P1(`2026-06-21-tech-concept-extraction-design.md`)

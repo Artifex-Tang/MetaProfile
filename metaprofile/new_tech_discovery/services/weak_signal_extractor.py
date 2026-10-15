@@ -306,9 +306,10 @@ class WeakSignalExtractor:
         if self._loader is None:
             from metaprofile.new_tech_discovery.services.corpus_loader import CorpusLoader
             self._loader = CorpusLoader()
-        from metaprofile.new_tech_discovery.services.corpus_loader import _SOURCE_SPECS
+        # 源白名单走 settings(默认排除 market/key_events 消费噪声,C 治理)
+        sources = [s for s in settings.weak_signal.source_list]
         docs = []
-        for source in _SOURCE_SPECS:
+        for source in sources:
             docs.extend(
                 await self._loader.load(
                     self._db_connection_id, source, start, end,

@@ -143,12 +143,12 @@ class PersonProfile(ProfileBase):
     current_enterprise: str | None = None
     current_military_unit: str | None = None
     current_position: list[str] = Field(
-        ..., min_length=1, description="当前职务/职位（必填）"
+        default_factory=list, description="当前职务/职位"
     )
     highest_degree: Degree | None = None
     person_category: PersonCategory | None = None
     professional_domains: list[str] = Field(
-        ..., min_length=1, description="专业领域（必填）"
+        default_factory=list, description="专业领域"
     )
     professional_skills: list[str] = Field(default_factory=list)
     social_media: str | None = None

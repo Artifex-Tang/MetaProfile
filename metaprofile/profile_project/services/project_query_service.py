@@ -157,8 +157,14 @@ class ProjectQueryService:
             conditions.append(ProjectProfileORM.start_date >= payload.invention_date_from)
         if payload.invention_date_to:
             conditions.append(ProjectProfileORM.start_date <= payload.invention_date_to)
+        # 重要度排序:confidence 降序(技术布局>采购公告,2026-10-15 用户决策:
+        # 旧采购数据保留但沉底)
 
-        base_q = select(ProjectProfileORM)
+        base_q = (
+            select(ProjectProfileORM)
+            .order_by(ProjectProfileORM.confidence.desc(),
+                      ProjectProfileORM.start_date.desc().nullslast())
+        )
         if conditions:
             base_q = base_q.where(and_(*conditions))
 

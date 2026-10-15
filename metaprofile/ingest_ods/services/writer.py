@@ -1,7 +1,7 @@
 """阶段⑤ 写入：profile 主表 upsert + 评分列 + 变更日志；关系→TripleWriter→Neo4j。"""
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import structlog
 from sqlalchemy import select
@@ -113,6 +113,14 @@ class Writer:
         merged = {k: v for k, v in merged.items() if k in valid_cols}
 
         now = datetime.now(UTC)
+
+        def _json_safe(v):
+            # entity_change_log 的 old/new 是 JSON 列,date/datetime 须 isoformat
+            # (talent 灌库踩过:Object of type date is not JSON serializable)
+            if isinstance(v, (date, datetime)):
+                return v.isoformat()
+            return v
+
         if orm is None:
             merged[id_col] = entity_id
             orm = orm_cls(**merged)
@@ -136,8 +144,9 @@ class Writer:
             if changed:
                 session.add(EntityChangeLogORM(
                     entity_id=entity_id, entity_type=profile_type, field="*",
-                    old_value={k: pre[k] for k in changed},
-                    new_value={"action": "ingest_update", "fields": changed},
+                    old_value={k: _json_safe(pre[k]) for k in changed},
+                    new_value={"action": "ingest_update",
+                               "fields": {k: _json_safe(v) for k, v in changed.items()}},
                     method=method, changed_at=now,
                 ))
             action = "update"
